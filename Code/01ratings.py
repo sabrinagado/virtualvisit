@@ -26,12 +26,38 @@ for vp in vps:
         print("no ratings file")
         continue
 
+    # Get conditions
+    try:
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
+
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
+        df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
+
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+
+        df_roles = df_roles.merge(df_rooms, on="Role")
+    except:
+        print("no conditions file")
+        continue
+
     df_ratings["criterion"] = df_ratings["phase"]
     df_ratings["phase"] = df_ratings["phase"].str.replace("RoomRating ", "")
 
     df_ratings.loc[df_ratings["phase"].str.contains("Rating"), "phase"] = "Test"
     df_ratings["criterion"] = df_ratings["criterion"].str.replace("Rating", "")
     df_ratings.loc[(df_ratings["criterion"].str.contains("Orientation")) | (df_ratings["criterion"].str.contains("Test")) | (df_ratings["criterion"].str.contains("Habituation")), "criterion"] = ""
+    df_ratings = df_ratings.merge(df_roles, left_on="rating", right_on="Rooms", how="left")
+    df_ratings["Character"] = pd.concat([df_ratings.loc[df_ratings["criterion"] == "", "Character"], df_ratings.loc[~(df_ratings["criterion"] == ""), "rating"]])
+    df_ratings = df_ratings.drop(columns=["Role", "Rooms"])
+    df_ratings = df_ratings.merge(df_roles, on="Character", how="left")
+    df_ratings = df_ratings.drop(columns=["Rooms"])
+    df_ratings = df_ratings.rename(columns={"Role": "condition"})
+    df_ratings.loc[df_ratings['criterion'] == "", "criterion"] = "wellbeing"
 
     for idx_row, row in df_ratings.iterrows():
         # idx_row = 0
@@ -41,7 +67,7 @@ for vp in vps:
         df_rating_temp = pd.DataFrame({'VP': [int(vp)],
                                        'Phase': [row['phase']],
                                        'Object': [row['rating']],
-                                       'Condition': [""],
+                                       'Condition': [row['condition']],
                                        'Criterion': [row['criterion']],
                                        'Value': [row['value']]})
         df_rating_temp.to_csv(os.path.join(dir_path, 'Data', 'ratings.csv'), decimal='.', sep=';', index=False, mode='a',
@@ -58,4 +84,3 @@ df_rating = df_rating.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tir
                                'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_rating = df_rating.drop(columns=['ID'])
 df_rating.to_csv(os.path.join(dir_path, 'Data', 'ratings.csv'), decimal='.', sep=';', index=False)
-

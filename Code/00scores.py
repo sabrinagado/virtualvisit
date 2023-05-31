@@ -162,3 +162,6 @@ df = df.loc[~(df['ID'].str.contains('test'))]
 df['ID'] = df['ID'].astype('int32')
 
 df.to_csv(os.path.join(file_path, 'scores_summary.csv'), index=False, decimal=',', sep=';', encoding='utf-8-sig')
+
+print(f"Mean Age = {df['age'].mean()}, SD = {df['age'].std()}, Range = {df['age'].min()}-{df['age'].max()}")
+print(df['gender'].value_counts(normalize=True))

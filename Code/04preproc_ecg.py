@@ -24,7 +24,7 @@ matplotlib.use('QtAgg')
 # Read in Data, Add Timestamps and Events
 # =============================================================================
 dir_path = os.getcwd()
-start = 5
+start = 1
 end = 11
 vps = np.arange(start, end + 1)
 
@@ -356,10 +356,13 @@ for vp in vps:
 
     # Iterate through experimental phases and check ECG data
     for idx_row, row in df_event.iterrows():
-        # idx_row = 0
+        # idx_row = 5
         # row = df_event.iloc[idx_row]
+
         phase = row['name']
         print(f"Phase: {phase}")
+        if not "Interaction" in phase:
+            continue
 
         # Get start and end point of phase
         start_phase = row['timestamp']
@@ -427,15 +430,34 @@ for vp in vps:
             plt.close()
             continue
 
+        if "Interaction" in phase:
+            df_ecg_subset_save = signals.copy()
+            df_ecg_subset_save["timestamp"] = df_ecg_subset["timestamp"]
+
+            start_ecg = df_ecg_subset_save.loc[0, "ECG_Rate"]
+            df_ecg_subset_save["ECG"] = df_ecg_subset_save["ECG_Rate"] - start_ecg
+
+            start = df_ecg_subset_save.loc[0, "timestamp"]
+            df_ecg_subset_save["time"] = pd.to_timedelta(df_ecg_subset_save["timestamp"] - start)
+            df_ecg_subset_save = df_ecg_subset_save.set_index("time")
+            df_ecg_subset_save = df_ecg_subset_save.resample("0.1S").mean()
+            df_ecg_subset_save = df_ecg_subset_save.reset_index()
+            df_ecg_subset_save["time"] = df_ecg_subset_save["time"].dt.total_seconds()
+            df_ecg_subset_save["VP"] = int(vp)
+            df_ecg_subset_save["event"] = phase
+            df_ecg_subset_save = df_ecg_subset_save[["VP", "event", "time", "ECG"]]
+            df_ecg_subset_save.to_csv(os.path.join(dir_path, 'Data', 'ecg_interaction.csv'), decimal='.', sep=';',
+                                      index=False, mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'ecg_interaction.csv'))))
+
         # Adapt duration in mne_events
         for idy_row, row in mne_events.iterrows():
             # idy_row = 0
-            # row = mne_events.iloc[idx_row]
+            # row = mne_events.iloc[idy_row]
             if idy_row < len(mne_events) - 2:
                 duration_post = (mne_events.loc[idy_row+1, 'Samples'] - mne_events.loc[idy_row, 'Samples']) / sampling_rate
                 mne_events.loc[idy_row, 'Durations'] = duration_post
             else:
-                duration_post = (len(signals) - 1 - mne_events.loc[idy_row, 'Samples']) / sampling_rate
+                duration_post = mne_events.loc[idy_row, 'Durations']
                 mne_events.loc[idy_row, 'Durations'] = duration_post
 
         usable_data = duration_post/duration_pre
@@ -445,40 +467,73 @@ for vp in vps:
                                   epochs_start=0, epochs_end=mne_events['Durations'].to_list(),
                                   event_labels=mne_events['Condition'].to_list(), event_conditions=mne_events['Condition'].to_list())
 
-        for epoch in epochs:
-            # epoch = 1
-            epoch = epochs[epoch]
-            if len(epoch) == 0:
-                continue
+        # HRV: Get MeanNN (mean of RR intervals), RMSSD (square root of the mean of the sum of successive differences between adjacent RR intervals), LF and HF
+        try:
+            hrv = nk.hrv(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
+        except Exception as e:
+            hrv = pd.DataFrame([["", "", "", ""]], columns=['HRV_MeanNN', 'HRV_RMSSD', 'HRV_LF', 'HRV_HF'])
+            print(e)
 
-            # HRV: Get MeanNN (mean of RR intervals), RMSSD (square root of the mean of the sum of successive differences between adjacent RR intervals), LF and HF
-            try:
-                hrv = nk.hrv(epoch['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
-            except Exception as e:
-                hrv = pd.DataFrame([["", "", "", ""]], columns=['HRV_MeanNN', 'HRV_RMSSD', 'HRV_LF', 'HRV_HF'])
-                print(e)
+        # HR: Get Mean and Std
+        # Save as dataframe
+        df_hr_temp = pd.DataFrame({'VP': [int(vp)],
+                                   'Phase': [phase],
+                                   'event_id': [idx_row],
+                                   'HR (Mean)': [np.mean(signals['ECG_Rate'])],
+                                   'HR (Std)': [np.std(signals['ECG_Rate'])],
+                                   'HRV (MeanNN)': [hrv['HRV_MeanNN'][0]],
+                                   'HRV (RMSSD)': [hrv['HRV_RMSSD'][0]],
+                                   'HRV (LF)': [hrv['HRV_LF'][0]],
+                                   'HRV (HF)': [hrv['HRV_HF'][0]],
+                                   'Proportion Usable Data': [usable_data],
+                                   'Duration': [duration_post]})
+        df_hr_temp.to_csv(os.path.join(dir_path, 'Data', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
+                          header=not (os.path.exists(os.path.join(dir_path, 'Data', 'hr.csv'))))
 
-            # HR: Get Mean and Std
-            # Save as dataframe
-            df_hr_temp = pd.DataFrame({'VP': [int(vp)],
-                                       'Phase': [phase],
-                                       'event_id': [idx_row],
-                                       'HR (Mean)': [np.mean(epoch['ECG_Rate'])],
-                                       'HR (Std)': [np.std(epoch['ECG_Rate'])],
-                                       'HRV (MeanNN)': [hrv['HRV_MeanNN'][0]],
-                                       'HRV (RMSSD)': [hrv['HRV_RMSSD'][0]],
-                                       'HRV (LF)': [hrv['HRV_LF'][0]],
-                                       'HRV (HF)': [hrv['HRV_HF'][0]],
-                                       'Proportion Usable Data': [usable_data],
-                                       'Duration': [duration_post]})
-            df_hr_temp.to_csv(os.path.join(dir_path, 'Data', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
-                              header=not (os.path.exists(os.path.join(dir_path, 'Data', 'hr.csv'))))
         plt.close()
 
 # Add Subject Data
 df_hr = pd.read_csv(os.path.join(dir_path, 'Data', 'hr.csv'), decimal='.', sep=';')
 df_hr = df_hr.iloc[:, 0:11]
 df_hr = df_hr.dropna(subset=['HR (Mean)'])
+
+# Get conditions
+dfs_hr = []
+for vp in vps:
+    # vp = vps[3]
+    vp = f"0{vp}" if vp < 10 else f"{vp}"
+    print(f"VP: {vp}")
+
+    df_hr_vp = df_hr.loc[df_hr["VP"] == int(vp)]
+
+    try:
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
+
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
+        df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
+
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+
+        df_roles = df_roles.merge(df_rooms, on="Role")
+    except:
+        print("no conditions file")
+
+    df_hr_vp["Condition"] = ""
+    for idx_row, row in df_roles.iterrows():
+        # idx_row = 0
+        # row = df_roles.iloc[idx_row, :]
+        room = row["Rooms"]
+        role = row["Role"]
+        df_hr_vp.loc[df_hr_vp["Phase"].str.contains(room), "Condition"] = role
+    # df_hr_vp = df_hr_vp[["VP", "Phase", "Condition", ""]]
+    dfs_hr.append(df_hr_vp)
+
+df_hr = pd.concat(dfs_hr)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_hr = df_hr.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',

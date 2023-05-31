@@ -456,7 +456,6 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
     return df
 
 
-
 for vp in vps:
     # vp = vps[1]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
@@ -643,7 +642,7 @@ for vp in vps:
 
     # Iterate through experimental phases and check EDA data
     for idx_row, row in df_event.iterrows():
-        # idx_row = 0
+        # idx_row = 5
         # row = df_event.iloc[idx_row]
         phase = row['name']
         print(f"Phase: {phase}")
@@ -709,10 +708,66 @@ for vp in vps:
                            header=not (os.path.exists(os.path.join(dir_path, 'Data', 'eda.csv'))))
         plt.close()
 
+        if "Interaction" in phase:
+            df_eda_subset_save = signals.copy()
+            df_eda_subset_save["timestamp"] = df_eda_subset["timestamp"]
+
+            start_eda = df_eda_subset_save.loc[0, "EDA_Clean"]
+            df_eda_subset_save["EDA"] = df_eda_subset_save["EDA_Clean"] - start_eda
+
+            start = df_eda_subset_save.loc[0, "timestamp"]
+            df_eda_subset_save["time"] = pd.to_timedelta(df_eda_subset_save["timestamp"] - start)
+            df_eda_subset_save = df_eda_subset_save.set_index("time")
+            df_eda_subset_save = df_eda_subset_save.resample("0.1S").mean()
+            df_eda_subset_save = df_eda_subset_save.reset_index()
+            df_eda_subset_save["time"] = df_eda_subset_save["time"].dt.total_seconds()
+            df_eda_subset_save["VP"] = int(vp)
+            df_eda_subset_save["event"] = phase
+            df_eda_subset_save = df_eda_subset_save[["VP", "event", "time", "EDA"]]
+            df_eda_subset_save.to_csv(os.path.join(dir_path, 'Data', 'eda_interaction.csv'), decimal='.', sep=';', index=False,
+                                 mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'eda_interaction.csv'))))
+
 # Add Subject Data
 df_eda = pd.read_csv(os.path.join(dir_path, 'Data', 'eda.csv'), decimal='.', sep=';')
 df_eda = df_eda.iloc[:, 0:9]
 df_eda = df_eda.dropna(subset=['SCL (Mean)'])
+
+# Get conditions
+dfs_eda = []
+for vp in vps:
+    # vp = vps[3]
+    vp = f"0{vp}" if vp < 10 else f"{vp}"
+    print(f"VP: {vp}")
+
+    df_eda_vp = df_eda.loc[df_eda["VP"] == int(vp)]
+
+    try:
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
+
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
+        df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
+
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+
+        df_roles = df_roles.merge(df_rooms, on="Role")
+    except:
+        print("no conditions file")
+
+    df_eda_vp["Condition"] = ""
+    for idx_row, row in df_roles.iterrows():
+        # idx_row = 0
+        # row = df_roles.iloc[idx_row, :]
+        room = row["Rooms"]
+        role = row["Role"]
+        df_eda_vp.loc[df_eda_vp["Phase"].str.contains(room), "Condition"] = role
+    dfs_eda.append(df_eda_vp)
+
+df_eda = pd.concat(dfs_eda)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_eda = df_eda.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',

@@ -1,6 +1,6 @@
 # =============================================================================
 # Eye-Tracking / Gaze
-# source: Unreal Engine (Log Writer)
+# source: HMD & Unreal Engine (Log Writer)
 # study: Virtual Visit
 # =============================================================================
 import os
@@ -23,7 +23,7 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 
 for vp in vps:
-    # vp = vps[4]
+    # vp = vps[1]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
@@ -99,7 +99,7 @@ for vp in vps:
     # Merge "event"-column to df_gaze
     df_gaze = pd.merge_asof(df_gaze, df_event[["timestamp", "event"]], on="timestamp", direction="backward").reset_index(drop=True)
 
-    # Iterate through experimental phases and check ECG data
+    # Iterate through experimental phases
     for idx_row, row in df_event.iterrows():
         # idx_row = 4
         # row = df_event.iloc[idx_row]
@@ -112,14 +112,48 @@ for vp in vps:
 
         # Cut gaze dataset
         df_gaze_subset = df_gaze.loc[(df_gaze["timestamp"] >= start_phase) & (df_gaze["timestamp"] < end_phase + timedelta(seconds=1))]
-        df_gaze_subset = df_gaze_subset.loc[df_gaze_subset['event'] == phase].reset_index(drop=True)
+        df_gaze_subset = df_gaze_subset.loc[df_gaze_subset['event'] == phase]
 
         df_gaze_subset = df_gaze_subset.loc[df_gaze_subset["eye_openness"] == 1]
+        df_gaze_subset = df_gaze_subset.reset_index(drop=True)
+
+        df_gaze_subset.loc[df_gaze_subset["pupil_left"] == -1, "pupil_left"] = np.nan
+        df_gaze_subset.loc[df_gaze_subset["pupil_right"] == -1, "pupil_right"] = np.nan
+        df_gaze_subset["pupil_mean"] = df_gaze_subset[["pupil_left", "pupil_right"]].mean(axis=1)
+
+        if "Interaction" in phase:
+            df_gaze_subset_save = df_gaze_subset.copy()
+            df_gaze_subset_save[f"Impact_X"] = [float(element[1].split(" Y=")[0]) for element in df_gaze_subset_save['impact_point'].str.split(f"X=")]
+            df_gaze_subset_save[f"Impact_Y"] = [float(element[1].split(" Z=")[0]) for element in df_gaze_subset_save['impact_point'].str.split(f"Y=")]
+            df_gaze_subset_save[f"Impact_Z"] = [float(element[1]) for element in df_gaze_subset_save['impact_point'].str.split(f"Z=")]
+
+            df_gaze_subset_save[f"Gaze_X"] = [float(element[1].split(" Y=")[0]) for element in df_gaze_subset_save['gaze_combined'].str.split(f"X=")]
+            df_gaze_subset_save[f"Gaze_Y"] = [float(element[1].split(" Z=")[0]) for element in df_gaze_subset_save['gaze_combined'].str.split(f"Y=")]
+            df_gaze_subset_save[f"Gaze_Z"] = [float(element[1]) for element in df_gaze_subset_save['gaze_combined'].str.split(f"Z=")]
+
+            df_gaze_subset_save["pupil"] = df_gaze_subset_save["pupil_mean"]
+            start_pupil = df_gaze_subset_save.loc[0, "pupil"]
+            df_gaze_subset_save["pupil"] = df_gaze_subset_save["pupil"] - start_pupil
+
+            df_gaze_subset_save = drop_consecutive_duplicates(df_gaze_subset_save, subset="timestamp", keep="first")
+            start = df_gaze_subset_save.loc[0, "timestamp"]
+            df_gaze_subset_save["time"] = pd.to_timedelta(df_gaze_subset_save["timestamp"] - start)
+            df_gaze_subset_save = df_gaze_subset_save.set_index("time")
+            df_gaze_subset_save = df_gaze_subset_save.resample("0.1S").mean()
+            df_gaze_subset_save = df_gaze_subset_save.reset_index()
+            df_gaze_subset_save["time"] = df_gaze_subset_save["time"].dt.total_seconds()
+            df_gaze_subset_save["VP"] = int(vp)
+            df_gaze_subset_save["event"] = phase
+            df_gaze_subset_save = df_gaze_subset_save[["VP", "event", "time", "Impact_X", "Impact_Y", "Impact_Z",
+                                                       "Gaze_X", "Gaze_Y", "Gaze_Z", "pupil"]]
+            df_gaze_subset_save.to_csv(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'), decimal='.', sep=';', index=False,
+                                 mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'))))
 
         # Pupil: Get Mean and Std
         # Save as dataframe
         df_pupil_temp = pd.DataFrame({'VP': [int(vp)],
                                       'Phase': [phase],
+                                      'Pupil Dilation (Mean)': [df_gaze_subset['pupil_mean'].mean()],
                                       'Pupil Dilation Right (Mean)': [df_gaze_subset['pupil_right'].mean()],
                                       'Pupil Dilation Right (Std)': [df_gaze_subset['pupil_right'].std()],
                                       'Pupil Dilation Left (Mean)': [df_gaze_subset['pupil_left'].mean()],
@@ -132,9 +166,9 @@ for vp in vps:
         
         if not "Habituation" in phase:
             for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
-                # character = "Ettore"
+                # character = "Emanuel"
                 for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
-                    # roi = "body"
+                    # roi = "head"
                     # searchstring = "Head"
                     number = len(df_gaze_subset.loc[df_gaze_subset['actor'].str.contains(f"{character}{searchstring}")])
                     proportion = number / len(df_gaze_subset)
@@ -150,10 +184,51 @@ for vp in vps:
                     df_gaze_temp.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False, mode='a',
                                          header=not (os.path.exists(os.path.join(dir_path, 'Data', 'gaze.csv'))))
 
+
 # Add Subject Data
 df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
 df_gaze = df_gaze.iloc[:, 0:7]
 df_gaze = df_gaze.loc[df_gaze['Number'] > 0]
+
+# Get conditions
+dfs_gaze = []
+for vp in vps:
+    # vp = vps[10]
+    vp = f"0{vp}" if vp < 10 else f"{vp}"
+    print(f"VP: {vp}")
+
+    df_gaze_vp = df_gaze.loc[df_gaze["VP"] == int(vp)]
+
+    try:
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
+
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
+        df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
+
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+
+        df_roles = df_roles.merge(df_rooms, on="Role")
+    except:
+        print("no conditions file")
+
+    for idx_row, row in df_roles.iterrows():
+        # idx_row = 0
+        # row = df_roles.iloc[idx_row, :]
+        character = row["Character"]
+        role = row["Role"]
+        df_gaze_vp["Phase"] = [event.replace(character, role.capitalize()) for event in df_gaze_vp.loc[:, "Phase"]]
+    df_gaze_vp = df_gaze_vp.merge(df_roles, left_on="Person", right_on="Character", how="left")
+    df_gaze_vp["Condition"] = df_gaze_vp["Role"]
+    df_gaze_vp = df_gaze_vp.drop(columns=["Character", "Rooms", "Role"])
+
+    dfs_gaze.append(df_gaze_vp)
+
+df_gaze = pd.concat(dfs_gaze)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_gaze = df_gaze.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
@@ -167,7 +242,43 @@ df_gaze.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';',
 # Add Subject Data
 df_pupil = pd.read_csv(os.path.join(dir_path, 'Data', 'pupil.csv'), decimal='.', sep=';')
 df_pupil = df_pupil.iloc[:, 0:7]
-df_pupil.loc[df_pupil["HR (Mean)"] == 0, "HR (Mean)"] = np.nan
+
+# Get conditions
+dfs_pupil = []
+for vp in vps:
+    # vp = vps[10]
+    vp = f"0{vp}" if vp < 10 else f"{vp}"
+    print(f"VP: {vp}")
+
+    df_pupil_vp = df_pupil.loc[df_pupil["VP"] == int(vp)]
+
+    try:
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
+
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
+        df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
+
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+
+        df_roles = df_roles.merge(df_rooms, on="Role")
+    except:
+        print("no conditions file")
+
+    df_pupil_vp["Condition"] = ""
+    for idx_row, row in df_roles.iterrows():
+        # idx_row = 0
+        # row = df_roles.iloc[idx_row, :]
+        room = row["Rooms"]
+        role = row["Role"]
+        df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(room), "Condition"] = role
+    dfs_pupil.append(df_pupil_vp)
+
+df_pupil = pd.concat(dfs_pupil)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_pupil = df_pupil.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
