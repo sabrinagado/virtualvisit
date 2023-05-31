@@ -236,14 +236,48 @@ for idx_dv, dv in enumerate(dvs):
     plt.close()
 
 # Relationship with Social Anxiety
-df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
-df = df_gaze.loc[df_gaze["Phase"].str.contains("Interaction")]
+df = df_gaze.loc[df_gaze["Phase"].str.contains("Test")]
+
+conditions = ["friendly", "neutral", "unfriendly"]
+titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
+colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
 rois = ["body", "head"]
 for idx_roi, roi in enumerate(rois):
     # idx_roi = 0
     # roi = rois[idx_roi]
     df_roi = df.loc[df['ROI'] == roi].dropna(subset="Gaze Proportion").reset_index(drop=True)
-    x = df_roi["SPAI"].to_numpy()
-    y = df_roi["Gaze Proportion"].to_numpy()
-    linreg = linregress(x, y)
-    print(f"{roi.capitalize()}: r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+    boxWidth = 1
+    pos = [1]
+
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_roi.loc[df_gaze["Phase"].str.contains("Test")]
+        df_cond = df_cond.loc[df['Condition'] == condition].reset_index(drop=True)
+        x = df_cond["SPAI"].to_numpy()
+        y = df_cond["Gaze Proportion"].to_numpy()
+        linreg = linregress(x, y)
+        all_x = df_roi.sort_values(by=["SPAI"])["SPAI"].to_numpy()
+        all_y = df_cond["Gaze Proportion"].to_numpy()
+        all_y_est = linreg.slope * all_x + linreg.intercept
+        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+        # Plot regression line
+        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+
+        # Plot raw data points
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+
+    ax.set_xlabel("SPAI")
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"% Fixations on Person")
+    ax.legend()
+    ax.set_ylim([0, 1])
+    plt.tight_layout()
+    for end in (['.png']):  # '.pdf',
+        plt.savefig(os.path.join(save_path, f"gaze_{roi}_test_corr{end}"), dpi=300)
+    plt.close()
+

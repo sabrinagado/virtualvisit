@@ -132,11 +132,16 @@ for vp in vps:
     # Get Distances
     files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
     file = [file for file in files if "distance" in file][0]
-    df = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+    df = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, file), sep=';', decimal='.')
+    if pd.to_datetime(df.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
+        df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=2)
+    else:
+        df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=1)
+    df["timestamp"] = df["timestamp"].apply(lambda t: t.replace(tzinfo=None))
 
     # Get Events
     files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
-    event_file = [file for file in files if "distance" in file][0]
+    event_file = [file for file in files if "event" in file][0]
     df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
 
     if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
@@ -188,6 +193,27 @@ for vp in vps:
     df_event = pd.concat(dfs)
     df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
 
+    # Add "event" columns (for MNE)
+    df_event["name"] = df_event["event"]
+    df_event.loc[df_event['name'].str.contains("resting state"), 'event'] = 1
+    df_event.loc[df_event['name'].str.contains("Habituation_Living"), 'event'] = 2
+    df_event.loc[df_event['name'].str.contains("Habituation_Dining"), 'event'] = 3
+    df_event.loc[df_event['name'].str.contains("Habituation_Office"), 'event'] = 4
+    df_event.loc[df_event['name'].str.contains("Test_Living"), 'event'] = 12
+    df_event.loc[df_event['name'].str.contains("Test_Dining"), 'event'] = 13
+    df_event.loc[df_event['name'].str.contains("Test_Office"), 'event'] = 14
+    df_event.loc[df_event['name'].str.contains("Test_Terrace"), 'event'] = 15
+    df_event.loc[df_event['name'].str.contains("Unfriendly"), 'event'] = 21
+    df_event.loc[df_event['name'].str.contains("Friendly"), 'event'] = 22
+    df_event.loc[df_event['name'].str.contains("Neutral"), 'event'] = 23
+    df_event.loc[df_event['name'].str.contains("Test_BryanWasClicked"), 'event'] = 31
+    df_event.loc[df_event['name'].str.contains("Test_EmanuelWasClicked"), 'event'] = 32
+    df_event.loc[df_event['name'].str.contains("Test_EttoreWasClicked"), 'event'] = 33
+    df_event.loc[df_event['name'].str.contains("Test_OskarWasClicked"), 'event'] = 34
+
+    # Merge "name" and "event"-column to df_ecg
+    df = pd.merge_asof(df, df_event[["timestamp", "name"]], on="timestamp", direction="backward").reset_index(drop=True)
+
     try:
         df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
@@ -205,27 +231,32 @@ for vp in vps:
     except:
         print("no conditions file")
 
-    df_event["Condition"] = ""
+    df["Condition"] = ""
+    df = df.dropna(subset=["name"])
+    df["actor"] = [actor[1].split("_Char")[0] for actor in df["actor"].str.split("BP_")]
     for idx_row, row in df_roles.iterrows():
         # idx_row = 0
         # row = df_roles.iloc[idx_row, :]
         room = row["Rooms"]
         role = row["Role"]
-        df_event.loc[df_event["event"].str.contains(room), "Condition"] = role
-    df_event["VP"] = int(vp)
-    df_event = df_event[["VP", "timestamp", "event", "Condition", "duration"]]
+        character = row["Character"]
+        df.loc[df["actor"].str.contains(character), "Condition"] = role
+    df["VP"] = int(vp)
+    df["event"] = df["name"]
 
-    df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';', index=False, mode='a',
-                    header=not (os.path.exists(os.path.join(dir_path, 'Data', 'events.csv'))))
+    df = df[["VP", "timestamp", "event", "Condition", "actor", "distance"]]
+
+    df.to_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';', index=False, mode='a',
+                    header=not (os.path.exists(os.path.join(dir_path, 'Data', 'distance.csv'))))
 
 # Add Subject Data
-df_events = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
-df_events = df_events.iloc[:, 0:5]
+df_distance = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
+df_distance = df_distance.iloc[:, 0:6]
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
-df_events = df_events.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
+df_distance = df_distance.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                'SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D', 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS',
                                'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
-df_events = df_events.drop(columns=['ID'])
-df_events.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';', index=False)
+df_distance = df_distance.drop(columns=['ID'])
+df_distance.to_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';', index=False)

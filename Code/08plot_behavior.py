@@ -196,3 +196,112 @@ plt.tight_layout()
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"timeInRoom_test_corr{end}"), dpi=300)
 plt.close()
+
+
+df = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
+df = df.loc[df["distance"] <= 500]
+colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
+
+# Gaze Test-Phase Rooms
+df_phase = df.loc[df["event"].str.contains("Test") & ~(df["event"].str.contains("Clicked"))]
+conditions = ["friendly", "neutral", "unfriendly"]
+
+fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(2.5 * len(conditions), 6))
+boxWidth = 1
+pos = [1]
+
+titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
+for idx_condition, condition in enumerate(conditions):
+    # idx_condition = 0
+    # condition = conditions[idx_condition]
+    df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
+    data_phase = df_cond["distance"].to_list()
+    df_cond = df_cond.dropna(subset="distance")
+    df_cond = df_cond.groupby(["VP"]).mean().reset_index()
+
+    # Plot raw data points
+    for i in range(len(df_cond)):
+        # i = 0
+        x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
+        y = df_cond.reset_index().loc[i, "distance"].item()
+        axes[idx_condition].plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+
+    # Plot boxplots
+    meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+    medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
+    fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
+
+    whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+    capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+    boxprops = dict(color=colors[idx_condition])
+
+    fwr_correction = True
+    alpha = (1 - (0.05))
+    bootstrapping_dict = bootstrapping(df_cond.loc[:, "distance"].values,
+                                       numb_iterations=5000,
+                                       alpha=alpha,
+                                       as_dict=True,
+                                       func='mean')
+
+    axes[idx_condition].boxplot([df_cond.loc[:, "distance"].values],
+                            # notch=True,  # bootstrap=5000,
+                            medianprops=medianlineprops,
+                            meanline=True,
+                            showmeans=True,
+                            meanprops=meanlineprops,
+                            showfliers=False, flierprops=fliermarkerprops,
+                            whiskerprops=whiskerprops,
+                            capprops=capprops,
+                            boxprops=boxprops,
+                            # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                            whis=[2.5, 97.5],
+                            positions=[pos[0]],
+                            widths=0.8 * boxWidth)
+
+    axes[idx_condition].set_xticklabels([titles[idx_condition]])
+    axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+axes[0].set_ylabel(f"Distance to the Persons [cm]")
+plt.tight_layout()
+for end in (['.png']):  # '.pdf',
+    plt.savefig(os.path.join(save_path, f"distance_test{end}"), dpi=300)
+plt.close()
+
+
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+boxWidth = 1
+pos = [1]
+
+titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
+for idx_condition, condition in enumerate(conditions):
+    # idx_condition = 0
+    # condition = conditions[idx_condition]
+    df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
+    data_phase = df_cond["distance"].to_list()
+    df_cond = df_cond.dropna(subset="distance")
+    df_cond = df_cond.groupby(["VP"]).mean().reset_index()
+
+    x = df_cond["SPAI"].to_numpy()
+    y = df_cond["distance"].to_numpy()
+    linreg = linregress(x, y)
+    all_x = df_phase.sort_values(by=["SPAI"])["SPAI"].to_numpy()
+    all_y = df_cond["distance"].to_numpy()
+    all_y_est = linreg.slope * all_x + linreg.intercept
+    all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+        1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+    # Plot regression line
+    ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+    ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+
+    # Plot raw data points
+    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+
+ax.set_xlabel("SPAI")
+ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+ax.set_ylabel(f"Distance to the Persons [cm]")
+ax.legend()
+# ax.set_xlim([0, 5])
+plt.tight_layout()
+for end in (['.png']):  # '.pdf',
+    plt.savefig(os.path.join(save_path, f"distance_test_corr{end}"), dpi=300)
+plt.close()
