@@ -285,7 +285,7 @@ def eda_custom_process(raw, vp, phase, sampling_rate=32, pipeline=None, correcti
                     peak_idx = list(peak_times).index(min(subsequent_peak_times, key=lambda x: abs(x-onset)))
                     rise_time = (peak_times[peak_idx] - onset) / raw.info["sfreq"]
                     amplitude = peak_values[peak_idx] - onset_values[onset_idx]
-                    if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= 0.05):
+                    if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
                         scr_onsets.append(onset)
                         scr_peaks.append(peak_times[peak_idx])
                         scr_amplitudes.append(amplitude)
