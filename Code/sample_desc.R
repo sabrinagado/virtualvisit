@@ -17,4 +17,4 @@ data %>%
 
 # Correlation Table
 subset_cor <- subset(data, select = c("ASI3", "SPAI", "SIAS", "AQ-K", "SSQ", "IPQ", "MPS"))
-apa.cor.table(subset_cor, filename = "test.doc", show.sig.stars=TRUE)
+apa.cor.table(subset_cor, filename = "Projects/Virtual Visit/virtualvisit/Data/correlation_scores.doc", show.sig.stars=TRUE)
