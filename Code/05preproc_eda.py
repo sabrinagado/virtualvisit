@@ -254,7 +254,7 @@ def eda_custom_process(raw, vp, phase, sampling_rate=32, pipeline=None, correcti
             scr_peaks = signals.loc[(signals["SCR_Peaks"] == 1) & (signals["SCR_RiseTime"] > 0.1)].index
 
         else:
-            # 1 Hz low-pass butterworth filter
+            # low-pass butterworth filter
             rolloff = 12
             lpfreq = 2
             eda_filtered = np.concatenate(

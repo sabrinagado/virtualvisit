@@ -101,6 +101,7 @@ for physiology, ylabel in zip(["pupil", "EDA", "ECG"], ylabels):
     # Style Plot
     ax.set_xlim([0, 5])
     ax.set_ylabel(ylabel)
+    ax.set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
     ax.set_xlabel("Seconds after Interaction Onset")
     ax.legend(loc="upper right")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -137,6 +138,7 @@ for physiology, ylabel in zip(["pupil", "EDA", "ECG"], ylabels):
     # Style Plot
     ax.set_xlim([0, 5])
     ax.set_ylabel(ylabel)
+    ax.set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
     ax.set_xlabel("Seconds after Interaction Onset")
     ax.legend(loc="upper right")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -167,6 +169,7 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     conditions = ["friendly", "unfriendly"]
 
     fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(2.5 * len(conditions), 6))
+    fig.suptitle(f"{ylabel.split(' [')[0]}", fontweight='bold')
     boxWidth = 1
     pos = [1]
 
@@ -226,6 +229,7 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
 
         axes[idx_condition].set_xticklabels([titles[idx_condition]])
         axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+
     axes[0].set_ylabel(f"{ylabel} in comparison to habituation phase")
     plt.tight_layout()
     for end in (['.png']):  # '.pdf',
@@ -289,6 +293,7 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     ax.set_xlabel("SPAI")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"{ylabel} in comparison to habituation phase")
+    ax.set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
     ax.legend()
     # ax.set_xlim([0, 5])
     plt.tight_layout()

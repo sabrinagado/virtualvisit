@@ -7,6 +7,8 @@ import os
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from scipy import signal
+from Code.toolbox import utils
 
 dir_path = os.getcwd()
 start = 1
@@ -131,13 +133,26 @@ for vp in vps:
             df_gaze_subset_save[f"Gaze_Y"] = [float(element[1].split(" Z=")[0]) for element in df_gaze_subset_save['gaze_combined'].str.split(f"Y=")]
             df_gaze_subset_save[f"Gaze_Z"] = [float(element[1]) for element in df_gaze_subset_save['gaze_combined'].str.split(f"Z=")]
 
-            df_gaze_subset_save["pupil"] = df_gaze_subset_save["pupil_mean"]
-            start_pupil = df_gaze_subset_save.loc[0, "pupil"]
-            df_gaze_subset_save["pupil"] = df_gaze_subset_save["pupil"] - start_pupil
-
             df_gaze_subset_save = drop_consecutive_duplicates(df_gaze_subset_save, subset="timestamp", keep="first")
             start = df_gaze_subset_save.loc[0, "timestamp"]
             df_gaze_subset_save["time"] = pd.to_timedelta(df_gaze_subset_save["timestamp"] - start)
+
+            # 2 Hz low-pass butterworth filter
+            timestamps = np.array(df_gaze_subset_save["time"].dt.total_seconds()*1000)
+            sr, fs = utils.get_sampling_rate(timestamps)
+            pupil_signal = df_gaze_subset_save["pupil_mean"].to_numpy()
+            rolloff = 12
+            lpfreq = 2
+            pupil_filtered = np.concatenate((np.repeat(pupil_signal[0], 100), pupil_signal, np.repeat(pupil_signal[-1], 100)))  # zero padding
+            pupil_filtered[np.isnan(pupil_filtered)] = np.nanmean(pupil_filtered)
+            b, a = signal.butter(int(rolloff / 6), lpfreq * (1 / (sr / 2)))  # low-pass filter
+            pupil_filtered = signal.filtfilt(b, a, pupil_filtered)  # apply filter
+            pupil_filtered = pupil_filtered[100:-100]
+            df_gaze_subset_save["pupil"] = pupil_filtered
+
+            start_pupil = df_gaze_subset_save.loc[0, "pupil"]
+            df_gaze_subset_save["pupil"] = df_gaze_subset_save["pupil"] - start_pupil
+
             df_gaze_subset_save = df_gaze_subset_save.set_index("time")
             df_gaze_subset_save = df_gaze_subset_save.resample("0.1S").mean()
             df_gaze_subset_save = df_gaze_subset_save.reset_index()

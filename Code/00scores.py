@@ -60,7 +60,7 @@ df_aqk = df_scores.filter(like='AQ_')
 df_aqk = df_aqk.replace([1, 2, 3, 4], [0, 0, 1, 1])
 
 # Build subscales and calculate sum of respective items
-df_aqk_si = df_aqk.filter(like='SI')  # Soziale Interaktion und Spontaneitaet
+df_aqk_si = df_aqk.filter(like='SI')  # Soziale Interaktion und Spontanitaet
 df_aqk['AQ-K_SI'] = df_aqk_si.sum(axis=1)
 df_aqk_fv = df_aqk.filter(like='FV')  # Fantasie und Vorstellungsvermoegen
 df_aqk['AQ-K_FV'] = df_aqk_fv.sum(axis=1)
@@ -108,14 +108,18 @@ df_asi = df_asi[['ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC']]
 # =============================================================================
 df_ssq = df_scores.filter(like='SSQ')
 df_ssq = df_ssq - 1
+means = df_ssq.mean()
+means = means.sort_values()
 
 df_ssq_n = df_ssq.filter(like='N')  # Nausea
-df_ssq['SSQ-N'] = df_ssq_n.sum(axis=1)
+df_ssq['SSQ-N'] = df_ssq_n.sum(axis=1) * 9.54
 df_ssq_o = df_ssq.filter(like='O')  # Oculomotor Disturbance
-df_ssq['SSQ-O'] = df_ssq_o.sum(axis=1)
+df_ssq['SSQ-O'] = df_ssq_o.sum(axis=1) * 7.58
 df_ssq_d = df_ssq.filter(like='D')  # Disorientation
-df_ssq['SSQ-D'] = df_ssq_d.sum(axis=1)
-df_ssq['SSQ'] = df_ssq.sum(axis=1)
+df_ssq['SSQ-D'] = df_ssq_d.sum(axis=1) * 13.92
+df_ssq['SSQ'] = (df_ssq_n.sum(axis=1) + df_ssq_o.sum(axis=1) + df_ssq_d.sum(axis=1)) * 3.74
+
+
 
 df_ssq = df_ssq[['SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D']]
 

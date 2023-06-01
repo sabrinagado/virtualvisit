@@ -80,22 +80,21 @@ colors = [green, red]
 
 df = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
 
-# Gaze Test-Phase Rooms
+# Time spent in the different rooms
 df_phase = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test") & ~(df["event"].str.contains("Clicked"))]
 conditions = ["friendly", "unfriendly"]
-
+titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
 fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(2.5 * len(conditions), 6))
 boxWidth = 1
 pos = [1]
 
-titles = ["Friendly Person", "Unfriendly Person"]
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = conditions[idx_condition]
     df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
     data_phase = df_cond["duration"].to_list()
     df_cond = df_cond.dropna(subset="duration")
-    df_cond = df_cond.groupby(["VP", "event"]).mean().reset_index()
+    df_cond = df_cond.groupby(["VP", "event"]).sum().reset_index()
     df_hab = df_cond.loc[df_cond['event'].str.contains("Habituation")]
     df_hab = df_hab[["VP", "duration"]]
     df_hab = df_hab.rename(columns={"duration": "Habituation"})
@@ -144,37 +143,40 @@ for idx_condition, condition in enumerate(conditions):
 
     axes[idx_condition].set_xticklabels([titles[idx_condition]])
     axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-axes[0].set_ylabel(f"Duration in the room [s] in comparison to habituation phase")
+axes[0].set_ylabel(f"Total Duration in the room [s] in comparison to habituation phase")
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"timeInRoom_test{end}"), dpi=300)
 plt.close()
 
-
+# Time spent in the different rooms: Correlation with SPAI
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
 boxWidth = 1
 pos = [1]
 
-titles = ["Friendly Person", "Unfriendly Person"]
+titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = conditions[idx_condition]
+    df_spai = df_phase.groupby(["VP"])["SPAI"].mean().reset_index()
+
     df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
     data_phase = df_cond["duration"].to_list()
     df_cond = df_cond.dropna(subset="duration")
-    df_cond = df_cond.groupby(["VP", "event"]).mean().reset_index()
+    df_cond = df_cond.groupby(["VP", "event"]).sum().reset_index()
     df_hab = df_cond.loc[df_cond["event"].str.contains("Habituation")]
     df_hab = df_hab[["VP", "duration"]]
     df_hab = df_hab.rename(columns={"duration": "Habituation"})
     df_test = df_cond.loc[df_cond["event"].str.contains("Test")]
     df_test = df_test.merge(df_hab, on="VP")
     df_test["duration"] = df_test["duration"] - df_test["Habituation"]
+    df_test = df_test[["VP", "event", "duration"]].merge(df_spai, on="VP", how="left")
     df_test = df_test.sort_values(by=["SPAI"])
 
     x = df_test["SPAI"].to_numpy()
     y = df_test["duration"].to_numpy()
     linreg = linregress(x, y)
-    all_x = df_phase.sort_values(by=["SPAI"])["SPAI"].to_numpy()
+    all_x = np.array([0.5] + list(x) + [4.5])
     all_y = df_test["duration"].to_numpy()
     all_y_est = linreg.slope * all_x + linreg.intercept
     all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -189,7 +191,7 @@ for idx_condition, condition in enumerate(conditions):
 
 ax.set_xlabel("SPAI")
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Duration [s] in comparison to habituation phase")
+ax.set_ylabel(f"Total Duration [s] in comparison to habituation phase")
 ax.legend()
 # ax.set_xlim([0, 5])
 plt.tight_layout()
@@ -198,19 +200,21 @@ for end in (['.png']):  # '.pdf',
 plt.close()
 
 
+# Interpersonal Distance
 df = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
 df = df.loc[df["distance"] <= 500]
 colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
-
-# Gaze Test-Phase Rooms
 df_phase = df.loc[df["event"].str.contains("Test") & ~(df["event"].str.contains("Clicked"))]
+df_grouped = df_phase.groupby(["VP", "Condition"]).mean().reset_index()
+df_grouped = df_grouped.loc[~(df_grouped["Condition"].str.contains("unknown"))]
 conditions = ["friendly", "neutral", "unfriendly"]
+titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
 
 fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(2.5 * len(conditions), 6))
+min = df_grouped["distance"].min() - 10
+max = df_grouped["distance"].max() + 10
 boxWidth = 1
 pos = [1]
-
-titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = conditions[idx_condition]
@@ -259,31 +263,34 @@ for idx_condition, condition in enumerate(conditions):
                             widths=0.8 * boxWidth)
 
     axes[idx_condition].set_xticklabels([titles[idx_condition]])
+    axes[idx_condition].set_ylim(min, max)
     axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-axes[0].set_ylabel(f"Distance to the Persons [cm]")
+axes[0].set_ylabel(f"Average Distance to the Virtual Humans [cm]")
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"distance_test{end}"), dpi=300)
 plt.close()
 
-
+# Interpersonal Distance: Correlation with SPAI
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
 boxWidth = 1
 pos = [1]
-
+conditions = ["friendly", "neutral", "unfriendly"]
 titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = conditions[idx_condition]
+
     df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
     data_phase = df_cond["distance"].to_list()
     df_cond = df_cond.dropna(subset="distance")
     df_cond = df_cond.groupby(["VP"]).mean().reset_index()
+    df_cond = df_cond.sort_values(by="SPAI")
 
     x = df_cond["SPAI"].to_numpy()
     y = df_cond["distance"].to_numpy()
     linreg = linregress(x, y)
-    all_x = df_phase.sort_values(by=["SPAI"])["SPAI"].to_numpy()
+    all_x = np.array([0.5] + list(x) + [4.5])
     all_y = df_cond["distance"].to_numpy()
     all_y_est = linreg.slope * all_x + linreg.intercept
     all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -298,7 +305,7 @@ for idx_condition, condition in enumerate(conditions):
 
 ax.set_xlabel("SPAI")
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Distance to the Persons [cm]")
+ax.set_ylabel(f"Average Distance to the Virtual Humans [cm]")
 ax.legend()
 # ax.set_xlim([0, 5])
 plt.tight_layout()

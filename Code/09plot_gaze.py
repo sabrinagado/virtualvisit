@@ -74,6 +74,7 @@ if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
 
+# Gaze on ROIs of Virtual Humans
 dvs = ["Gaze Proportion", "Number"]
 y_labels = ["% Fixations on Person", "Number of Fixations"]
 
@@ -88,6 +89,7 @@ for idx_dv, dv in enumerate(dvs):
     medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
     fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
 
+    # Interaction and Clicks
     phases = ["FriendlyInteraction", "UnfriendlyInteraction", "Test_FriendlyWasClicked", "Test_NeutralWasClicked", "Test_UnfriendlyWasClicked"]
     fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(3*len(phases), 6))
     titles = ["Friendly Interaction", "Unfriendly Interaction", "Clicked Friendly", "Clicked Neutral", "Clicked Unfriendly"]
@@ -164,7 +166,7 @@ for idx_dv, dv in enumerate(dvs):
         plt.savefig(os.path.join(save_path, f"gaze_interactions_{dv}{end}"), dpi=300)
     plt.close()
 
-    # Gaze Test-Phase Rooms
+    # Gaze Test-Phase
     df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
     conditions = ["friendly", "neutral", "unfriendly"]
     fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(3*len(conditions), 6))
@@ -235,7 +237,7 @@ for idx_dv, dv in enumerate(dvs):
         plt.savefig(os.path.join(save_path, f"gaze_rooms_{dv}{end}"), dpi=300)
     plt.close()
 
-# Relationship with Social Anxiety
+# Gaze on ROIs of Virtual Humans: Relationship with Social Anxiety
 df = df_gaze.loc[df_gaze["Phase"].str.contains("Test")]
 
 conditions = ["friendly", "neutral", "unfriendly"]
@@ -273,7 +275,8 @@ for idx_roi, roi in enumerate(rois):
 
     ax.set_xlabel("SPAI")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"% Fixations on Person")
+    ax.set_ylabel(f"% Fixations on Person ({roi.capitalize()})")
+    ax.set_title(f"{roi.capitalize()}", fontweight='bold')
     ax.legend()
     ax.set_ylim([0, 1])
     plt.tight_layout()
