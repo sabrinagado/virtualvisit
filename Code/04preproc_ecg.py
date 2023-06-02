@@ -446,8 +446,8 @@ for vp in vps:
             df_ecg_subset_save["VP"] = int(vp)
             df_ecg_subset_save["event"] = phase
             df_ecg_subset_save = df_ecg_subset_save[["VP", "event", "time", "ECG"]]
-            df_ecg_subset_save.to_csv(os.path.join(dir_path, 'Data', 'ecg_interaction.csv'), decimal='.', sep=';',
-                                      index=False, mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'ecg_interaction.csv'))))
+            df_ecg_subset_save.to_csv(os.path.join(dir_path, 'Data', 'hr_interaction.csv'), decimal='.', sep=';',
+                                      index=False, mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'hr_interaction.csv'))))
 
         # Adapt duration in mne_events
         for idy_row, row in mne_events.iterrows():

@@ -1,6 +1,6 @@
 # =============================================================================
-# ECG
-# sensor: HMD & Unreal Engine (Log Writer)
+# Physiology
+# sensor: HMD & Unreal Engine (Log Writer), movisens
 # study: Virtual Visit
 # =============================================================================
 import os
@@ -76,60 +76,28 @@ if not os.path.exists(save_path):
 
 red = '#E2001A'
 green = '#B1C800'
-colors = [green, red]
+blue = '#1F82C0'
+colors = [green, blue, red]
 
+# Acquisition
 ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
-for physiology, ylabel in zip(["pupil", "EDA", "ECG"], ylabels):
-    # physiology = "pupil"
-    # ylabel = "Pupil Diameter [mm]"
+for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "EDA", "ECG"], ylabels):
+    # physiology = "eda"
+    # column_name = "EDA"
+    # ylabel = "Skin Conductance Level [µS]"
     df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
 
-    phases = ["FriendlyInteraction", "UnfriendlyInteraction"]
+    phases = ["FriendlyInteraction", "NeutralInteraction", "UnfriendlyInteraction"]
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
-    titles = ["Friendly Interaction", "Unfriendly Interaction"]
+    titles = ["Friendly Interaction", "Neutral Interaction", "Unfriendly Interaction"]
     for idx_phase, phase in enumerate(phases):
-        # idx_phase = 1
+        # idx_phase = 0
         # phase = phases[idx_phase]
         df_phase = df.loc[df['event'] == phase]
 
         times = df_phase["time"].unique()
-        mean = df_phase.groupby("time")[physiology].mean()
-
-        # Plot line
-        ax.plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-
-    # Style Plot
-    ax.set_xlim([0, 5])
-    ax.set_ylabel(ylabel)
-    ax.set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
-    ax.set_xlabel("Seconds after Interaction Onset")
-    ax.legend(loc="upper right")
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-
-    ax.legend()
-
-    plt.tight_layout()
-    for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"{physiology}_interaction{end}"), dpi=300)
-    plt.close()
-
-ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
-for physiology, ylabel in zip(["pupil", "EDA", "ECG"], ylabels):
-    # physiology = "pupil"
-    # ylabel = "Pupil Diameter [mm]"
-    df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
-
-    phases = ["FriendlyInteraction", "UnfriendlyInteraction"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
-    titles = ["Friendly Interaction", "Unfriendly Interaction"]
-    for idx_phase, phase in enumerate(phases):
-        # idx_phase = 1
-        # phase = phases[idx_phase]
-        df_phase = df.loc[df['event'] == phase]
-
-        times = df_phase["time"].unique()
-        mean = df_phase.groupby("time")[physiology].mean()
-        sem = df_phase.groupby("time")[physiology].sem()
+        mean = df_phase.groupby("time")[column_name].mean()
+        sem = df_phase.groupby("time")[column_name].sem()
 
         # Plot line
         ax.plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
@@ -147,10 +115,10 @@ for physiology, ylabel in zip(["pupil", "EDA", "ECG"], ylabels):
 
     plt.tight_layout()
     for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"{physiology}_interaction_SE{end}"), dpi=300)
+        plt.savefig(os.path.join(save_path, f"{physiology}_acq{end}"), dpi=300)
     plt.close()
 
-
+# Test Phase
 ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
 for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     # physiology = "pupil"
@@ -168,10 +136,10 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     df_phase = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
     conditions = ["friendly", "unfriendly"]
 
-    fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(2.5 * len(conditions), 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     fig.suptitle(f"{ylabel.split(' [')[0]}", fontweight='bold')
-    boxWidth = 1
-    pos = [1]
+    boxWidth = 1 / (len(conditions) + 1)
+    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
     titles = ["Friendly Person", "Unfriendly Person"]
     for idx_condition, condition in enumerate(conditions):
@@ -191,9 +159,9 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
         # Plot raw data points
         for i in range(len(df_test)):
             # i = 0
-            x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
+            x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
             y = df_test.reset_index().loc[i, dv].item()
-            axes[idx_condition].plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+            ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
         # Plot boxplots
         meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -212,7 +180,7 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
                                            as_dict=True,
                                            func='mean')
 
-        axes[idx_condition].boxplot([df_test.loc[:, dv].values],
+        ax.boxplot([df_test.loc[:, dv].values],
                                 # notch=True,  # bootstrap=5000,
                                 medianprops=medianlineprops,
                                 meanline=True,
@@ -224,19 +192,19 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
                                 boxprops=boxprops,
                                 # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                                 whis=[2.5, 97.5],
-                                positions=[pos[0]],
+                                positions=[pos[idx_condition]],
                                 widths=0.8 * boxWidth)
 
-        axes[idx_condition].set_xticklabels([titles[idx_condition]])
-        axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
-    axes[0].set_ylabel(f"{ylabel} in comparison to habituation phase")
+    ax.set_ylabel(f"{ylabel} in comparison to habituation phase")
     plt.tight_layout()
     for end in (['.png']):  # '.pdf',
         plt.savefig(os.path.join(save_path, f"{physiology}_test{end}"), dpi=300)
     plt.close()
 
-
+# Test Phase: Correlation with SA
 ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
 for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     # physiology = "pupil"
@@ -298,5 +266,5 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     # ax.set_xlim([0, 5])
     plt.tight_layout()
     for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"{physiology}_test_corr{end}"), dpi=300)
+        plt.savefig(os.path.join(save_path, f"{physiology}_test_SA{end}"), dpi=300)
     plt.close()

@@ -1,3 +1,8 @@
+# =============================================================================
+# Ratings
+# sensor: Unreal Engine (Log Writer)
+# study: Virtual Visit
+# =============================================================================
 import os
 import pandas as pd
 import numpy as np
@@ -289,7 +294,7 @@ boxWidth = 1
 pos = [1]
 
 for idx_phase, phase in enumerate(phases):
-    # idx_phase = 0
+    # idx_phase = 2
     # phase = phases[idx_phase]
     df = df_rating.loc[(df_rating["Phase"] == phase) & (df_rating["Object"] == "VR")]
     df = df.dropna(subset="Value")
@@ -336,6 +341,11 @@ for idx_phase, phase in enumerate(phases):
     axes[idx_phase].set_xticklabels([phase])
     axes[idx_phase].set_ylim(-1, 101)
     axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+
+    if phase == "Test":
+        linreg = linregress(df.loc[:, "Value"], df.loc[:, "SSQ"])
+        print(f"r = {linreg.rvalue}, p = {linreg.pvalue}")
+
 axes[0].set_ylabel("Subjective Wellbeing")
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',

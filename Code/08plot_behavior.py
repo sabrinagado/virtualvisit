@@ -80,13 +80,92 @@ colors = [green, red]
 
 df = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
 
-# Time spent in the different rooms
+# Time spent in Rooms
+df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test") & ~(df["event"].str.contains("Clicked"))]
+
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
+rooms = ["Living", "Dining", "Office", "Terrace"]
+phases = ['Habituation', 'Test']
+colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
+
+for idx_room, room in enumerate(rooms):
+    # idx_room = 0
+    # room = rooms[idx_room]
+    df_room = df_subset.loc[df_subset['event'].str.contains(room)].reset_index(drop=True)
+
+    boxWidth = 1 / (len(phases) + 1)
+    pos = [idx_room + x * boxWidth for x in np.arange(1, len(phases) + 1)]
+
+    for idx_phase, phase in enumerate(phases):
+        # idx_phase = 0
+        # phase = phases[idx_phase]
+        df_phase = df_room.loc[df_room['event'].str.contains(phase)].reset_index(drop=True)
+        df_phase = df_phase.dropna(subset="duration")
+        df_phase = df_phase.groupby(["VP", "event"]).sum().reset_index()
+
+        # Plot raw data points
+        for i in range(len(df_phase)):
+            # i = 0
+            x = random.uniform(pos[idx_phase] - (0.2 * boxWidth), pos[idx_phase] + (0.2 * boxWidth))
+            y = df_phase.reset_index().loc[i, "duration"].item()
+            ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_phase], mec=colors[idx_phase], alpha=0.3)
+
+        # Plot boxplots
+        meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
+        fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
+
+        whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_phase])
+        capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_phase])
+        boxprops = dict(color=colors[idx_phase])
+
+        fwr_correction = True
+        alpha = (1 - (0.05))
+        bootstrapping_dict = bootstrapping(df_phase.loc[:, "duration"].values,
+                                           numb_iterations=5000,
+                                           alpha=alpha,
+                                           as_dict=True,
+                                           func='mean')
+
+        ax.boxplot([df_phase.loc[:, "duration"].values],
+                   # notch=True,  # bootstrap=5000,
+                   medianprops=medianlineprops,
+                   meanline=True,
+                   showmeans=True,
+                   meanprops=meanlineprops,
+                   showfliers=False, flierprops=fliermarkerprops,
+                   whiskerprops=whiskerprops,
+                   capprops=capprops,
+                   boxprops=boxprops,
+                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                   whis=[2.5, 97.5],
+                   positions=[pos[idx_phase]],
+                   widths=0.8 * boxWidth)
+
+ax.set_xticks([x + 1 / 2 for x in range(len(rooms))])
+ax.set_xticklabels(rooms)
+ax.set_ylabel("Duration [s]")
+ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+ax.legend(
+    [Line2D([0], [0], color="white", marker='o', markeredgecolor=colors[0], markeredgewidth=1, markerfacecolor=colors[0], alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor=colors[1], markeredgewidth=1, markerfacecolor=colors[1], alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+    ["Habituation", "Test"], loc="best")
+plt.tight_layout()
+for end in (['.png']):  # '.pdf',
+    plt.savefig(os.path.join(save_path, f"duration_rooms{end}"), dpi=300)
+plt.close()
+
+
+# Time spent in the different rooms of the virtual humans
 df_phase = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test") & ~(df["event"].str.contains("Clicked"))]
 conditions = ["friendly", "unfriendly"]
 titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
-fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(2.5 * len(conditions), 6))
-boxWidth = 1
-pos = [1]
+colors = [green, red]
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+boxWidth = 1 / (len(conditions) + 1)
+pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
@@ -105,9 +184,9 @@ for idx_condition, condition in enumerate(conditions):
     # Plot raw data points
     for i in range(len(df_test)):
         # i = 0
-        x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
+        x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
         y = df_test.reset_index().loc[i, "duration"].item()
-        axes[idx_condition].plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+        ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
     # Plot boxplots
     meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -126,7 +205,7 @@ for idx_condition, condition in enumerate(conditions):
                                        as_dict=True,
                                        func='mean')
 
-    axes[idx_condition].boxplot([df_test.loc[:, "duration"].values],
+    ax.boxplot([df_test.loc[:, "duration"].values],
                             # notch=True,  # bootstrap=5000,
                             medianprops=medianlineprops,
                             meanline=True,
@@ -138,16 +217,17 @@ for idx_condition, condition in enumerate(conditions):
                             boxprops=boxprops,
                             # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                             whis=[2.5, 97.5],
-                            positions=[pos[0]],
+                            positions=[pos[idx_condition]],
                             widths=0.8 * boxWidth)
 
-    axes[idx_condition].set_xticklabels([titles[idx_condition]])
-    axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-axes[0].set_ylabel(f"Total Duration in the room [s] in comparison to habituation phase")
+ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
+ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+ax.set_ylabel(f"Total Duration in the room [s] in comparison to habituation phase")
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"timeInRoom_test{end}"), dpi=300)
+    plt.savefig(os.path.join(save_path, f"duration_test{end}"), dpi=300)
 plt.close()
+
 
 # Time spent in the different rooms: Correlation with SPAI
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
@@ -196,7 +276,7 @@ ax.legend()
 # ax.set_xlim([0, 5])
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"timeInRoom_test_corr{end}"), dpi=300)
+    plt.savefig(os.path.join(save_path, f"duration_test_SA{end}"), dpi=300)
 plt.close()
 
 
@@ -210,11 +290,10 @@ df_grouped = df_grouped.loc[~(df_grouped["Condition"].str.contains("unknown"))]
 conditions = ["friendly", "neutral", "unfriendly"]
 titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
 
-fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(2.5 * len(conditions), 6))
-min = df_grouped["distance"].min() - 10
-max = df_grouped["distance"].max() + 10
-boxWidth = 1
-pos = [1]
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+boxWidth = 1 / (len(conditions) + 1)
+pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = conditions[idx_condition]
@@ -226,9 +305,9 @@ for idx_condition, condition in enumerate(conditions):
     # Plot raw data points
     for i in range(len(df_cond)):
         # i = 0
-        x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
+        x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
         y = df_cond.reset_index().loc[i, "distance"].item()
-        axes[idx_condition].plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+        ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
     # Plot boxplots
     meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -247,7 +326,7 @@ for idx_condition, condition in enumerate(conditions):
                                        as_dict=True,
                                        func='mean')
 
-    axes[idx_condition].boxplot([df_cond.loc[:, "distance"].values],
+    ax.boxplot([df_cond.loc[:, "distance"].values],
                             # notch=True,  # bootstrap=5000,
                             medianprops=medianlineprops,
                             meanline=True,
@@ -259,13 +338,12 @@ for idx_condition, condition in enumerate(conditions):
                             boxprops=boxprops,
                             # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                             whis=[2.5, 97.5],
-                            positions=[pos[0]],
+                            positions=[pos[idx_condition]],
                             widths=0.8 * boxWidth)
 
-    axes[idx_condition].set_xticklabels([titles[idx_condition]])
-    axes[idx_condition].set_ylim(min, max)
-    axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-axes[0].set_ylabel(f"Average Distance to the Virtual Humans [cm]")
+ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+ax.set_ylabel(f"Average Distance to the Virtual Humans [cm]")
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"distance_test{end}"), dpi=300)
@@ -310,5 +388,5 @@ ax.legend()
 # ax.set_xlim([0, 5])
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"distance_test_corr{end}"), dpi=300)
+    plt.savefig(os.path.join(save_path, f"distance_test_SA{end}"), dpi=300)
 plt.close()
