@@ -1,3 +1,6 @@
+# =============================================================================
+# Toolbox by Katharina Lingelbach
+# =============================================================================
 import numpy as np
 from scipy import signal
 from numpy import inf

@@ -119,8 +119,6 @@ df_ssq_d = df_ssq.filter(like='D')  # Disorientation
 df_ssq['SSQ-D'] = df_ssq_d.sum(axis=1) * 13.92
 df_ssq['SSQ'] = (df_ssq_n.sum(axis=1) + df_ssq_o.sum(axis=1) + df_ssq_d.sum(axis=1)) * 3.74
 
-
-
 df_ssq = df_ssq[['SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D']]
 
 # % ===========================================================================
