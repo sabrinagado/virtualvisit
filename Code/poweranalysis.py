@@ -39,6 +39,7 @@ df_dwell = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.'
 df_dwell = df_dwell.loc[df_dwell["event"].str.contains("Habituation") | df_dwell["event"].str.contains("Test") & ~(df_dwell["event"].str.contains("Clicked"))]
 conditions = ["friendly", "unfriendly"]
 dwelltimes = pd.DataFrame()
+vps_enterRoom = []
 for condition in conditions:
     # condition = "unfriendly"
     df_cond = df_dwell.loc[df_dwell['Condition'] == condition].reset_index(drop=True)
@@ -53,11 +54,15 @@ for condition in conditions:
     df_test = df_test.rename(columns={"duration": condition})
     if condition == "friendly":
         dwelltimes = pd.concat([dwelltimes, df_test[["VP", condition]]])
+        vps_enterRoom = vps_enterRoom + df_test["VP"].to_list()
     elif condition == "unfriendly":
         dwelltimes = dwelltimes.merge(df_test[["VP", condition]], on="VP")
+        vps_enterRoom = vps_enterRoom + df_test["VP"].to_list()
 
 dwelltime_friendly = dwelltimes["friendly"].to_list()
 dwelltime_unfriendly = dwelltimes["unfriendly"].to_list()
+
+vps_enterRoom = np.unique(vps_enterRoom)
 
 # parameters for power analysis
 values = dwelltime_friendly + dwelltime_unfriendly
@@ -86,7 +91,7 @@ ax.set_xlim([np.min(differences), np.max(differences)])
 
 # Piloting Study:
 ax.axvline(mean_diff, color=colors[1], linestyle="--")
-ax.text(mean_diff + 0.01 * np.max(differences), 0.8 * np.max(sample_sizes), f"Mean Difference\nfrom Pilot Study: \n{round(mean_diff, 2)} {measure}", color=colors[1])
+ax.text(mean_diff + 0.01 * np.max(differences), 0.8 * np.max(sample_sizes), f"Mean Difference\nfrom Pilot Study:\n{round(mean_diff, 2)} {measure}", color=colors[1])
 n = pwr_analysis.solve_power(effect_size=mean_diff/std, alpha=alpha, power=power, alternative="two-sided")
 ax.axhline(n, color=colors[1], linestyle="--")
 ax.text(mean_diff + 0.01 * np.max(differences), n + 0.01 * np.max(sample_sizes), f"N: {math.ceil(n)}", color=colors[1])
@@ -97,7 +102,7 @@ ax.axhline(N1, color=colors[3], linestyle="--")
 ax.text(effect + 0.01 * np.max(differences), N1 + 0.01 * np.max(sample_sizes), f"N: {math.ceil(N1)}", color=colors[3])
 ax.axvline(effect, color=colors[3], linestyle="--")
 pwr = pwr_analysis.solve_power(effect_size=mean_diff/std, nobs=N1, alpha=alpha, alternative="two-sided")
-ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for\nN = {N1}: {round(effect, 2)} {measure},\nPower: {round(pwr, 2)}", color=colors[3])
+ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for N = {N1}: {round(effect, 2)} {measure},\nPower: {round(pwr, 2)}", color=colors[3])
 
 # # N = 96:
 # effect = pwr_analysis.solve_power(nobs=N2, alpha=alpha, power=power, alternative="two-sided") * std
@@ -116,6 +121,7 @@ plt.close()
 df_dist = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
 df_dist = df_dist.loc[df_dist["distance"] <= 1000]
 df_dist = df_dist.loc[df_dist["distance"] >= 1]
+df_dist = df_dist[df_dist["VP"].isin(vps_enterRoom)]
 df_dist = df_dist.loc[df_dist["event"].str.contains("Test") & ~(df_dist["event"].str.contains("Clicked"))]
 df_dist = df_dist.groupby(["VP", "Condition"]).mean().reset_index()
 df_dist = df_dist.loc[~(df_dist["Condition"].str.contains("unknown"))]
@@ -166,7 +172,7 @@ ax.set_xlim([np.min(differences), np.max(differences)])
 
 # Piloting Study:
 ax.axvline(mean_diff, color=colors[1], linestyle="--")
-ax.text(mean_diff + 0.01 * np.max(differences), 0.8 * np.max(sample_sizes), f"Mean Difference\nfrom Pilot Study: \n{round(mean_diff, 2)} {measure}", color=colors[1])
+ax.text(mean_diff + 0.01 * np.max(differences), 0.8 * np.max(sample_sizes), f"Mean Difference\nfrom Pilot Study:\n{round(mean_diff, 2)} {measure}", color=colors[1])
 n = pwr_analysis.solve_power(effect_size=mean_diff/std, alpha=alpha, power=power, alternative="larger")
 ax.axhline(n, color=colors[1], linestyle="--")
 ax.text(mean_diff + 0.01 * np.max(differences), n + 0.01 * np.max(sample_sizes), f"N: {math.ceil(n)}", color=colors[1])
@@ -177,7 +183,7 @@ ax.axhline(N1, color=colors[3], linestyle="--")
 ax.text(effect + 0.01 * np.max(differences), N1 + 0.01 * np.max(sample_sizes), f"N: {math.ceil(N1)}", color=colors[3])
 ax.axvline(effect, color=colors[3], linestyle="--")
 pwr = pwr_analysis.solve_power(effect_size=mean_diff/std, nobs=N1, alpha=alpha, alternative="larger")
-ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for\nN = {N1}: {round(effect, 2)} {measure},\nPower: {round(pwr, 2)}", color=colors[3])
+ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for N = {N1}: {round(effect, 2)} {measure},\nPower: {round(pwr, 2)}", color=colors[3])
 
 # # N = 96:
 # effect = pwr_analysis.solve_power(nobs=N2, alpha=alpha, power=power, alternative="larger") * std
@@ -196,6 +202,7 @@ plt.close()
 df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
 df_gaze = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
 df_gaze = df_gaze.loc[~(df_gaze["Phase"].str.contains("Office"))]
+df_gaze = df_gaze[df_gaze["VP"].isin(vps_enterRoom)]
 conditions = ["friendly", "unfriendly"]
 
 roi = "head"
@@ -244,7 +251,7 @@ ax.set_xlim([np.min(differences), np.max(differences)])
 
 # Piloting Study:
 ax.axvline(mean_diff, color=colors[1], linestyle="--")
-ax.text(mean_diff + 0.01 * np.max(differences), 0.8 * np.max(sample_sizes), f"Mean Difference\nfrom Pilot Study: \n{round(mean_diff, 2)} {measure}", color=colors[1])
+ax.text(mean_diff + 0.01 * np.max(differences), 0.8 * np.max(sample_sizes), f"Mean Difference\nfrom Pilot Study:\n{round(mean_diff, 2)} {measure}", color=colors[1])
 n = pwr_analysis.solve_power(effect_size=mean_diff / std, alpha=alpha, power=power, alternative="two-sided")
 ax.axhline(n, color=colors[1], linestyle="--")
 ax.text(mean_diff + 0.01 * np.max(differences), n + 0.01 * np.max(sample_sizes), f"N: {math.ceil(n)}",  color=colors[1])
@@ -255,7 +262,7 @@ ax.axhline(N1, color=colors[3], linestyle="--")
 ax.text(effect + 0.01 * np.max(differences), N1 + 0.01 * np.max(sample_sizes), f"N: {math.ceil(N1)}", color=colors[3])
 ax.axvline(effect, color=colors[3], linestyle="--")
 pwr = pwr_analysis.solve_power(effect_size=mean_diff/std, nobs=N1, alpha=alpha, alternative="two-sided")
-ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for\nN = {N1}: {round(effect, 2)} {measure},\nPower: {round(pwr, 2)}", color=colors[3])
+ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for N = {N1}: {round(effect, 2)} {measure},\nPower: {round(pwr, 2)}", color=colors[3])
 
 # # N = 96:
 # effect = pwr_analysis.solve_power(nobs=N2, alpha=alpha, power=power, alternative="two-sided") * std
