@@ -27,9 +27,12 @@ matplotlib.use('QtAgg')
 # Read in Data, Add Timestamps and Events
 # =============================================================================
 dir_path = os.getcwd()
-start = 1
-end = 11
+start = 64
+end = 64
 vps = np.arange(start, end + 1)
+
+problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
+vps = [vp for vp in vps if not vp in problematic_subjects]
 
 
 def eda_custom_process(raw, vp, phase, sampling_rate=32, pipeline=None, correction=["manual", "sd", "ffat"], amplitude_min=0.02):
@@ -457,7 +460,7 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 
 for vp in vps:
-    # vp = vps[1]
+    # vp = vps[36]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
@@ -500,6 +503,8 @@ for vp in vps:
         df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
     df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
 
+    dfs = []
+
     # Add ECG and EDA markers:
     for physio in ["ECG", "EDA"]:
         # physio = "EDA"
@@ -527,43 +532,38 @@ for vp in vps:
         except:
             print(f"no {physio} marker file")
             continue
+    try:
+        # Get timepoint for resting state measurement
+        df_rs = df_event.loc[df_event['timestamp'] < pd.to_datetime(df_event.loc[df_event["event"] == "EntryParticipantID", 'timestamp'].item() - timedelta(seconds=45), unit="ns")]
+        df_rs = df_rs.loc[df_rs['event'].str.contains("marker")].reset_index(drop=True)
+        df_rs = df_rs.drop_duplicates(subset=["event"], keep="last").reset_index(drop=True)
+        rs_start = df_rs.loc[len(df_rs)-1, "timestamp"] + timedelta(seconds=15)
+        # rs_end = rs_start + timedelta(seconds=30)
+        df_event = pd.concat([df_event, pd.DataFrame([[rs_start, "resting state"]], columns=["timestamp", "event"])])
+        df_event = df_event.loc[~(df_event['event'].str.contains("marker"))]
+        df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
 
-    # Get timepoint for resting state measurement
-    df_rs = df_event.loc[df_event['timestamp'] < pd.to_datetime(df_event.loc[df_event["event"] == "EntryParticipantID", 'timestamp'].item() - timedelta(seconds=45), unit="ns")]
-    df_rs = df_rs.loc[df_rs['event'].str.contains("marker")].reset_index(drop=True)
-    df_rs = df_rs.drop_duplicates(subset=["event"], keep="last")
-    if ("ECG_marker" in df_rs["event"].unique()) and ("EDA_marker" in df_rs["event"].unique()):
-        for idx_row, row in df_rs.iterrows():
-            # idx_row = 0
-            if idx_row == len(df_rs) - 1:
-                break
-            rs_start = df_rs.loc[idx_row + 1, "timestamp"] + timedelta(seconds=5)
-            rs_end = rs_start + timedelta(seconds=30)
-            break
-    else:
-        rs_start = df_rs.loc[0, "timestamp"] + timedelta(seconds=10)
-        rs_end = rs_start + timedelta(seconds=45)
+        df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
+        df_event = df_event.reset_index(drop=True)
 
-    df_event = pd.concat([df_event, pd.DataFrame([[rs_start, "resting state"]], columns=["timestamp", "event"])])
-    df_event = df_event.loc[~(df_event['event'].str.contains("marker"))]
-    df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
+        df_rs = df_event.loc[df_event["event"].str.contains("resting")]
+        df_rs["duration"] = 30
+        dfs.append(df_rs)
+    except:
+        print("no Resting State")
 
-    df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
-    df_event = df_event.reset_index(drop=True)
-
-    start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
-    start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
-    start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
-    start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
-    start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
-    start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
-    start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
-    end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
-
-    dfs = []
-    df_rs = df_event.loc[df_event["event"].str.contains("resting")]
-    df_rs["duration"] = 45
-    dfs.append(df_rs)
+    try:
+        start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
+        start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
+        start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
+        start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
+        start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
+        start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
+        start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
+        end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    except:
+        print("not enough events")
+        continue
 
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
     df_hab["duration"] = (df_hab["timestamp"].shift(-1) - df_hab["timestamp"]).dt.total_seconds()
@@ -580,8 +580,10 @@ for vp in vps:
 
     df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
     df_test = df_test.loc[~(df_test["event"].str.contains("Teleport"))]
-    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
     df_test = df_test.loc[df_test["event"].str.contains("Enter")]
+    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
+    df_test = df_test.reset_index(drop=True)
+    df_test.loc[len(df_test)-1, "duration"] = (start_roomrating2 - df_test.loc[len(df_test)-1, "timestamp"]).total_seconds()
     df_test["event"] = ["Test_" + name[1] for name in df_test["event"].str.split("Enter")]
     dfs.append(df_test)
 
@@ -590,7 +592,11 @@ for vp in vps:
     if len(df_test_person) > 0:
         df_test_person["duration"] = 2
         df_test_person["event"] = ["Test_" + name for name in df_test_person["event"]]
-        dfs.append(df_test_person)
+        for person in list(df_test_person["event"].unique()):
+            # person = list(df_test_person["event"].unique())[1]
+            df_test_person_unique = df_test_person.loc[df_test_person["event"] == person].reset_index(drop=True)
+            df_test_person_unique = drop_consecutive_duplicates(df_test_person_unique, subset="event", tolerance=2.1)
+            dfs.append(df_test_person_unique)
 
     df_event = pd.concat(dfs)
     df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
@@ -634,6 +640,8 @@ for vp in vps:
     df_event.loc[df_event['name'].str.contains("Test_EttoreWasClicked"), 'event'] = 33
     df_event.loc[df_event['name'].str.contains("Test_OskarWasClicked"), 'event'] = 34
 
+    df_event = df_event.drop_duplicates(subset="timestamp", keep="first").reset_index(drop=True)
+
     # Merge "name" and "event"-column to df_ecg
     df_eda = pd.merge_asof(df_eda, df_event[["timestamp", "name"]], on="timestamp", direction="backward").reset_index(drop=True)
     tolerance = timedelta(milliseconds=(1 / sampling_rate) * 1000)
@@ -642,7 +650,7 @@ for vp in vps:
 
     # Iterate through experimental phases and check EDA data
     for idx_row, row in df_event.iterrows():
-        # idx_row = 5
+        # idx_row = 0
         # row = df_event.iloc[idx_row]
         phase = row['name']
         print(f"Phase: {phase}")
@@ -734,6 +742,12 @@ df_eda = df_eda.dropna(subset=['SCL (Mean)'])
 
 # Get conditions
 dfs_eda = []
+start = 1
+end = 64
+vps = np.arange(start, end + 1)
+
+problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
+vps = [vp for vp in vps if not vp in problematic_subjects]
 for vp in vps:
     # vp = vps[3]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
@@ -771,7 +785,8 @@ df_eda = pd.concat(dfs_eda)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_eda = df_eda.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
-                                 'SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D', 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS',
+                                 'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                                 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                  'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                  'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_eda = df_eda.drop(columns=['ID'])

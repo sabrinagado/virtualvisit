@@ -82,9 +82,9 @@ colors = [green, blue, red]
 # Acquisition
 ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
 for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "EDA", "ECG"], ylabels):
-    # physiology = "eda"
-    # column_name = "EDA"
-    # ylabel = "Skin Conductance Level [µS]"
+    # physiology = "hr"
+    # column_name = "ECG"
+    # ylabel = "Heart Rate (BPM)"
     df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
 
     phases = ["FriendlyInteraction", "NeutralInteraction", "UnfriendlyInteraction"]
@@ -119,6 +119,9 @@ for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "ED
     plt.close()
 
 # Test Phase
+red = '#E2001A'
+green = '#B1C800'
+colors = [green, red]
 ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
 for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     # physiology = "pupil"
@@ -221,14 +224,15 @@ for physiology, ylabel in zip(["pupil", "eda", "hr"], ylabels):
     # Gaze Test-Phase Rooms
     df_phase = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
     conditions = ["friendly", "unfriendly"]
+    colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     boxWidth = 1
     pos = [1]
 
     titles = ["Friendly Person", "Unfriendly Person"]
     for idx_condition, condition in enumerate(conditions):
-        # idx_condition = 0
+        # idx_condition = 1
         # condition = conditions[idx_condition]
         df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
         data_phase = df_cond[dv].to_list()

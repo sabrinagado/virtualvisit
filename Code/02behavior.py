@@ -19,8 +19,11 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 dir_path = os.getcwd()
 start = 1
-end = 11
+end = 64
 vps = np.arange(start, end + 1)
+
+problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
+vps = [vp for vp in vps if not vp in problematic_subjects]
 
 for vp in vps:
     # vp = vps[1]
@@ -28,27 +31,35 @@ for vp in vps:
     print(f"VP: {vp}")
 
     # Get Events
-    files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
-    event_file = [file for file in files if "event" in file][0]
-    df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+    try:
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+        event_file = [file for file in files if "event" in file][0]
+        df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
 
-    if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
-        df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
-    else:
-        df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
-    df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+        if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
+            df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
+        else:
+            df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
+        df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
 
-    df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
-    df_event = df_event.reset_index(drop=True)
+        df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
+        df_event = df_event.reset_index(drop=True)
+    except:
+        print("no events file")
+        continue
 
-    start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
-    start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
-    start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
-    start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
-    start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
-    start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
-    start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
-    end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    try:
+        start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
+        start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
+        start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
+        start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
+        start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
+        start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
+        start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
+        end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    except:
+        print("not enough events")
+        continue
 
     dfs = []
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
@@ -117,9 +128,10 @@ df_events = df_events.iloc[:, 0:5]
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_events = df_events.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
-                               'SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D', 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS',
-                               'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
-                               'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
+                                       'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                                       'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
+                                       'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
+                                       'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_events = df_events.drop(columns=['ID'])
 df_events.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';', index=False)
 
@@ -130,37 +142,49 @@ for vp in vps:
     print(f"VP: {vp}")
 
     # Get Distances
-    files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
-    file = [file for file in files if "distance" in file][0]
-    df = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, file), sep=';', decimal='.')
-    if pd.to_datetime(df.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
-        df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=2)
-    else:
-        df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=1)
-    df["timestamp"] = df["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+    try:
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+        file = [file for file in files if "distance" in file][0]
+        df = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, file), sep=';', decimal='.')
+        if pd.to_datetime(df.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
+            df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=2)
+        else:
+            df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=1)
+        df["timestamp"] = df["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+    except:
+        print("no distance file")
+        continue
 
     # Get Events
-    files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
-    event_file = [file for file in files if "event" in file][0]
-    df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+    try:
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+        event_file = [file for file in files if "event" in file][0]
+        df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
 
-    if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
-        df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
-    else:
-        df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
-    df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+        if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
+            df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
+        else:
+            df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
+        df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+    except:
+        print("no events file")
+        continue
 
     df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
     df_event = df_event.reset_index(drop=True)
 
-    start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
-    start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
-    start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
-    start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
-    start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
-    start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
-    start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
-    end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    try:
+        start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
+        start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
+        start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
+        start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
+        start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
+        start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
+        start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
+        end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    except:
+        print("not enough events")
+        continue
 
     dfs = []
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
@@ -233,7 +257,9 @@ for vp in vps:
 
     df["Condition"] = ""
     df = df.dropna(subset=["name"])
+    df["actor"] = df["actor"].str.replace(" ", "_")
     df["actor"] = [actor[1].split("_Char")[0] for actor in df["actor"].str.split("BP_")]
+
     for idx_row, row in df_roles.iterrows():
         # idx_row = 0
         # row = df_roles.iloc[idx_row, :]
@@ -255,8 +281,9 @@ df_distance = df_distance.iloc[:, 0:6]
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_distance = df_distance.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
-                               'SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D', 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS',
-                               'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
-                               'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
+                                           'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                                           'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
+                                           'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
+                                           'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_distance = df_distance.drop(columns=['ID'])
 df_distance.to_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';', index=False)

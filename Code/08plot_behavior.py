@@ -84,7 +84,7 @@ df = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=
 df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test") & ~(df["event"].str.contains("Clicked"))]
 
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
-rooms = ["Living", "Dining", "Office", "Terrace"]
+rooms = ["Living", "Dining", "Office"]
 phases = ['Habituation', 'Test']
 colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
 
@@ -239,6 +239,7 @@ for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = conditions[idx_condition]
     df_spai = df_phase.groupby(["VP"])["SPAI"].mean().reset_index()
+    df_spai = df_spai.sort_values(by="SPAI")
 
     df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
     data_phase = df_cond["duration"].to_list()
@@ -256,7 +257,7 @@ for idx_condition, condition in enumerate(conditions):
     x = df_test["SPAI"].to_numpy()
     y = df_test["duration"].to_numpy()
     linreg = linregress(x, y)
-    all_x = np.array([0.5] + list(x) + [4.5])
+    all_x = df_spai["SPAI"].to_numpy()
     all_y = df_test["duration"].to_numpy()
     all_y_est = linreg.slope * all_x + linreg.intercept
     all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -283,19 +284,18 @@ plt.close()
 # Interpersonal Distance
 df = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
 df = df.loc[df["distance"] <= 500]
-colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
 df_phase = df.loc[df["event"].str.contains("Test") & ~(df["event"].str.contains("Clicked"))]
 df_grouped = df_phase.groupby(["VP", "Condition"]).mean().reset_index()
 df_grouped = df_grouped.loc[~(df_grouped["Condition"].str.contains("unknown"))]
-conditions = ["friendly", "neutral", "unfriendly"]
-titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
+conditions = ["friendly", "unfriendly"]
+titles = ["Friendly Person", "Unfriendly Person"]
 
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
 boxWidth = 1 / (len(conditions) + 1)
 pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
 for idx_condition, condition in enumerate(conditions):
-    # idx_condition = 0
+    # idx_condition = 1
     # condition = conditions[idx_condition]
     df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
     data_phase = df_cond["distance"].to_list()
@@ -353,11 +353,13 @@ plt.close()
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
 boxWidth = 1
 pos = [1]
-conditions = ["friendly", "neutral", "unfriendly"]
-titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
+conditions = ["friendly", "unfriendly"]
+titles = ["Friendly Person", "Unfriendly Person"]
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = conditions[idx_condition]
+    df_spai = df_phase.groupby(["VP"])["SPAI"].mean().reset_index()
+    df_spai = df_spai.sort_values(by="SPAI")
 
     df_cond = df_phase.loc[df_phase['Condition'] == condition].reset_index(drop=True)
     data_phase = df_cond["distance"].to_list()
@@ -368,7 +370,7 @@ for idx_condition, condition in enumerate(conditions):
     x = df_cond["SPAI"].to_numpy()
     y = df_cond["distance"].to_numpy()
     linreg = linregress(x, y)
-    all_x = np.array([0.5] + list(x) + [4.5])
+    all_x = df_spai["SPAI"].to_numpy()
     all_y = df_cond["distance"].to_numpy()
     all_y_est = linreg.slope * all_x + linreg.intercept
     all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(

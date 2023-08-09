@@ -6,6 +6,7 @@
 import os
 import numpy as np
 import pandas as pd
+from scipy import signal
 from scipy.signal import butter, lfilter
 import neurokit2 as nk
 from datetime import datetime, timedelta
@@ -25,8 +26,11 @@ matplotlib.use('QtAgg')
 # =============================================================================
 dir_path = os.getcwd()
 start = 1
-end = 11
+end = 64
 vps = np.arange(start, end + 1)
+
+problematic_subjects = [1, 3, 7, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53, 56, 61, 64]  # 7, 56, 61 and 64 have bad ECG signal quality
+vps = [vp for vp in vps if not vp in problematic_subjects]
 
 
 def find_nearest(array, value, method="nearest"):
@@ -58,6 +62,10 @@ def ecg_custom_process(raw, mne_events, vp, phase, sampling_rate=1024, method_cl
     peak_arr, rpeaks, = nk.ecg_peaks(ecg_cleaned, sampling_rate=sampling_rate)
     rpeaks = rpeaks['ECG_R_Peaks']
     peak_arr = peak_arr['ECG_R_Peaks']
+    mean_dist = np.mean([j - i for i, j in zip(rpeaks[:-1], rpeaks[1:])])
+    sd_dist = np.std([j - i for i, j in zip(rpeaks[:-1], rpeaks[1:])])
+    local_maxima = signal.find_peaks(ecg_cleaned, distance=mean_dist-np.min([2*sd_dist, 50]))[0]
+    rpeaks = np.unique(np.concatenate((rpeaks, local_maxima)))
 
     # Manually correct rpeaks and add bad data spans
     if manual_correction:
@@ -175,7 +183,7 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 
 for vp in vps:
-    # vp = vps[1]
+    # vp = vps[0]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
@@ -219,6 +227,8 @@ for vp in vps:
         df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
     df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
 
+    dfs = []
+
     # Add ECG and EDA markers:
     for physio in ["ECG", "EDA"]:
         # physio = "EDA"
@@ -246,41 +256,38 @@ for vp in vps:
             continue
 
     # Get timepoint for resting state measurement
-    df_rs = df_event.loc[df_event['timestamp'] < pd.to_datetime(df_event.loc[df_event["event"] == "EntryParticipantID", 'timestamp'].item() - timedelta(seconds=45), unit="ns")]
-    df_rs = df_rs.loc[df_rs['event'].str.contains("marker")].reset_index(drop=True)
-    df_rs = df_rs.drop_duplicates(subset=["event"], keep="last")
-    if ("ECG_marker" in df_rs["event"].unique()) and ("EDA_marker" in df_rs["event"].unique()):
-        for idx_row, row in df_rs.iterrows():
-            # idx_row = 0
-            if idx_row == len(df_rs) - 1:
-                break
-            rs_start = df_rs.loc[idx_row + 1, "timestamp"] + timedelta(seconds=5)
-            rs_end = rs_start + timedelta(seconds=30)
-            break
-    else:
-        rs_start = df_rs.loc[0, "timestamp"] + timedelta(seconds=10)
-        rs_end = rs_start + timedelta(seconds=45)
+    try:
+        df_rs = df_event.loc[df_event['timestamp'] < pd.to_datetime(df_event.loc[df_event["event"] == "EntryParticipantID", 'timestamp'].item() - timedelta(seconds=45), unit="ns")]
+        df_rs = df_rs.loc[df_rs['event'].str.contains("marker")].reset_index(drop=True)
+        df_rs = df_rs.drop_duplicates(subset=["event"], keep="last").reset_index(drop=True)
+        rs_start = df_rs.loc[len(df_rs) - 1, "timestamp"] + timedelta(seconds=15)
+        # rs_end = rs_start + timedelta(seconds=30)
 
-    df_event = pd.concat([df_event, pd.DataFrame([[rs_start, "resting state"]], columns=["timestamp", "event"])])
-    df_event = df_event.loc[~(df_event['event'].str.contains("marker"))]
-    df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
+        df_event = pd.concat([df_event, pd.DataFrame([[rs_start, "resting state"]], columns=["timestamp", "event"])])
+        df_event = df_event.loc[~(df_event['event'].str.contains("marker"))]
+        df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
 
-    df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
-    df_event = df_event.reset_index(drop=True)
+        df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
+        df_event = df_event.reset_index(drop=True)
 
-    start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
-    start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
-    start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
-    start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
-    start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
-    start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
-    start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
-    end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+        df_rs = df_event.loc[df_event["event"].str.contains("resting")]
+        df_rs["duration"] = 30
+        dfs.append(df_rs)
+    except:
+        print("no resting state")
 
-    dfs = []
-    df_rs = df_event.loc[df_event["event"].str.contains("resting")]
-    df_rs["duration"] = 45
-    dfs.append(df_rs)
+    try:
+        start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
+        start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
+        start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
+        start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
+        start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
+        start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
+        start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
+        end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    except:
+        print("not enough events")
+        continue
     
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
     df_hab["duration"] = (df_hab["timestamp"].shift(-1) - df_hab["timestamp"]).dt.total_seconds()
@@ -297,8 +304,10 @@ for vp in vps:
 
     df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
     df_test = df_test.loc[~(df_test["event"].str.contains("Teleport"))]
-    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
     df_test = df_test.loc[df_test["event"].str.contains("Enter")]
+    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
+    df_test = df_test.reset_index(drop=True)
+    df_test.loc[len(df_test) - 1, "duration"] = (start_roomrating2 - df_test.loc[len(df_test) - 1, "timestamp"]).total_seconds()
     df_test["event"] = ["Test_" + name[1] for name in df_test["event"].str.split("Enter")]
     dfs.append(df_test)
 
@@ -307,7 +316,11 @@ for vp in vps:
     if len(df_test_person) > 0:
         df_test_person["duration"] = 2
         df_test_person["event"] = ["Test_" + name for name in df_test_person["event"]]
-        dfs.append(df_test_person)
+        for person in list(df_test_person["event"].unique()):
+            # person = list(df_test_person["event"].unique())[1]
+            df_test_person_unique = df_test_person.loc[df_test_person["event"] == person].reset_index(drop=True)
+            df_test_person_unique = drop_consecutive_duplicates(df_test_person_unique, subset="event", tolerance=2.1)
+            dfs.append(df_test_person_unique)
 
     df_event = pd.concat(dfs)
     df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
@@ -349,6 +362,8 @@ for vp in vps:
     df_event.loc[df_event['name'].str.contains("Test_EttoreWasClicked"), 'event'] = 33
     df_event.loc[df_event['name'].str.contains("Test_OskarWasClicked"), 'event'] = 34
 
+    df_event = df_event.drop_duplicates(subset="timestamp", keep="first").reset_index(drop=True)
+
     # Merge "name" and "event"-column to df_ecg
     df_ecg = pd.merge_asof(df_ecg, df_event[["timestamp", "name"]], on="timestamp", direction="backward").reset_index(drop=True)
     tolerance = timedelta(milliseconds=(1 / sampling_rate) * 1000)
@@ -356,13 +371,13 @@ for vp in vps:
 
     # Iterate through experimental phases and check ECG data
     for idx_row, row in df_event.iterrows():
-        # idx_row = 5
+        # idx_row = 3
         # row = df_event.iloc[idx_row]
 
         phase = row['name']
         print(f"Phase: {phase}")
-        if not "Interaction" in phase:
-            continue
+        # if not "Interaction" in phase:
+        #     continue
 
         # Get start and end point of phase
         start_phase = row['timestamp']
@@ -405,6 +420,8 @@ for vp in vps:
             print(e)
             continue
 
+        duration_pre = raw.times.max()
+
         # Use customized neurokit function to analyze ECG
         try:
             signals, peak_detection, mne_events = ecg_custom_process(raw, mne_events, vp=vp, phase=phase, sampling_rate=raw.info['sfreq'],
@@ -423,6 +440,7 @@ for vp in vps:
                                        'HRV (RMSSD)': [np.nan],
                                        'HRV (LF)': [np.nan],
                                        'HRV (HF)': [np.nan],
+                                       'HRV (HF_nu)': [np.nan],
                                        'Proportion Usable Data': [0],
                                        'Duration': [0]})
             df_hr_temp.to_csv(os.path.join(dir_path, 'Data', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
@@ -449,30 +467,28 @@ for vp in vps:
             df_ecg_subset_save.to_csv(os.path.join(dir_path, 'Data', 'hr_interaction.csv'), decimal='.', sep=';',
                                       index=False, mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'hr_interaction.csv'))))
 
-        # Adapt duration in mne_events
-        for idy_row, row in mne_events.iterrows():
-            # idy_row = 0
-            # row = mne_events.iloc[idy_row]
-            if idy_row < len(mne_events) - 2:
-                duration_post = (mne_events.loc[idy_row+1, 'Samples'] - mne_events.loc[idy_row, 'Samples']) / sampling_rate
-                mne_events.loc[idy_row, 'Durations'] = duration_post
-            else:
-                duration_post = mne_events.loc[idy_row, 'Durations']
-                mne_events.loc[idy_row, 'Durations'] = duration_post
+        # duration
+        duration_post = len(signals["ECG_Clean"]) / sampling_rate
 
-        usable_data = duration_post/duration_pre
+        # # Create epochs for neurokit
+        # mne_events.loc[0, 'Durations'] = len(signals["ECG_Clean"]) / sampling_rate
+        # epochs = nk.epochs_create(signals, events=mne_events['Samples'].to_list(), sampling_rate=raw.info['sfreq'],
+        #                           epochs_start=0, epochs_end=mne_events['Durations'].to_list(),
+        #                           event_labels=mne_events['Condition'].to_list(), event_conditions=mne_events['Condition'].to_list())
 
-        # Create epochs for neurokit
-        epochs = nk.epochs_create(signals, events=mne_events['Samples'].to_list(), sampling_rate=raw.info['sfreq'],
-                                  epochs_start=0, epochs_end=mne_events['Durations'].to_list(),
-                                  event_labels=mne_events['Condition'].to_list(), event_conditions=mne_events['Condition'].to_list())
-
-        # HRV: Get MeanNN (mean of RR intervals), RMSSD (square root of the mean of the sum of successive differences between adjacent RR intervals), LF and HF
-        try:
+        # HRV
+        if duration_post >= 30:
+            # Cut signal to 30 seconds (to make phases comparable)
+            signals = signals[0:sampling_rate * 30]
             hrv = nk.hrv(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
-        except Exception as e:
-            hrv = pd.DataFrame([["", "", "", ""]], columns=['HRV_MeanNN', 'HRV_RMSSD', 'HRV_LF', 'HRV_HF'])
-            print(e)
+            hrv_time = nk.hrv_time(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
+            hrv_freq = nk.hrv_frequency(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate, psd_method='fft')
+            # Normative units = 100 * (HF absolute power / (total absolute power − very low frequency absolute power (0–0.003 Hz))
+            hrv_freq = hrv_freq.fillna(value=0)
+            hrv_freq["HRV_HF_nu"] = 100 * (hrv_freq["HRV_HF"] / (hrv_freq["HRV_TP"] - hrv_freq["HRV_ULF"]))
+        else:
+            hrv_time = pd.DataFrame([["", ""]], columns=['HRV_MeanNN', 'HRV_RMSSD'])
+            hrv_freq = pd.DataFrame([["", "", ""]], columns=['HRV_LF', 'HRV_HF', 'HRV_HF_nu'])
 
         # HR: Get Mean and Std
         # Save as dataframe
@@ -481,11 +497,12 @@ for vp in vps:
                                    'event_id': [idx_row],
                                    'HR (Mean)': [np.mean(signals['ECG_Rate'])],
                                    'HR (Std)': [np.std(signals['ECG_Rate'])],
-                                   'HRV (MeanNN)': [hrv['HRV_MeanNN'][0]],
-                                   'HRV (RMSSD)': [hrv['HRV_RMSSD'][0]],
-                                   'HRV (LF)': [hrv['HRV_LF'][0]],
-                                   'HRV (HF)': [hrv['HRV_HF'][0]],
-                                   'Proportion Usable Data': [usable_data],
+                                   'HRV (MeanNN)': [hrv_time['HRV_MeanNN'][0]],
+                                   'HRV (RMSSD)': [hrv_time['HRV_RMSSD'][0]],
+                                   'HRV (LF)': [hrv_freq['HRV_LF'][0]],
+                                   'HRV (HF)': [hrv_freq['HRV_HF'][0]],
+                                   'HRV (HF_nu)': [hrv_freq["HRV_HF_nu"][0]],
+                                   'Proportion Usable Data': [round(duration_post / duration_pre, 2)],
                                    'Duration': [duration_post]})
         df_hr_temp.to_csv(os.path.join(dir_path, 'Data', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
                           header=not (os.path.exists(os.path.join(dir_path, 'Data', 'hr.csv'))))
@@ -498,6 +515,12 @@ df_hr = df_hr.iloc[:, 0:11]
 df_hr = df_hr.dropna(subset=['HR (Mean)'])
 
 # Get conditions
+start = 1
+end = 64
+vps = np.arange(start, end + 1)
+
+problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
+vps = [vp for vp in vps if not vp in problematic_subjects]
 dfs_hr = []
 for vp in vps:
     # vp = vps[3]
@@ -537,7 +560,8 @@ df_hr = pd.concat(dfs_hr)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_hr = df_hr.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
-                               'SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D', 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS',
+                               'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                               'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_hr = df_hr.drop(columns=['ID'])

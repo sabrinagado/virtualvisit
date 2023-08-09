@@ -75,7 +75,7 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 
 # Gaze on ROIs of Virtual Humans
-dvs = ["Gaze Proportion", "Number"]
+dvs = ["Gaze Proportion"]  # , "Number"
 y_labels = ["% Fixations on Person", "Number of Fixations"]
 
 # red = '#E2001A'
@@ -250,9 +250,9 @@ for idx_dv, dv in enumerate(dvs):
 
     # Test: Rooms
     df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
-    conditions = ["friendly", "neutral", "unfriendly"]
+    conditions = ["friendly", "unfriendly"]
     fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(3*len(conditions), 6))
-    titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
+    titles = ["Friendly Person", "Unfriendly Person"]
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
@@ -321,16 +321,16 @@ for idx_dv, dv in enumerate(dvs):
 
 # Gaze on ROIs of Virtual Humans: Relationship with Social Anxiety
 df = df_gaze.loc[df_gaze["Phase"].str.contains("Test")]
-
-conditions = ["friendly", "neutral", "unfriendly"]
-titles = ["Friendly Person", "Neutral Person", "Unfriendly Person"]
-colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
+conditions = ["friendly", "unfriendly"]  # , "neutral"
+titles = ["Friendly Person", "Unfriendly Person"]  # , "Neutral Person"
+colors = ['#B1C800', '#E2001A']
 rois = ["body", "head"]
+fig, axes = plt.subplots(nrows=1, ncols=len(rois), figsize=(3.5*len(rois), 6))
 for idx_roi, roi in enumerate(rois):
     # idx_roi = 0
     # roi = rois[idx_roi]
     df_roi = df.loc[df['ROI'] == roi].dropna(subset="Gaze Proportion").reset_index(drop=True)
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+
     boxWidth = 1
     pos = [1]
 
@@ -349,20 +349,20 @@ for idx_roi, roi in enumerate(rois):
             1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
 
         # Plot regression line
-        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
-        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+        axes[idx_roi].plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        axes[idx_roi].fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
         # Plot raw data points
-        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+        axes[idx_roi].plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
 
-    ax.set_xlabel("SPAI")
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"% Fixations on Person ({roi.capitalize()})")
-    ax.set_title(f"{roi.capitalize()}", fontweight='bold')
-    ax.legend()
-    ax.set_ylim([0, 1])
-    plt.tight_layout()
-    for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"gaze_test_SA_{roi}{end}"), dpi=300)
-    plt.close()
+    axes[idx_roi].set_xlabel("SPAI")
+    axes[idx_roi].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    axes[idx_roi].set_ylabel(f"% Fixations on Person ({roi.capitalize()})")
+    axes[idx_roi].set_title(f"{roi.capitalize()}", fontweight='bold')
+    axes[idx_roi].set_ylim([0, 1])
+axes[1].legend()
+plt.tight_layout()
+for end in (['.png']):  # '.pdf',
+    plt.savefig(os.path.join(save_path, f"gaze_test_SA_{end}"), dpi=300)
+plt.close()
 

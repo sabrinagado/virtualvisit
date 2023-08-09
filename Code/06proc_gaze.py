@@ -12,8 +12,11 @@ from Code.toolbox import utils
 
 dir_path = os.getcwd()
 start = 1
-end = 11
+end = 64
 vps = np.arange(start, end + 1)
+
+problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
+vps = [vp for vp in vps if not vp in problematic_subjects]
 
 
 def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tolerance=0.1):
@@ -58,14 +61,18 @@ for vp in vps:
     df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
     df_event = df_event.reset_index(drop=True)
 
-    start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
-    start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
-    start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
-    start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
-    start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
-    start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
-    start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
-    end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    try:
+        start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
+        start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
+        start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
+        start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
+        start_test = df_event.loc[df_event["event"] == "AllInteractionsFinished", "timestamp"].reset_index(drop=True)[0]
+        start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
+        start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
+        end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
+    except:
+        print("not enough events")
+        continue
 
     dfs = []
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
@@ -83,8 +90,11 @@ for vp in vps:
 
     df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
     df_test = df_test.loc[~(df_test["event"].str.contains("Teleport"))]
-    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
     df_test = df_test.loc[df_test["event"].str.contains("Enter")]
+    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
+    df_test = df_test.reset_index(drop=True)
+    df_test.loc[len(df_test) - 1, "duration"] = (
+                start_roomrating2 - df_test.loc[len(df_test) - 1, "timestamp"]).total_seconds()
     df_test["event"] = ["Test_" + name[1] for name in df_test["event"].str.split("Enter")]
     dfs.append(df_test)
 
@@ -93,7 +103,11 @@ for vp in vps:
     if len(df_test_person) > 0:
         df_test_person["duration"] = 2
         df_test_person["event"] = ["Test_" + name for name in df_test_person["event"]]
-        dfs.append(df_test_person)
+        for person in list(df_test_person["event"].unique()):
+            # person = list(df_test_person["event"].unique())[1]
+            df_test_person_unique = df_test_person.loc[df_test_person["event"] == person].reset_index(drop=True)
+            df_test_person_unique = drop_consecutive_duplicates(df_test_person_unique, subset="event", tolerance=2.1)
+            dfs.append(df_test_person_unique)
 
     df_event = pd.concat(dfs)
     df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
@@ -247,9 +261,10 @@ df_gaze = pd.concat(dfs_gaze)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_gaze = df_gaze.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
-                               'SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D', 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS',
-                               'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
-                               'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
+                                   'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                                   'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
+                                   'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
+                                   'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_gaze = df_gaze.drop(columns=['ID'])
 df_gaze.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False)
 
@@ -297,7 +312,8 @@ df_pupil = pd.concat(dfs_pupil)
 
 df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
 df_pupil = df_pupil.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
-                                     'SSQ', 'SSQ-N', 'SSQ-O', 'SSQ-D', 'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS',
+                                     'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                                     'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                      'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                      'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_pupil = df_pupil.drop(columns=['ID'])

@@ -80,7 +80,7 @@ for effect_size in effect_sizes:
 # plot
 dv = "Dwell Time"
 measure = "s"
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5.5))
 ax.plot(differences, sample_sizes, color=colors[0])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_title(f"Power Analysis: {dv}", fontweight="bold", fontsize="x-large")
@@ -146,7 +146,7 @@ distance_unfriendly = distances["unfriendly"].to_list()
 distance_neutral = distances["neutral"].to_list()
 
 # parameters for power analysis
-values = distance_friendly + distance_unfriendly + distance_neutral
+values = distance_friendly + distance_unfriendly # + distance_neutral
 std = np.std(values)
 mean_diff = abs(np.mean(distance_friendly) - np.mean(distance_unfriendly))
 differences = np.arange(10, 41, 1)
@@ -161,7 +161,7 @@ for effect_size in effect_sizes:
 # plot
 dv = "Interpersonal Distance"
 measure = "cm"
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5.5))
 ax.plot(differences, sample_sizes, color=colors[0])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_title(f"Power Analysis: {dv}", fontweight="bold", fontsize="x-large")
@@ -240,7 +240,7 @@ for effect_size in effect_sizes:
 # plot
 dv = f"Gaze Proportion ({roi.capitalize()})"
 measure = "%"
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5.5))
 ax.plot(differences, sample_sizes, color=colors[0])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_title(f"Power Analysis: {dv}", fontweight="bold", fontsize="x-large")
