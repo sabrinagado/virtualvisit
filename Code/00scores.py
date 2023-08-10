@@ -11,6 +11,7 @@ from matplotlib.lines import Line2D
 import seaborn as sns
 import random
 
+
 def percentiles(lst_vals, alpha, func='mean'):
     lower = np.percentile(np.array(lst_vals), ((1.0 - alpha) / 2.0) * 100, axis=0)
     upper = np.percentile(lst_vals, (alpha + ((1.0 - alpha) / 2.0)) * 100, axis=0)
@@ -287,6 +288,8 @@ df['ID'] = df['ID'].astype('int32')
 
 df.to_csv(os.path.join(file_path, 'scores_summary.csv'), index=False, decimal=',', sep=';', encoding='utf-8-sig')
 
+df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'),decimal=',', sep=';')
+
 problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
 df = df.loc[~(df["ID"].isin(problematic_subjects))]
 print(f"N = {len(df)}")
@@ -448,3 +451,17 @@ plt.tight_layout()
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"Distribution_SPAI{end}"), dpi=300)
 plt.close()
+
+
+from rpy2.situation import (get_r_home)
+os.environ["R_HOME"] = get_r_home()
+# Execute one block after another
+%load_ext rpy2.ipython
+
+df_corr = df[['ASI3', 'SPAI', 'SIAS', 'AQ-K', 'VAS_start_anxiety', 'SSQ-diff', 'IPQ', 'MPS-SocP']]
+
+%%R -i df_corr
+library(apaTables)
+library(tidyverse)
+library(readr)
+apa.cor.table(df_corr, filename = "test.doc", show.sig.stars=TRUE)
