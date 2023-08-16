@@ -575,7 +575,7 @@ for vp in vps:
     df_acq = df_acq.loc[df_acq["event"].str.contains("Interaction")]
     df_acq["duration"] = 5
     df_acq["event"] = [name[1] for name in df_acq["event"].str.split("Start")]
-    df_acq.loc[df_acq["event"].str.contains("Unfiendly"), "event"] = "UnfriendlyInteraction"
+    df_acq = drop_consecutive_duplicates(df_acq, subset="event", keep="first", times="timestamp", tolerance=5)
     dfs.append(df_acq)
 
     df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]

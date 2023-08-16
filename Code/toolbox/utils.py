@@ -175,7 +175,7 @@ def get_sampling_rate(timestamp):
     for i in range(len(timestamp) - 1):
         fs += timestamp[i + 1] - timestamp[i]
 
-    # fs: sampling intervall (every X ms)
+    # fs: sampling interval (every X ms)
     fs = fs / (len(timestamp) - 1)
 
     # sampling rate in Hz (Samples per Second)

@@ -87,7 +87,7 @@ labels = ["Sympathy", "Fear", "Anger", "Attractiveness", "Behavior"]
 conditions = ['Friendly', 'Neutral', 'Unfriendly', 'Unknown']
 
 for idx_label, label in enumerate(labels):
-    # idx_label = 3
+    # idx_label = 1
     # label = labels[idx_label]
 
     boxWidth = 1 / (len(conditions) + 2)
@@ -441,6 +441,18 @@ fig.subplots_adjust(right=0.82)
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"ratings_rooms{end}"), dpi=300, bbox_inches="tight")
 plt.close()
+
+# df_crit = df_rating.loc[df_rating["Criterion"] == "wellbeing"]
+# df_crit = df_crit.loc[~(df_crit["Object"] == "VR")]
+# df_crit = df_crit.loc[(df_crit["Object"] == "Living") | (df_crit["Object"] == "Dining")]
+# formula = f"Value ~ Phase + Object + Condition +" \
+#           f"Phase:Object + Phase:Condition + Object:Condition + " \
+#           f"Phase:Object:Condition + (1 | VP)"
+#
+# lm = smf.ols(formula, data=df_crit).fit()
+# anova = sm.stats.anova_lm(lm, typ=3)
+# sum_sq_error = anova.loc["Residual", "sum_sq"]
+# anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
 
 # Ratings VR
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(6, 6))

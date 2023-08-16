@@ -133,7 +133,7 @@ for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "ED
     # Style Plot
     ax.set_xlim([0, 5])
     ax.set_ylabel(ylabel)
-    ax.set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
+    ax.set_title(f"{ylabel.split(' [')[0]} (N = {len(df['VP'].unique())})", fontweight='bold')
     ax.set_xlabel("Seconds after Interaction Onset")
     ax.legend(loc="upper right")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)

@@ -288,7 +288,7 @@ df['ID'] = df['ID'].astype('int32')
 
 df.to_csv(os.path.join(file_path, 'scores_summary.csv'), index=False, decimal=',', sep=';', encoding='utf-8-sig')
 
-df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'),decimal=',', sep=';')
+df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')
 
 problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
 df = df.loc[~(df["ID"].isin(problematic_subjects))]
@@ -296,6 +296,8 @@ print(f"N = {len(df)}")
 print(f"Mean Age = {df['age'].mean()}, SD = {df['age'].std()}, Range = {df['age'].min()}-{df['age'].max()}")
 print(df['gender'].value_counts(normalize=True))
 
+
+df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')
 save_path = os.path.join(dir_path, 'Plots', 'Scores')
 if not os.path.exists(save_path):
     print('creating path for saving')
@@ -305,7 +307,7 @@ scales = ["SSQ-post", "SSQ-diff", "IPQ", "MPS", "ASI", "SPAI", "SIAS", "AQ", "IS
 colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
 
 for idx_scale, scale in enumerate(scales):
-    # idx_scale = 0
+    # idx_scale = 1
     # scale = scales[idx_scale]
     df_scale = df.filter(like=scale)
     min = np.min(df_scale.min()) - 0.02 * np.max(df_scale.max())
@@ -348,7 +350,7 @@ for idx_scale, scale in enumerate(scales):
                                                func='mean')
 
             axes[idx_subscale].boxplot([df_scale.loc[:, subscale].values],
-                       # notch=True,  # bootstrap=5000,
+                       notch=True,  # bootstrap=5000,
                        medianprops=medianlineprops,
                        meanline=True,
                        showmeans=True,
@@ -357,7 +359,7 @@ for idx_scale, scale in enumerate(scales):
                        whiskerprops=whiskerprops,
                        capprops=capprops,
                        boxprops=boxprops,
-                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                       conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                        whis=[2.5, 97.5],
                        positions=[pos[0]],
                        widths=0.8 * boxWidth)
@@ -365,6 +367,9 @@ for idx_scale, scale in enumerate(scales):
             axes[idx_subscale].set_xticklabels([subscale])
             axes[idx_subscale].set_ylim(min, max)
             axes[idx_subscale].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+            if subscale == "SSQ-diff":
+                axes[idx_subscale].axhline(cutoff, color="lightgrey", linewidth=0.8, linestyle="dashed")
+
         fig.suptitle(scale)
         plt.tight_layout()
         for end in (['.png']):  # '.pdf',
@@ -407,7 +412,7 @@ for idx_scale, scale in enumerate(scales):
                                                func='mean')
 
             ax.boxplot([df_scale.loc[:, subscale].values],
-                                       # notch=True,  # bootstrap=5000,
+                                       notch=True,  # bootstrap=5000,
                                        medianprops=medianlineprops,
                                        meanline=True,
                                        showmeans=True,
@@ -416,7 +421,7 @@ for idx_scale, scale in enumerate(scales):
                                        whiskerprops=whiskerprops,
                                        capprops=capprops,
                                        boxprops=boxprops,
-                                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                       conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                                        whis=[2.5, 97.5],
                                        positions=[pos[0]],
                                        widths=0.8 * boxWidth)
@@ -452,7 +457,7 @@ for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"Distribution_SPAI{end}"), dpi=300)
 plt.close()
 
-
+"""
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
 # Execute one block after another
@@ -465,3 +470,4 @@ library(apaTables)
 library(tidyverse)
 library(readr)
 apa.cor.table(df_corr, filename = "test.doc", show.sig.stars=TRUE)
+"""
