@@ -183,13 +183,14 @@ fig.legend(
      Line2D([0], [0], marker='o', markeredgecolor=colors[3], markeredgewidth=1, markerfacecolor=colors[3], alpha=.7, lw=0)],
     conditions, loc="center right")
 fig.subplots_adjust(right=0.89)
+# plt.tight_layout()
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"ratings_humans{end}"), dpi=300, bbox_inches="tight")
 plt.close()
 
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
-fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 6))
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 labels = ["Sympathy", "Fear", "Anger"]
 conditions = ['Friendly', 'Neutral', 'Unfriendly']
 
@@ -267,18 +268,20 @@ for idx_label, label in enumerate(labels):
 
     # Style Plot
     axes[idx_label].set_ylim([-2, df_crit["Value"].max()+2])
-    # ax.set_title(f"Social Situations (N = {len(df_phase['VP'].unique())})", fontweight='bold')
+    axes[idx_label].set_title(f"{label} (N = {len(df_cond['VP'].unique())})", fontweight='bold')
     axes[idx_label].set_ylabel(label)
     axes[idx_label].set_xticks(range(0, 6))
     axes[idx_label].set_xlabel("SPAI")
     axes[idx_label].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+axes[2].legend(loc="upper right")
 
-fig.legend(
-    [Line2D([0], [0], marker='o', markeredgecolor=colors[0], markeredgewidth=1, markerfacecolor=colors[0], alpha=.7, lw=0),
-     Line2D([0], [0], marker='o', markeredgecolor=colors[1], markeredgewidth=1, markerfacecolor=colors[1], alpha=.7, lw=0),
-     Line2D([0], [0], marker='o', markeredgecolor=colors[2], markeredgewidth=1, markerfacecolor=colors[2], alpha=.7, lw=0),],
-    conditions, loc="center right")
-fig.subplots_adjust(right=0.89)
+# fig.legend(
+#     [Line2D([0], [0], marker='o', markeredgecolor=colors[0], markeredgewidth=1, markerfacecolor=colors[0], alpha=.7, lw=0),
+#      Line2D([0], [0], marker='o', markeredgecolor=colors[1], markeredgewidth=1, markerfacecolor=colors[1], alpha=.7, lw=0),
+#      Line2D([0], [0], marker='o', markeredgecolor=colors[2], markeredgewidth=1, markerfacecolor=colors[2], alpha=.7, lw=0),],
+#     conditions, loc="center right")
+# fig.subplots_adjust(right=0.89)
+plt.tight_layout()
 for end in (['.png']):  # '.pdf',
     plt.savefig(os.path.join(save_path, f"ratings_humans_SPAI{end}"), dpi=300, bbox_inches="tight")
 plt.close()

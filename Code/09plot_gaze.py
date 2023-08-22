@@ -145,7 +145,7 @@ plt.close()
 
 # Gaze on ROIs of Virtual Humans
 dv = "Gaze Proportion"
-y_label = "% Fixations on Person"
+y_label = "Gaze Proportion on Person"
 
 red = '#E2001A'
 green = '#B1C800'
@@ -549,8 +549,8 @@ df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"]
 max = round(df_test[dv].max(), 2) * 1.1
 
 conditions = ["friendly", "unfriendly"]
-titles = ["Friendly Person", "Unfriendly Person"]
-fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(3 * len(conditions), 6))
+titles = ["Spontaneous Fixations on Friendly Person", "Spontaneous Fixations on Unfriendly Person"]
+fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(15, 6))
 df_test = df_test.sort_values(by="SPAI")
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
@@ -664,11 +664,11 @@ ax.set_title(f"Avoidance vs. Hypervigilance (N = {len(df_diff['VP'].unique())})"
 ax.set_xlabel("SPAI")
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.axhline(0, linewidth=0.8, color="k", linestyle="dashed")
-ax.set_ylabel("Difference % Fixations: Unfriendly-Friendly")
+ax.set_ylabel("Difference Gaze Proportion: Unfriendly-Friendly")
 ax.legend(
-    [Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7),
-     Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7)],
-    ["Avoidance", "Hypervigilance"], loc="best")
+    [Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7)],
+    ["Hypervigilance", "Avoidance"], loc="best")
 
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',

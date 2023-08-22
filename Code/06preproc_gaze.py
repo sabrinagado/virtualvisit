@@ -86,6 +86,7 @@ for vp in vps:
     dfs = []
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
     df_hab["duration"] = (df_hab["timestamp"].shift(-1) - df_hab["timestamp"]).dt.total_seconds()
+    df_hab["event"] = df_hab["event"].replace("StartExploringRooms", "EnterOffice")
     df_hab = df_hab.loc[df_hab["event"].str.contains("Enter")]
     df_hab["event"] = ["Habituation_" + name[1] for name in df_hab["event"].str.split("Enter")]
     dfs.append(df_hab)
@@ -129,6 +130,7 @@ for vp in vps:
 
     df_event = pd.concat(dfs)
     df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
+    df_event = df_event.loc[df_event["duration"] > 0]
 
     # Merge "event"-column to df_gaze
     df_gaze = pd.merge_asof(df_gaze_resampled, df_event[["timestamp", "event"]], on="timestamp", direction="backward").reset_index(drop=True)
@@ -181,7 +183,7 @@ for vp in vps:
                                                  'Number': [number]})
                     df_gaze_temp.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False,
                                         mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'gaze.csv'))))
-            if "Interaction" in phase:
+            if ("Interaction" in phase) or ("Click" in phase):
                 start = df_gaze_subset.loc[0, "timestamp"]
                 df_gaze_subset["time"] = pd.to_timedelta(df_gaze_subset["timestamp"] - start)
 
@@ -358,3 +360,54 @@ df_pupil = df_pupil.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tired
                                      'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_pupil = df_pupil.drop(columns=['ID'])
 df_pupil.to_csv(os.path.join(dir_path, 'Data', 'pupil.csv'), decimal='.', sep=';', index=False)
+
+
+# Add Subject Data
+df_pupil = pd.read_csv(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'), decimal='.', sep=';')
+df_pupil = df_pupil.iloc[:, 0:4]
+
+# Get conditions
+dfs_pupil = []
+for vp in vps:
+    # vp = vps[1]
+    vp = f"0{vp}" if vp < 10 else f"{vp}"
+    print(f"VP: {vp}")
+
+    df_pupil_vp = df_pupil.loc[df_pupil["VP"] == int(vp)]
+
+    try:
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
+
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
+        df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
+
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+
+        df_roles = df_roles.merge(df_rooms, on="Role")
+    except:
+        print("no conditions file")
+
+    for idx_row, row in df_roles.iterrows():
+        # idx_row = 0
+        # row = df_roles.iloc[idx_row, :]
+        room = row["Rooms"]
+        role = row["Role"]
+        character = row["Character"]
+        df_pupil_vp["event"] = df_pupil_vp["event"].str.replace(character, role.capitalize())
+    dfs_pupil.append(df_pupil_vp)
+
+df_pupil = pd.concat(dfs_pupil)
+
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_pupil = df_pupil.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
+                                     'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                                     'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
+                                     'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
+                                     'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
+df_pupil = df_pupil.drop(columns=['ID'])
+df_pupil.to_csv(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'), decimal='.', sep=';', index=False)

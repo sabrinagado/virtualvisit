@@ -14,6 +14,7 @@ import statsmodels.formula.api as smf
 import scikit_posthocs as sp
 import random
 
+
 def percentiles(lst_vals, alpha, func='mean'):
     lower = np.percentile(np.array(lst_vals), ((1.0 - alpha) / 2.0) * 100, axis=0)
     upper = np.percentile(lst_vals, (alpha + ((1.0 - alpha) / 2.0)) * 100, axis=0)
@@ -80,21 +81,87 @@ if not os.path.exists(save_path):
 red = '#E2001A'
 green = '#B1C800'
 blue = '#1F82C0'
-colors = [green, blue, red]
 
 # Acquisition
-ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
-for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "EDA", "ECG"], ylabels):
-    # physiology = "pupil"
-    # column_name = "pupil"
-    # ylabel = "Heart Rate (BPM)"
+ylabels = ["Heart Rate (BPM)", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
+colors = [green, blue, red]
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
+for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
+    # physio_idx = 0
+    # physiology = "eda"
+    # column_name = "EDA"
+    # ylabel = "Skin Conductance Level [µS]"
     df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
     if physiology == "hr":
         df = df.loc[(df[column_name] >= df[column_name].mean() - 3 * df[column_name].std()) & (df[column_name] <= df[column_name].mean() + 3 * df[column_name].std())]  # exclude outliers
 
     phases = ["FriendlyInteraction", "NeutralInteraction", "UnfriendlyInteraction"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    # fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
     titles = ["Friendly Interaction", "Neutral Interaction", "Unfriendly Interaction"]
+    for idx_phase, phase in enumerate(phases):
+        # idx_phase = 0
+        # phase = phases[idx_phase]
+        df_phase = df.loc[df['event'] == phase]
+
+        times = df_phase["time"].unique()
+        mean = df_phase.groupby("time")[column_name].mean()
+        sem = df_phase.groupby("time")[column_name].sem()
+
+        # Plot line
+        axes[physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
+        axes[physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
+
+    # df_resample = df.copy()
+    # df_resample["second"] = df_resample["time"].astype("int")
+    # df_resample = df_resample.drop(columns="time")
+    # df_resample = df_resample.groupby(["VP", "event", "second"]).mean().reset_index()
+    y_pos = axes[physio_idx].get_ylim()[0] + 0.02 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
+
+    for timepoint in df["time"].unique():
+        # timepoint = 0
+        df_tp = df.loc[(df["time"] == timepoint)]
+        df_tp = df_tp.loc[df_tp["event"].isin(phases)]
+        df_tp = df_tp.loc[~(df_tp["event"].str.contains("Neutral"))]
+        formula = f"{column_name} ~ event + (1 | VP)"
+
+        lm = smf.ols(formula, data=df_tp).fit()
+        anova = sm.stats.anova_lm(lm, typ=3)
+        sum_sq_error = anova.loc["Residual", "sum_sq"]
+        anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+
+        p = anova.loc["event", "PR(>F)"].item()
+        if p < 0.05:
+            axes[physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint+0.1, linewidth=5, color='gold')
+
+    # Style Plot
+    axes[physio_idx].set_xlim([0, 5])
+    axes[physio_idx].set_ylabel(ylabel)
+    axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')} (N = {len(df['VP'].unique())})", fontweight='bold')
+    axes[physio_idx].set_xlabel("Seconds after Interaction Onset")
+    axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+
+axes[2].legend(loc="upper right")
+plt.tight_layout()
+for end in (['.png']):  # '.pdf',
+    plt.savefig(os.path.join(save_path, f"physiology_acq{end}"), dpi=300)
+plt.close()
+
+
+# Clicks
+ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
+colors = [green, red]
+for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "EDA", "ECG"], ylabels):
+    # physiology = "hr"
+    # column_name = "ECG"
+    # ylabel = "Heart Rate (BPM)"
+    df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
+    if physiology == "hr":
+        df = df.loc[(df[column_name] >= df[column_name].mean() - 3 * df[column_name].std()) & (df[column_name] <= df[column_name].mean() + 3 * df[column_name].std())]  # exclude outliers
+    df = df.loc[df["time"] < 3]
+
+    phases = ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    titles = ["Friendly Clicked", "Unfriendly Clicked"]
     for idx_phase, phase in enumerate(phases):
         # idx_phase = 0
         # phase = phases[idx_phase]
@@ -118,7 +185,7 @@ for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "ED
         # timepoint = 0
         df_tp = df.loc[(df["time"] == timepoint)]
 
-        df_tp = df_tp.loc[~(df_tp["event"].str.contains("Neutral"))]
+        df_tp = df_tp.loc[df_tp["event"].isin(phases)]
         formula = f"{column_name} ~ event + (1 | VP)"
 
         lm = smf.ols(formula, data=df_tp).fit()
@@ -131,18 +198,19 @@ for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "ED
             ax.hlines(y=y_pos, xmin=timepoint, xmax=timepoint+0.1, linewidth=5, color='gold')
 
     # Style Plot
-    ax.set_xlim([0, 5])
+    ax.set_xlim([0, 2.9])
     ax.set_ylabel(ylabel)
     ax.set_title(f"{ylabel.split(' [')[0]} (N = {len(df['VP'].unique())})", fontweight='bold')
-    ax.set_xlabel("Seconds after Interaction Onset")
+    ax.set_xlabel("Seconds after Click")
     ax.legend(loc="upper right")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.legend()
 
     plt.tight_layout()
     for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"{physiology}_acq{end}"), dpi=300)
+        plt.savefig(os.path.join(save_path, f"{physiology}_click{end}"), dpi=300)
     plt.close()
+
 
 # Test Phase
 red = '#E2001A'
