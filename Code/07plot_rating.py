@@ -195,7 +195,7 @@ labels = ["Sympathy", "Fear", "Anger"]
 conditions = ['Friendly', 'Neutral', 'Unfriendly']
 
 for idx_label, label in enumerate(labels):
-    # idx_label = 1
+    # idx_label = 0
     # label = labels[idx_label]
     df_crit = df_rating.loc[df_rating["Criterion"] == label]
     df_crit = df_crit.sort_values(by="SPAI")

@@ -245,7 +245,7 @@ df_subset = df_subset.merge(df[["VP", "SPAI"]].drop_duplicates(subset="VP"), on=
 conditions = ["friendly", "unfriendly"]
 phases = ['Habituation', 'Test']
 titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1 / (len(conditions) + 1)
 pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -682,7 +682,7 @@ df_grouped = df_grouped.loc[df_grouped["Condition"].isin(conditions)]
 titles = ["Friendly Person", "Unfriendly Person"]
 colors = [green, red]
 
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1 / (len(conditions) + 1)
 pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -765,7 +765,7 @@ for end in (['.png']):  # '.pdf',
 plt.close()
 
 # Interpersonal Distance: Correlation with SPAI
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1
 pos = [1]
 conditions = ["friendly", "unfriendly"]
@@ -807,6 +807,7 @@ for idx_condition, condition in enumerate(conditions):
 ax.set_xlabel("SPAI")
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Minimal Distance to the Virtual Humans [cm]")
+ax.set_title("Minimal Interpersonal Distance", fontweight='bold')
 ax.legend()
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
@@ -912,7 +913,7 @@ for end in (['.png']):  # '.pdf',
 plt.close()
 
 # Clicks: Correlation with SPAI
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1
 pos = [1]
 conditions = ["friendly", "unfriendly"]
@@ -955,7 +956,8 @@ for idx_condition, condition in enumerate(conditions):
 
 ax.set_xlabel("SPAI")
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Number of Clicks on the Virtual Humans")
+ax.set_ylabel(f"Number of Clicks on the Virtual Humans (Test-Phase)")
+ax.set_title(f"Additional Interaction Attempts", fontweight="bold")
 ax.legend()
 plt.tight_layout()
 for end in (['.png']):  # '.pdf',
@@ -1162,7 +1164,7 @@ colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
 
 df_dist = df_dist.sort_values(by="SPAI")
 for idx_dv, dv in enumerate(['walking_distance', 'average_distance_to_start', 'maximum_distance_to_start']):
-    # dv = 'maximum_distance_to_start'
+    # dv = 'walking_distance'
     formula = f"{dv} ~ phase + SPAI + phase:SPAI + (1 | VP)"
 
     lm = smf.ols(formula, data=df_dist).fit()

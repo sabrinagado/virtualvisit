@@ -402,8 +402,8 @@ df_spai = df_click[["VP", "SPAI"]].drop_duplicates(subset="VP")
 df_grouped = df_click.groupby(["VP", "Phase", "Person", "Condition", "ROI"]).mean().reset_index()
 max = round(df_grouped[dv].max(), 2) * 1.1
 
-fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(3 * len(phases), 6))
-titles = ["Clicked Friendly", "Clicked Unfriendly"]
+fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(7.5, 6))
+titles = ["Fixations after Click on\nFriendly Person", "Fixations after Click on\nUnfriendly Person"]
 df_grouped = df_grouped.sort_values(by="SPAI")
 for idx_phase, phase in enumerate(phases):
     # idx_phase = 0
@@ -549,8 +549,8 @@ df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"]
 max = round(df_test[dv].max(), 2) * 1.1
 
 conditions = ["friendly", "unfriendly"]
-titles = ["Spontaneous Fixations on Friendly Person", "Spontaneous Fixations on Unfriendly Person"]
-fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(15, 6))
+titles = ["Spontaneous Fixations on\nFriendly Person", "Spontaneous Fixations on\nUnfriendly Person"]
+fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(7.5, 6))
 df_test = df_test.sort_values(by="SPAI")
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
