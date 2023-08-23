@@ -6,6 +6,8 @@
 import os
 import numpy as np
 import pandas as pd
+import random
+import math
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -13,67 +15,13 @@ from matplotlib import patches
 from scipy.stats import linregress
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-import scikit_posthocs as sp
-import random
-import math
+import pingouin as pg
+import rpy2
+from rpy2.situation import (get_r_home)
+os.environ["R_HOME"] = get_r_home()
+import pymer4
 
-
-def percentiles(lst_vals, alpha, func='mean'):
-    lower = np.percentile(np.array(lst_vals), ((1.0 - alpha) / 2.0) * 100, axis=0)
-    upper = np.percentile(lst_vals, (alpha + ((1.0 - alpha) / 2.0)) * 100, axis=0)
-    if func == 'mean':
-        mean = np.mean(lst_vals, axis=0)
-    elif func == 'median':
-        mean = np.median(lst_vals, axis=0)
-    return lower, mean, upper
-
-
-def bootstrapping(input_sample,
-                  sample_size=None,
-                  numb_iterations=1000,
-                  alpha=0.95,
-                  plot_hist=False,
-                  as_dict=True,
-                  func='mean'):  # mean, median
-
-    if sample_size == None:
-        sample_size = len(input_sample)
-
-    lst_means = []
-
-    # ---------- Bootstrapping ------------------------------------------------
-
-    print('\nBootstrapping with {} iterations and alpha: {}'.format(numb_iterations, alpha))
-    for i in range(numb_iterations):
-        try:
-            re_sampled = random.choices(input_sample.values, k=sample_size)
-        except:
-            re_sampled = random.choices(input_sample, k=sample_size)
-
-        if func == 'mean':
-            lst_means.append(np.nanmean(np.array(re_sampled), axis=0))
-        elif func == 'median':
-            lst_means.append(np.median(np.array(re_sampled), axis=0))
-        # lst_means.append(np.median(np.array(re_sampled), axis=0))
-
-    # ---------- Konfidenzintervall -------------------------------------------
-
-    lower, mean, upper = percentiles(lst_means, alpha)
-
-    dict_return = {'lower': lower, 'mean': mean, 'upper': upper}
-
-    # ---------- Visulisierung ------------------------------------------------
-
-    if plot_hist:
-        plt.hist(lst_means)
-
-    # ---------- RETURN -------------------------------------------------------
-
-    if as_dict:
-        return dict_return
-    else:
-        return mean, np.array([np.abs(lower - mean), (upper - mean)])
-
+from Code.toolbox import utils
 
 dir_path = os.getcwd()
 save_path = os.path.join(dir_path, 'Plots', 'Behavior')
@@ -95,7 +43,7 @@ df_subset.loc[df_subset['event'].str.contains("Office"), "room"] = "Office"
 df_subset.loc[df_subset['event'].str.contains("Living"), "room"] = "Living"
 df_subset.loc[df_subset['event'].str.contains("Dining"), "room"] = "Dining"
 df_subset = df_subset.dropna(subset="duration")
-df_subset = df_subset.groupby(["VP", "phase", "room"]).sum().reset_index()
+df_subset = df_subset.groupby(["VP", "phase", "room"]).sum(numeric_only=True).reset_index()
 df_subset = df_subset.drop(columns="SPAI")
 df_subset = df_subset.merge(df[["VP", "SPAI"]].drop_duplicates(subset="VP"), on="VP")
 
@@ -136,7 +84,7 @@ for idx_room, room in enumerate(rooms):
 
         fwr_correction = True
         alpha = (1 - (0.05))
-        bootstrapping_dict = bootstrapping(df_phase.loc[:, "duration"].values,
+        bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "duration"].values,
                                            numb_iterations=5000,
                                            alpha=alpha,
                                            as_dict=True,
@@ -163,13 +111,14 @@ for idx_room, room in enumerate(rooms):
             print(f"r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
 
     formula = f"duration ~ phase + (1 | VP)"
+    model = pymer4.models.Lmer(formula, data=df_room)
+    model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
+    p = anova.loc["phase", "P-val"].item()
 
-    lm = smf.ols(formula, data=df_room).fit()
-    anova = sm.stats.anova_lm(lm, typ=3)
-    sum_sq_error = anova.loc["Residual", "sum_sq"]
-    anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
-    p = anova.loc["phase", "PR(>F)"].item()
     max = df_subset["duration"].max()
     if p < 0.05:
         ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
@@ -185,28 +134,30 @@ formula = f"duration ~ phase + room + SPAI + " \
           f"phase:room + phase:SPAI + room:SPAI +" \
           f"phase:room:SPAI + (1 | VP)"
 
-lm = smf.ols(formula, data=df_crit).fit()
-anova = sm.stats.anova_lm(lm, typ=3)
-sum_sq_error = anova.loc["Residual", "sum_sq"]
-anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
-contrasts = sp.posthoc_ttest(df_crit, val_col='duration', group_col='room', p_adjust='holm')
 max = df_subset["duration"].max()
-p_con = contrasts.loc["Dining", "Living"].item()
+model = pymer4.models.Lmer(formula, data=df_crit)
+model.fit(factors={"phase": ["Habituation", "Test"], "room": ["Office", "Living", "Dining"]}, summarize=False)
+anova = model.anova(force_orthogonal=True)
+sum_sq_error = (sum(i * i for i in model.residuals))
+anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+estimates, contrasts = model.post_hoc(marginal_vars="room", p_adjust="holm")
+p_con = contrasts.loc[contrasts["Contrast"] == "Dining - Living", "P-val"].item()
 if p_con < 0.05:
     ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
     ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
     ax.vlines(x=1.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
     p_sign = "***" if p_con < 0.001 else "**" if p_con < 0.01 else "*" if p_con < 0.05 else ""
     ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
-p_con = contrasts.loc["Dining", "Office"].item()
+
+p_con = contrasts.loc[contrasts["Contrast"] == "Dining - Office", "P-val"].item()
 if p_con < 0.05:
     ax.hlines(y=max*1.10, xmin=1.51, xmax=2.49, linewidth=0.7, color='k')
     ax.vlines(x=1.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
     ax.vlines(x=2.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
     p_sign = "***" if p_con < 0.001 else "**" if p_con < 0.01 else "*" if p_con < 0.05 else ""
     ax.text(2, max*1.105, p_sign, color='k', horizontalalignment='center')
-p_con = contrasts.loc["Living", "Office"].item()
+
+p_con = contrasts.loc[contrasts["Contrast"] == "Living - Office", "P-val"].item()
 if p_con < 0.05:
     ax.hlines(y=max*1.15, xmin=0.51, xmax=2.49, linewidth=0.7, color='k')
     ax.vlines(x=0.51, ymin=max*1.14, ymax=max*1.15, linewidth=0.7, color='k')
@@ -225,8 +176,7 @@ fig.legend(
      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
     ["Habituation", "Test"], loc="center right")
 fig.subplots_adjust(right=0.85)
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"duration_rooms{end}"), dpi=300, bbox_inches="tight")
+plt.savefig(os.path.join(save_path, f"duration_rooms.png"), dpi=300, bbox_inches="tight")
 plt.close()
 
 
@@ -238,7 +188,7 @@ df_subset.loc[df_subset['event'].str.contains("Office"), "room"] = "Office"
 df_subset.loc[df_subset['event'].str.contains("Living"), "room"] = "Living"
 df_subset.loc[df_subset['event'].str.contains("Dining"), "room"] = "Dining"
 df_subset = df_subset.dropna(subset="duration")
-df_subset = df_subset.groupby(["VP", "phase", "room", "Condition"]).sum().reset_index()
+df_subset = df_subset.groupby(["VP", "phase", "room", "Condition"]).sum(numeric_only=True).reset_index()
 df_subset = df_subset.drop(columns="SPAI")
 df_subset = df_subset.merge(df[["VP", "SPAI"]].drop_duplicates(subset="VP"), on="VP")
 
@@ -286,7 +236,7 @@ for idx_condition, condition in enumerate(conditions):
 
         fwr_correction = True
         alpha = (1 - (0.05))
-        bootstrapping_dict = bootstrapping(df_phase.loc[:, "duration"].values,
+        bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "duration"].values,
                                            numb_iterations=5000,
                                            alpha=alpha,
                                            as_dict=True,
@@ -308,13 +258,14 @@ for idx_condition, condition in enumerate(conditions):
                                 widths=0.8 * boxWidth)
 
     formula = f"duration ~ phase + (1 | VP)"
+    model = pymer4.models.Lmer(formula, data=df_cond)
+    model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
+    p = anova.loc["phase", "P-val"].item()
 
-    lm = smf.ols(formula, data=df_cond).fit()
-    anova = sm.stats.anova_lm(lm, typ=3)
-    sum_sq_error = anova.loc["Residual", "sum_sq"]
-    anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
-    p = anova.loc["phase", "PR(>F)"].item()
     max = df_subset["duration"].max()
     if p < 0.05:
         ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
@@ -330,13 +281,15 @@ formula = f"duration ~ phase + Condition + SPAI + " \
           f"phase:Condition + phase:SPAI + Condition:SPAI +" \
           f"phase:Condition:SPAI + (1 | VP)"
 
-lm = smf.ols(formula, data=df_crit).fit()
-anova = sm.stats.anova_lm(lm, typ=3)
-sum_sq_error = anova.loc["Residual", "sum_sq"]
-anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
 max = df_subset["duration"].max()
-p = anova.loc["Condition", "PR(>F)"].item()
+model = pymer4.models.Lmer(formula, data=df_crit)
+model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
+anova = model.anova(force_orthogonal=True)
+sum_sq_error = (sum(i * i for i in model.residuals))
+anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="phase", p_adjust="holm")
+
+p = anova.loc["Condition", "P-val"].item()
 if p < 0.05:
     ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
     ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
@@ -344,21 +297,13 @@ if p < 0.05:
     p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
     ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
 
-df_crit = df_subset.loc[df_subset["phase"].str.contains("Test")]
-formula = f"duration ~ Condition + (1 | VP)"
-
-lm = smf.ols(formula, data=df_crit).fit()
-anova = sm.stats.anova_lm(lm, typ=3)
-sum_sq_error = anova.loc["Residual", "sum_sq"]
-anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
-p = anova.loc["Condition", "PR(>F)"].item()
+p_test = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
 max = df_subset["duration"].max()
-if p < 0.05:
+if p_test < 0.05:
     ax.hlines(y=max*1.10, xmin=2*boxWidth, xmax=1+2*boxWidth, linewidth=0.7, color='k')
     ax.vlines(x=2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
     ax.vlines(x=1+2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-    p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+    p_sign = "***" if p_test < 0.001 else "**" if p_test < 0.01 else "*" if p_test < 0.05 else ""
     ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
 ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
@@ -378,8 +323,7 @@ ax.legend(
 #      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
 #     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
 # fig.subplots_adjust(right=0.76)
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"duration_test{end}"), dpi=300, bbox_inches="tight")
+plt.savefig(os.path.join(save_path, f"duration_test.png"), dpi=300, bbox_inches="tight")
 plt.close()
 
 
@@ -427,15 +371,14 @@ ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Total Duration [s] in Test Phase")
 ax.legend()
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"duration_test_SA{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"duration_test_SA.png"), dpi=300)
 plt.close()
 
 
 # Difference
 df_test = df_subset.loc[df_subset['phase'] == "Test"]
 df_spai = df_test[["VP", "SPAI"]].drop_duplicates(subset="VP")
-df_diff = df_test.groupby(["VP", "Condition"]).sum().reset_index()
+df_diff = df_test.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
 df_diff = df_diff.pivot(index='VP', columns='Condition', values='duration').reset_index()
 df_diff = df_diff.fillna(0)
 df_diff["difference"] = df_diff["unfriendly"] - df_diff["friendly"]
@@ -473,11 +416,10 @@ ax.set_ylabel("Difference Duration in Proximity: Unfriendly-Friendly")
 ax.legend(
     [Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7),
      Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7)],
-    ["Hypervigilance", "Avoidance"], loc="best")
+    ["Hypervigilance", "Avoidance"], loc="upper right")
 
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"duration_test-diff_SPAI{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"duration_test-diff_SPAI.png"), dpi=300)
 plt.close()
 
 
@@ -524,7 +466,7 @@ for idx_condition, condition in enumerate(conditions):
 
     fwr_correction = True
     alpha = (1 - (0.05))
-    bootstrapping_dict = bootstrapping(df_cond.loc[:, "distance"].values,
+    bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "distance"].values,
                                        numb_iterations=5000,
                                        alpha=alpha,
                                        as_dict=True,
@@ -550,13 +492,15 @@ df_crit["SPAI"] = (df_crit["SPAI"] - df_crit["SPAI"].mean()) / df_crit["SPAI"].s
 
 formula = f"distance ~ Condition + SPAI + Condition:SPAI + (1 | VP)"
 
-lm = smf.ols(formula, data=df_crit).fit()
-anova = sm.stats.anova_lm(lm, typ=3)
-sum_sq_error = anova.loc["Residual", "sum_sq"]
-anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
 max = df_grouped["distance"].max()
-p = anova.loc["Condition", "PR(>F)"].item()
+model = pymer4.models.Lmer(formula, data=df_crit)
+model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+anova = model.anova(force_orthogonal=True)
+sum_sq_error = (sum(i * i for i in model.residuals))
+anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+p = anova.loc["Condition", "P-val"].item()
 if p < 0.05:
     ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
     ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
@@ -568,8 +512,7 @@ ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Average Distance to the Virtual Humans [cm]")
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"distance_test{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"distance_test.png"), dpi=300)
 plt.close()
 
 # Interpersonal Distance: Correlation with SPAI
@@ -617,8 +560,7 @@ ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Average Distance to the Virtual Humans [cm]")
 ax.legend()
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"distance_test_SA{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"distance_test_SA.png"), dpi=300)
 plt.close()
 
 # Difference
@@ -662,12 +604,12 @@ ax.set_ylabel("Difference Average Interpersonal Distance: Unfriendly-Friendly")
 ax.legend(
     [Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7),
      Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7)],
-    ["Hypervigilance", "Avoidance"], loc="best")
+    ["Hypervigilance", "Avoidance"], loc="upper right")
 
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"distance_test-diff_SPAI{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"distance_test-diff_SPAI.png"), dpi=300)
 plt.close()
+
 
 # Interpersonal Distance (Minimum)
 df = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
@@ -710,7 +652,7 @@ for idx_condition, condition in enumerate(conditions):
 
     fwr_correction = True
     alpha = (1 - (0.05))
-    bootstrapping_dict = bootstrapping(df_cond.loc[:, "distance"].values,
+    bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "distance"].values,
                                        numb_iterations=5000,
                                        alpha=alpha,
                                        as_dict=True,
@@ -736,13 +678,15 @@ df_crit["SPAI"] = (df_crit["SPAI"] - df_crit["SPAI"].mean()) / df_crit["SPAI"].s
 
 formula = f"distance ~ Condition + SPAI + Condition:SPAI + (1 | VP)"
 
-lm = smf.ols(formula, data=df_crit).fit()
-anova = sm.stats.anova_lm(lm, typ=3)
-sum_sq_error = anova.loc["Residual", "sum_sq"]
-anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
 max = df_grouped["distance"].max()
-p = anova.loc["Condition", "PR(>F)"].item()
+model = pymer4.models.Lmer(formula, data=df_crit)
+model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+anova = model.anova(force_orthogonal=True)
+sum_sq_error = (sum(i * i for i in model.residuals))
+anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+p = anova.loc["Condition", "P-val"].item()
 if p < 0.05:
     ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
     ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
@@ -760,8 +704,7 @@ ax.legend(
     ["Friendly", "Unfriendly"], loc="upper right")
 
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"min_distance_test{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"min_distance_test.png"), dpi=300)
 plt.close()
 
 # Interpersonal Distance: Correlation with SPAI
@@ -810,8 +753,7 @@ ax.set_ylabel(f"Minimal Distance to the Virtual Humans [cm]")
 ax.set_title("Minimal Interpersonal Distance", fontweight='bold')
 ax.legend()
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"min_distance_test_SA{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"min_distance_test_SA.png"), dpi=300)
 plt.close()
 
 
@@ -864,7 +806,7 @@ for idx_condition, condition in enumerate(conditions):
 
     fwr_correction = True
     alpha = (1 - (0.05))
-    bootstrapping_dict = bootstrapping(df_cond.loc[:, "click_count"].values,
+    bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "click_count"].values,
                                        numb_iterations=5000,
                                        alpha=alpha,
                                        as_dict=True,
@@ -890,13 +832,15 @@ df_crit["SPAI"] = (df_crit["SPAI"] - df_crit["SPAI"].mean()) / df_crit["SPAI"].s
 
 formula = f"click_count ~ Condition + SPAI + Condition:SPAI + (1 | VP)"
 
-lm = smf.ols(formula, data=df_crit).fit()
-anova = sm.stats.anova_lm(lm, typ=3)
-sum_sq_error = anova.loc["Residual", "sum_sq"]
-anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
 max = df_subset["click_count"].max()
-p = anova.loc["Condition", "PR(>F)"].item()
+model = pymer4.models.Lmer(formula, data=df_crit)
+model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+anova = model.anova(force_orthogonal=True)
+sum_sq_error = (sum(i * i for i in model.residuals))
+anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+p = anova.loc["Condition", "P-val"].item()
 if p < 0.05:
     ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
     ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
@@ -908,8 +852,7 @@ ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Number of Clicks on the Virtual Humans")
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"clicks_test{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"clicks_test.png"), dpi=300)
 plt.close()
 
 # Clicks: Correlation with SPAI
@@ -960,8 +903,7 @@ ax.set_ylabel(f"Number of Clicks on the Virtual Humans (Test-Phase)")
 ax.set_title(f"Additional Interaction Attempts", fontweight="bold")
 ax.legend()
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"clicks_test_SA{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"clicks_test_SA.png"), dpi=300)
 plt.close()
 
 
@@ -1047,8 +989,7 @@ for vp_block in vps:
         axes[idx_vp, 1].axis('off')
 
     plt.tight_layout()
-    for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"movement_{vp_block[0]}-{vp_block[-1]}{end}"), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(save_path, f"movement_{vp_block[0]}-{vp_block[-1]}.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
 
@@ -1149,12 +1090,13 @@ for cutoff in [2.79, np.median(df_spai)]:
     # plt.colorbar(scalarMap, cax=cax, ticks=[0, 1, 2, 3, 4], label="SPAI")
 
     plt.tight_layout()
-    for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"movement_{title}{end}"), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(save_path, f"movement_{title}.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
 
 # Walking Distance
+df_dist = pd.read_csv(os.path.join(dir_path, 'Data', 'walking_distance.csv'), decimal='.', sep=';')
+
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 6))
 boxWidth = 1
 pos = [1]
@@ -1167,10 +1109,12 @@ for idx_dv, dv in enumerate(['walking_distance', 'average_distance_to_start', 'm
     # dv = 'walking_distance'
     formula = f"{dv} ~ phase + SPAI + phase:SPAI + (1 | VP)"
 
-    lm = smf.ols(formula, data=df_dist).fit()
-    anova = sm.stats.anova_lm(lm, typ=3)
-    sum_sq_error = anova.loc["Residual", "sum_sq"]
-    anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+    model = pymer4.models.Lmer(formula, data=df_dist)
+    model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
 
     for idx_phase, phase in enumerate(phases):
         # idx_phase = 0
@@ -1210,10 +1154,8 @@ for idx_dv, dv in enumerate(['walking_distance', 'average_distance_to_start', 'm
     axes[idx_dv].set_title(f"{dv.replace('_', ' ').title()}", fontweight="bold")
 axes[2].legend()
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"walking_distance_SA{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"walking_distance_SA.png"), dpi=300)
 plt.close()
-
 
 df_hr = pd.read_csv(os.path.join(dir_path, 'Data', f'hr.csv'), decimal='.', sep=';')
 df_hr = df_hr.loc[(df_hr["Phase"].str.contains("Habituation")) | (df_hr["Phase"].str.contains("Test"))]

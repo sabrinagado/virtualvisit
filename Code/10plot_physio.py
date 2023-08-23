@@ -6,70 +6,19 @@
 import os
 import numpy as np
 import pandas as pd
+import random
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from scipy.stats import linregress
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-import scikit_posthocs as sp
-import random
+import pingouin as pg
+import rpy2
+from rpy2.situation import (get_r_home)
+os.environ["R_HOME"] = get_r_home()
+import pymer4
 
-
-def percentiles(lst_vals, alpha, func='mean'):
-    lower = np.percentile(np.array(lst_vals), ((1.0 - alpha) / 2.0) * 100, axis=0)
-    upper = np.percentile(lst_vals, (alpha + ((1.0 - alpha) / 2.0)) * 100, axis=0)
-    if func == 'mean':
-        mean = np.mean(lst_vals, axis=0)
-    elif func == 'median':
-        mean = np.median(lst_vals, axis=0)
-    return lower, mean, upper
-
-
-def bootstrapping(input_sample,
-                  sample_size=None,
-                  numb_iterations=1000,
-                  alpha=0.95,
-                  plot_hist=False,
-                  as_dict=True,
-                  func='mean'):  # mean, median
-
-    if sample_size == None:
-        sample_size = len(input_sample)
-
-    lst_means = []
-
-    # ---------- Bootstrapping ------------------------------------------------
-
-    print('\nBootstrapping with {} iterations and alpha: {}'.format(numb_iterations, alpha))
-    for i in range(numb_iterations):
-        try:
-            re_sampled = random.choices(input_sample.values, k=sample_size)
-        except:
-            re_sampled = random.choices(input_sample, k=sample_size)
-
-        if func == 'mean':
-            lst_means.append(np.nanmean(np.array(re_sampled), axis=0))
-        elif func == 'median':
-            lst_means.append(np.median(np.array(re_sampled), axis=0))
-        # lst_means.append(np.median(np.array(re_sampled), axis=0))
-
-    # ---------- Konfidenzintervall -------------------------------------------
-
-    lower, mean, upper = percentiles(lst_means, alpha)
-
-    dict_return = {'lower': lower, 'mean': mean, 'upper': upper}
-
-    # ---------- Visulisierung ------------------------------------------------
-
-    if plot_hist:
-        plt.hist(lst_means)
-
-    # ---------- RETURN -------------------------------------------------------
-
-    if as_dict:
-        return dict_return
-    else:
-        return mean, np.array([np.abs(lower - mean), (upper - mean)])
+from Code.toolbox import utils
 
 
 dir_path = os.getcwd()
@@ -111,10 +60,6 @@ for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda",
         axes[physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
         axes[physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
 
-    # df_resample = df.copy()
-    # df_resample["second"] = df_resample["time"].astype("int")
-    # df_resample = df_resample.drop(columns="time")
-    # df_resample = df_resample.groupby(["VP", "event", "second"]).mean().reset_index()
     y_pos = axes[physio_idx].get_ylim()[0] + 0.02 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
 
     for timepoint in df["time"].unique():
@@ -124,12 +69,11 @@ for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda",
         df_tp = df_tp.loc[~(df_tp["event"].str.contains("Neutral"))]
         formula = f"{column_name} ~ event + (1 | VP)"
 
-        lm = smf.ols(formula, data=df_tp).fit()
-        anova = sm.stats.anova_lm(lm, typ=3)
-        sum_sq_error = anova.loc["Residual", "sum_sq"]
-        anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+        model = pymer4.models.Lmer(formula, data=df_tp)
+        model.fit(factors={"event": ["FriendlyInteraction", "UnfriendlyInteraction"]}, summarize=False)
+        anova = model.anova(force_orthogonal=True)
 
-        p = anova.loc["event", "PR(>F)"].item()
+        p = anova.loc["event", "P-val"].item()
         if p < 0.05:
             axes[physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint+0.1, linewidth=5, color='gold')
 
@@ -175,25 +119,19 @@ for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "ED
         ax.plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
         ax.fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
 
-    # df_resample = df.copy()
-    # df_resample["second"] = df_resample["time"].astype("int")
-    # df_resample = df_resample.drop(columns="time")
-    # df_resample = df_resample.groupby(["VP", "event", "second"]).mean().reset_index()
     y_pos = ax.get_ylim()[0] + 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
 
     for timepoint in df["time"].unique():
         # timepoint = 0
         df_tp = df.loc[(df["time"] == timepoint)]
-
         df_tp = df_tp.loc[df_tp["event"].isin(phases)]
         formula = f"{column_name} ~ event + (1 | VP)"
 
-        lm = smf.ols(formula, data=df_tp).fit()
-        anova = sm.stats.anova_lm(lm, typ=3)
-        sum_sq_error = anova.loc["Residual", "sum_sq"]
-        anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+        model = pymer4.models.Lmer(formula, data=df_tp)
+        model.fit(factors={"event": ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]}, summarize=False)
+        anova = model.anova(force_orthogonal=True)
 
-        p = anova.loc["event", "PR(>F)"].item()
+        p = anova.loc["event", "P-val"].item()
         if p < 0.05:
             ax.hlines(y=y_pos, xmin=timepoint, xmax=timepoint+0.1, linewidth=5, color='gold')
 
@@ -274,7 +212,7 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
 
             fwr_correction = True
             alpha = (1 - (0.05))
-            bootstrapping_dict = bootstrapping(df_phase.loc[:, dv].values,
+            bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, dv].values,
                                                numb_iterations=5000,
                                                alpha=alpha,
                                                as_dict=True,
@@ -296,14 +234,14 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
                        widths=0.8 * boxWidth)
 
         df_cond = df_cond.rename(columns={dv: physiology})
-        formula = f"{physiology} ~ phase + (1 | VP)"
+        formula = f"{physiology} ~ Phase + (1 | VP)"
 
-        lm = smf.ols(formula, data=df_cond).fit()
-        anova = sm.stats.anova_lm(lm, typ=3)
-        sum_sq_error = anova.loc["Residual", "sum_sq"]
-        anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+        model = pymer4.models.Lmer(formula, data=df_cond)
+        model.fit(factors={"Phase": ['Habituation_DiningRoom', 'Test_DiningRoom', 'Habituation_LivingRoom', 'Test_LivingRoom']}, summarize=False)
+        anova = model.anova(force_orthogonal=True)
+        estimates, contrasts = model.post_hoc(marginal_vars="Phase", p_adjust="holm")
 
-        p = anova.loc["phase", "PR(>F)"].item()
+        p = anova.loc["Phase", "P-val"].item()
         max = df_subset[dv].max()
         if p < 0.05:
             ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
@@ -312,35 +250,17 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
             p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
             ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
 
-    # df_crit = df_subset.copy()
-    # formula = f"{dv} ~ phase + Condition + SPAI + " \
-    #           f"phase:Condition + phase:SPAI + Condition:SPAI +" \
-    #           f"phase:Condition:SPAI + (1 | VP)"
-    #
-    # lm = smf.ols(formula, data=df_crit).fit()
-    # anova = sm.stats.anova_lm(lm, typ=3)
-    # sum_sq_error = anova.loc["Residual", "sum_sq"]
-    # anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-    #
-    # max = df_subset[dv].max()
-    # p = anova.loc["Condition", "PR(>F)"].item()
-    # if p < 0.05:
-    #     ax.hlines(y=max * 1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
-    #     ax.vlines(x=0.51, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
-    #     ax.vlines(x=1.49, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
-    #     p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-    #     ax.text(1, max * 1.105, p_sign, color='k', horizontalalignment='center')
-
     df_crit = df_subset.loc[df_subset["phase"].str.contains("Test")]
     df_crit = df_crit.rename(columns={dv: physiology})
+    df_crit = df_crit.loc[df_crit["Condition"].isin(conditions)]
     formula = f"{physiology} ~ Condition + (1 | VP)"
 
-    lm = smf.ols(formula, data=df_crit).fit()
-    anova = sm.stats.anova_lm(lm, typ=3)
-    sum_sq_error = anova.loc["Residual", "sum_sq"]
-    anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ['friendly', 'unfriendly']}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-    p = anova.loc["Condition", "PR(>F)"].item()
+    p = anova.loc["Condition", "P-val"].item()
     max = df_subset[dv].max()
     if p < 0.05:
         ax.hlines(y=max * 1.10, xmin=2 * boxWidth, xmax=1 + 2 * boxWidth, linewidth=0.7, color='k')
@@ -355,16 +275,12 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
     ax.set_ylabel(ylabel)
 
     fig.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1,
-                markerfacecolor='#1F82C0', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green,
-                alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red,
-                alpha=.7)],
+        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
         ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
     fig.subplots_adjust(right=0.76)
-    for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"{physiology}_test{end}"), dpi=300, bbox_inches="tight")
+    plt.savefig(os.path.join(save_path, f"{physiology}_test.png"), dpi=300, bbox_inches="tight")
     plt.close()
 
     # Time spent in the different rooms: Correlation with SPAI
@@ -412,9 +328,9 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
     ax.set_ylabel(f"{ylabel} in Test Phase")
     ax.legend()
     plt.tight_layout()
-    for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"{physiology}_test_SA{end}"), dpi=300)
+    plt.savefig(os.path.join(save_path, f"{physiology}_test_SA.png"), dpi=300)
     plt.close()
+
 
 for physiology in ["pupil", "eda", "hr"]:
     # physiology = "hr"
@@ -424,6 +340,7 @@ for physiology in ["pupil", "eda", "hr"]:
         dv = "SCL (Mean)"
     elif physiology == "hr":
         dv = "HR (Mean)"
+
     df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}.csv'), decimal='.', sep=';')
 
     df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
@@ -434,14 +351,17 @@ for physiology in ["pupil", "eda", "hr"]:
     df_subset.loc[df_subset['Phase'].str.contains("Dining"), "room"] = "Dining"
     df_subset = df_subset.rename(columns={dv: physiology})
     df_subset["SPAI"] = (df_subset["SPAI"] - df_subset["SPAI"].mean()) / df_subset["SPAI"].std()
+    df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
     formula = f"{physiology} ~ Phase + Condition + SPAI + " \
               f"Phase:Condition + Phase:SPAI + Condition:SPAI +" \
               f"Phase:Condition:SPAI +" \
               f"(1 | VP)"
 
-    lm = smf.ols(formula, data=df_subset).fit()
-    anova = sm.stats.anova_lm(lm, typ=3)
-    sum_sq_error = anova.loc["Residual", "sum_sq"]
-    anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+    model = pymer4.models.Lmer(formula, data=df_subset)
+    model.fit(factors={"Condition": ['friendly', 'unfriendly'],
+                       "Phase": ['Habituation_DiningRoom', 'Test_DiningRoom', 'Habituation_LivingRoom', 'Test_LivingRoom']}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="Phase", p_adjust="holm")
+
 

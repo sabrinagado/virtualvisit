@@ -11,66 +11,13 @@ from matplotlib.lines import Line2D
 from scipy.stats import linregress
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-import scikit_posthocs as sp
+import pingouin as pg
 import random
-
-
-def percentiles(lst_vals, alpha, func='mean'):
-    lower = np.percentile(np.array(lst_vals), ((1.0 - alpha) / 2.0) * 100, axis=0)
-    upper = np.percentile(lst_vals, (alpha + ((1.0 - alpha) / 2.0)) * 100, axis=0)
-    if func == 'mean':
-        mean = np.mean(lst_vals, axis=0)
-    elif func == 'median':
-        mean = np.median(lst_vals, axis=0)
-    return lower, mean, upper
-
-
-def bootstrapping(input_sample,
-                  sample_size=None,
-                  numb_iterations=1000,
-                  alpha=0.95,
-                  plot_hist=False,
-                  as_dict=True,
-                  func='mean'):  # mean, median
-
-    if sample_size == None:
-        sample_size = len(input_sample)
-
-    lst_means = []
-
-    # ---------- Bootstrapping ------------------------------------------------
-
-    print('\nBootstrapping with {} iterations and alpha: {}'.format(numb_iterations, alpha))
-    for i in range(numb_iterations):
-        try:
-            re_sampled = random.choices(input_sample.values, k=sample_size)
-        except:
-            re_sampled = random.choices(input_sample, k=sample_size)
-
-        if func == 'mean':
-            lst_means.append(np.nanmean(np.array(re_sampled), axis=0))
-        elif func == 'median':
-            lst_means.append(np.median(np.array(re_sampled), axis=0))
-        # lst_means.append(np.median(np.array(re_sampled), axis=0))
-
-    # ---------- Konfidenzintervall -------------------------------------------
-
-    lower, mean, upper = percentiles(lst_means, alpha)
-
-    dict_return = {'lower': lower, 'mean': mean, 'upper': upper}
-
-    # ---------- Visulisierung ------------------------------------------------
-
-    if plot_hist:
-        plt.hist(lst_means)
-
-    # ---------- RETURN -------------------------------------------------------
-
-    if as_dict:
-        return dict_return
-    else:
-        return mean, np.array([np.abs(lower - mean), (upper - mean)])
-
+from Code.toolbox import utils
+import rpy2
+from rpy2.situation import (get_r_home)
+os.environ["R_HOME"] = get_r_home()
+import pymer4
 
 dir_path = os.getcwd()
 save_path = os.path.join(dir_path, 'Plots', 'Ratings')
@@ -117,7 +64,7 @@ for idx_label, label in enumerate(labels):
 
         fwr_correction = True
         alpha = (1 - (0.05))
-        bootstrapping_dict = bootstrapping(df.loc[:, "Value"].values,
+        bootstrapping_dict = utils.bootstrapping(df.loc[:, "Value"].values,
                                            numb_iterations=5000,
                                            alpha=alpha,
                                            as_dict=True,
@@ -139,32 +86,38 @@ for idx_label, label in enumerate(labels):
                                          widths=0.8 * boxWidth)
 
     df_crit = df_rating.loc[df_rating["Criterion"] == label]
+    df_crit = df_crit.loc[~(df_crit["Condition"] == "unknown")]
     formula = f"Value ~ Condition + (1 | VP)"
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ["friendly", "neutral", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i*i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+    p = anova.loc["Condition", "P-val"].item()
 
-    lm = smf.ols(formula, data=df_crit).fit()
-    anova = sm.stats.anova_lm(lm, typ=3)
-    sum_sq_error = anova.loc["Residual", "sum_sq"]
-    anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-
-    contrasts = sp.posthoc_ttest(df_crit, val_col='Value', group_col='Condition', p_adjust='holm')
+    # ancova = pg.rm_anova(dv='Value', within='Condition', subject='VP', data=df_crit, effsize='np2')
+    # p = ancova["p-unc"].item()
+    # contrasts = pg.pairwise_tests(dv='Value', within='Condition', subject='VP', data=df_crit).round(3)
 
     max = df_crit["Value"].max()
-    p = anova.loc["Condition", "PR(>F)"].item()
     if p < 0.05:
-        ax.hlines(y=max*1.10, xmin=pos[0] - boxWidth/2, xmax=pos[3] + boxWidth/2, linewidth=0.7, color='k')
+        ax.hlines(y=max*1.10, xmin=pos[0] - boxWidth/2, xmax=pos[2] + boxWidth/2, linewidth=0.7, color='k')
         ax.vlines(x=pos[0] - boxWidth/2, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        ax.vlines(x=pos[3] + boxWidth/2, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        ax.vlines(x=pos[2] + boxWidth/2, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-        ax.text(np.mean([pos[0], pos[3]]), max*1.105, p_sign, color='k', horizontalalignment='center',)
+        ax.text(np.mean([pos[0], pos[2]]), max*1.105, p_sign, color='k', horizontalalignment='center',)
 
-        p_con_f_n = contrasts.loc["friendly", "neutral"].item()
+        p_con_f_n = contrasts.loc[contrasts["Contrast"] == "friendly - neutral", "P-val"].item()
+        # p_con_f_n = contrasts.loc[(contrasts["A"] == "friendly") & (contrasts["B"] == "neutral"), "p-unc"].item()
         if p_con_f_n < 0.05:
             ax.hlines(y=max*1.05, xmin=pos[0] + boxWidth/80, xmax=pos[1] - boxWidth/80, linewidth=0.7, color='k')
             ax.vlines(x=pos[0] + boxWidth/80, ymin=max*1.04, ymax=max*1.05, linewidth=0.7, color='k')
             ax.vlines(x=pos[1] - boxWidth/80, ymin=max*1.04, ymax=max*1.05, linewidth=0.7, color='k')
             p_sign = "***" if p_con_f_n < 0.001 else "**" if p_con_f_n < 0.01 else "*" if p_con_f_n < 0.05 else ""
             ax.text(np.mean([pos[0], pos[1]]), max*1.055, p_sign, color='k', horizontalalignment='center',)
-        p_con_n_u = contrasts.loc["neutral", "unfriendly"].item()
+        p_con_n_u = contrasts.loc[contrasts["Contrast"] == "neutral - unfriendly", "P-val"].item()
+        # p_con_n_u = contrasts.loc[(contrasts["A"] == "neutral") & (contrasts["B"] == "unfriendly"), "p-unc"].item()
         if p_con_n_u < 0.05:
             ax.hlines(y=max*1.05, xmin=pos[1] + boxWidth/80, xmax=pos[2] - boxWidth/80, linewidth=0.7, color='k')
             ax.vlines(x=pos[1] + boxWidth/80, ymin=max*1.04, ymax=max*1.05, linewidth=0.7, color='k')
@@ -184,8 +137,7 @@ fig.legend(
     conditions, loc="center right")
 fig.subplots_adjust(right=0.89)
 # plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"ratings_humans{end}"), dpi=300, bbox_inches="tight")
+plt.savefig(os.path.join(save_path, f"ratings_humans.png"), dpi=300, bbox_inches="tight")
 plt.close()
 
 
@@ -197,42 +149,41 @@ conditions = ['Friendly', 'Neutral', 'Unfriendly']
 for idx_label, label in enumerate(labels):
     # idx_label = 0
     # label = labels[idx_label]
+    print(label)
     df_crit = df_rating.loc[df_rating["Criterion"] == label]
     df_crit = df_crit.sort_values(by="SPAI")
+    df_crit = df_crit.loc[~(df_crit["Condition"] == "unknown")]
 
     df_ancova = df_crit.copy()
     df_ancova["SPAI"] = (df_ancova["SPAI"] - df_ancova["SPAI"].mean()) / df_ancova["SPAI"].std()
     formula = f"Value ~  SPAI + Condition + Condition:SPAI + (1 | VP)"
+    model = pymer4.models.Lmer(formula, data=df_ancova)
+    model.fit(factors={"Condition": ["friendly", "neutral", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i*i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-    lm = smf.ols(formula, data=df_ancova).fit()
-    anova = sm.stats.anova_lm(lm, typ=3)
-    sum_sq_error = anova.loc["Residual", "sum_sq"]
-    anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
-    if anova.loc["SPAI", "PR(>F)"].item() < 0.05:
-        df1 = anova.loc["SPAI", "df"].item()
-        df2 = anova.loc["Residual", "df"].item()
-        F = anova.loc["SPAI", "F"].item()
-        p = anova.loc["SPAI", "PR(>F)"].item()
-        p_eta_2 = anova.loc["SPAI", "p_eta_2"].item()
-        print(f"SPAI Main Effect ({label}): F({df1}, {df2}) = {round(F, 2)}, p = {round(p, 3)}, p_eta_2 = {round(p_eta_2, 2)}")
+    # ancova = pg.mixed_anova(dv='Value', within='Condition', between='SPAI', subject='VP', data=df_ancova, effsize='np2')
+    # p = ancova["p-unc"].item()
+    # contrasts = pg.pairwise_tests(dv='Value', within='Condition', subject='VP', data=df_crit).round(3)
 
-    if anova.loc["Condition:SPAI", "PR(>F)"].item() < 0.05:
-        df1 = anova.loc["Condition:SPAI", "df"].item()
-        df2 = anova.loc["Residual", "df"].item()
-        F = anova.loc["Condition:SPAI", "F"].item()
-        p = anova.loc["Condition:SPAI", "PR(>F)"].item()
-        p_eta_2 = anova.loc["Condition:SPAI", "p_eta_2"].item()
-        print(f"Significant Interaction ({label}): F({df1}, {df2}) = {round(F, 2)}, p = {round(p, 3)}, p_eta_2 = {round(p_eta_2, 2)}")
+    if anova.loc["SPAI", "P-val"].item() < 0.05:
+        print(f"SPAI Main Effect ({label}), p={round(anova.loc['SPAI', 'P-val'].item(), 3)}, p_eta_2={anova.loc['SPAI', 'p_eta_2'].item()}")
+    if anova.loc["Condition", "P-val"].item() < 0.05:
+        print(f"Condition Main Effect ({label}), p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc['Condition', 'p_eta_2'].item()}")
+    if anova.loc["SPAI:Condition", "P-val"].item() < 0.05:
+        print(f"Significant Interaction, p={round(anova.loc['SPAI:Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc['SPAI:Condition', 'p_eta_2'].item()}")
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
-        df_spai = df_crit.groupby(["VP"])["SPAI"].mean().reset_index()
+        df_spai = df_crit.groupby(["VP"])["SPAI"].mean(numeric_only=True).reset_index()
         df_spai = df_spai.sort_values(by="SPAI")
 
         df_cond = df_crit.loc[df_crit['Condition'] == condition.lower()].reset_index(drop=True)
         df_cond = df_cond.dropna(subset="Value")
-        df_cond = df_cond.groupby(["VP"]).mean().reset_index()
+        df_cond = df_cond.groupby(["VP"]).mean(numeric_only=True).reset_index()
         df_cond = df_cond.sort_values(by="SPAI")
 
         x = df_cond["SPAI"].to_numpy()
@@ -282,8 +233,7 @@ axes[2].legend(loc="upper right")
 #     conditions, loc="center right")
 # fig.subplots_adjust(right=0.89)
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"ratings_humans_SPAI{end}"), dpi=300, bbox_inches="tight")
+plt.savefig(os.path.join(save_path, f"ratings_humans_SPAI.png"), dpi=300, bbox_inches="tight")
 plt.close()
 
 
@@ -296,14 +246,14 @@ red = '#E2001A'
 green = '#B1C800'
 
 for idx_room, room in enumerate(rooms):
-    # idx_room = 2
+    # idx_room = 1
     # room = rooms[idx_room]
 
     boxWidth = 1 / (len(phases) + 1)
     pos = [idx_room + x * boxWidth for x in np.arange(1, len(phases) + 1)]
 
     for idx_phase, phase in enumerate(phases):
-        # idx_phase = 0
+        # idx_phase = 1
         # phase = phases[idx_phase]
         df = df_rating.loc[(df_rating["Phase"] == phase) & (df_rating["Object"] == room)]
         df = df.dropna(subset="Value")
@@ -340,7 +290,7 @@ for idx_room, room in enumerate(rooms):
 
                 fwr_correction = True
                 alpha = (1 - (0.05))
-                bootstrapping_dict = bootstrapping(df_cond.loc[:, "Value"].values,
+                bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "Value"].values,
                                                    numb_iterations=5000,
                                                    alpha=alpha,
                                                    as_dict=True,
@@ -380,7 +330,7 @@ for idx_room, room in enumerate(rooms):
 
             fwr_correction = True
             alpha = (1 - (0.05))
-            bootstrapping_dict = bootstrapping(df.loc[:, "Value"].values,
+            bootstrapping_dict = utils.bootstrapping(df.loc[:, "Value"].values,
                                                numb_iterations=5000,
                                                alpha=alpha,
                                                as_dict=True,
@@ -404,16 +354,26 @@ for idx_room, room in enumerate(rooms):
         df_crit = df_rating.loc[df_rating["Object"] == room]
         if room == "Office":
             formula = f"Value ~ Phase + (1 | VP)"
+            model = pymer4.models.Lmer(formula, data=df_crit)
+            model.fit(factors={"Phase": ["Habituation", "Test"]}, summarize=False)
+            estimates, contrasts = model.post_hoc(marginal_vars="Phase", p_adjust="holm")
         else:
-            formula = f"Value ~ Phase + Condition + (1 | VP)"
+            formula = f"Value ~ Phase + Condition + Phase:Condition + (1 | VP)"
+            model = pymer4.models.Lmer(formula, data=df_crit)
+            model.fit(factors={"Phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
+            estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="Phase", p_adjust="holm")
 
-        lm = smf.ols(formula, data=df_crit).fit()
-        anova = sm.stats.anova_lm(lm, typ=3)
-        sum_sq_error = anova.loc["Residual", "sum_sq"]
-        anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
+        anova = model.anova(force_orthogonal=True)
+        sum_sq_error = (sum(i * i for i in model.residuals))
+        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+
+        # ancova = pg.mixed_anova(dv='Value', within='Condition', between='SPAI', subject='VP', data=df_ancova, effsize='np2')
+        # p = ancova["p-unc"].item()
+        # contrasts = pg.pairwise_tests(dv='Value', within='Condition', subject='VP', data=df_crit).round(3)
+
         max = df_crit["Value"].max()
         if not room == "Office":
-            p_cond = anova.loc["Condition", "PR(>F)"].item()
+            p_cond = contrasts.loc[contrasts["Phase"] == "Test", "P-val"].item()
             if p_cond < 0.05:
                 ax.hlines(y=max * 1.05, xmin=pos_room[0], xmax=pos_room[1], linewidth=0.7, color='k')
                 ax.vlines(x=pos_room[0], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
@@ -421,11 +381,11 @@ for idx_room, room in enumerate(rooms):
                 p_sign = "***" if p_cond < 0.001 else "**" if p_cond < 0.01 else "*" if p_cond < 0.05 else ""
                 ax.text(np.mean([pos_room[0], pos_room[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
 
-        p_phase = anova.loc["Phase", "PR(>F)"].item()
+        p_phase = anova.loc["Phase", "P-val"].item()
         if p_phase < 0.05:
-            ax.hlines(y=max * 1.10, xmin=pos[0] - boxWidth / 2, xmax=pos[1] + boxWidth / 2 + boxWidth_room / 2, linewidth=0.7, color='k')
-            ax.vlines(x=pos[0] - boxWidth / 2, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
-            ax.vlines(x=pos[1] + boxWidth / 2 + boxWidth_room / 2, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+            ax.hlines(y=max * 1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+            ax.vlines(x=pos[0], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+            ax.vlines(x=pos[1], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
             p_sign = "***" if p_phase < 0.001 else "**" if p_phase < 0.01 else "*" if p_phase < 0.05 else ""
             ax.text(np.mean([pos[0], pos[1]]), max * 1.105, p_sign, color='k', horizontalalignment='center')
 
@@ -441,21 +401,9 @@ fig.legend(
      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
     ["Habituation", "Test", "Test (friendly)", "Test (unfriendly)"], loc="center right")
 fig.subplots_adjust(right=0.82)
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"ratings_rooms{end}"), dpi=300, bbox_inches="tight")
+plt.savefig(os.path.join(save_path, f"ratings_rooms.png"), dpi=300, bbox_inches="tight")
 plt.close()
 
-# df_crit = df_rating.loc[df_rating["Criterion"] == "wellbeing"]
-# df_crit = df_crit.loc[~(df_crit["Object"] == "VR")]
-# df_crit = df_crit.loc[(df_crit["Object"] == "Living") | (df_crit["Object"] == "Dining")]
-# formula = f"Value ~ Phase + Object + Condition +" \
-#           f"Phase:Object + Phase:Condition + Object:Condition + " \
-#           f"Phase:Object:Condition + (1 | VP)"
-#
-# lm = smf.ols(formula, data=df_crit).fit()
-# anova = sm.stats.anova_lm(lm, typ=3)
-# sum_sq_error = anova.loc["Residual", "sum_sq"]
-# anova["p_eta_2"] = anova["sum_sq"] / (anova["sum_sq"] + sum_sq_error)
 
 # Ratings VR
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(6, 6))
@@ -488,7 +436,7 @@ for idx_phase, phase in enumerate(phases):
 
     fwr_correction = True
     alpha = (1 - (0.05))
-    bootstrapping_dict = bootstrapping(df.loc[:, "Value"].values,
+    bootstrapping_dict = utils.bootstrapping(df.loc[:, "Value"].values,
                                        numb_iterations=5000,
                                        alpha=alpha,
                                        as_dict=True,
@@ -519,6 +467,5 @@ for idx_phase, phase in enumerate(phases):
 
 axes[0].set_ylabel("Subjective Wellbeing")
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"ratings_vr{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"ratings_vr.png"), dpi=300)
 plt.close()

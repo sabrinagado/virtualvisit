@@ -2,6 +2,7 @@
 # Toolbox by Katharina Lingelbach
 # =============================================================================
 import numpy as np
+import random
 
 
 def find_nearest_idx(array: list, value: float) -> int:
@@ -195,3 +196,49 @@ def remove_empty_tuples(tuples):
             dropped.append(i)
             reason.append(t[0])
     return dropped, reason
+
+
+def percentiles(lst_vals, alpha, func='mean'):
+    lower = np.percentile(np.array(lst_vals), ((1.0 - alpha) / 2.0) * 100, axis=0)
+    upper = np.percentile(lst_vals, (alpha + ((1.0 - alpha) / 2.0)) * 100, axis=0)
+    if func == 'mean':
+        mean = np.mean(lst_vals, axis=0)
+    elif func == 'median':
+        mean = np.median(lst_vals, axis=0)
+    return lower, mean, upper
+
+
+def bootstrapping(input_sample,
+                  sample_size=None,
+                  numb_iterations=1000,
+                  alpha=0.95,
+                  plot_hist=False,
+                  as_dict=True,
+                  func='mean'):  # mean, median
+
+    if sample_size == None:
+        sample_size = len(input_sample)
+
+    lst_means = []
+
+    # Bootstrapping
+    for i in range(numb_iterations):
+        try:
+            re_sampled = random.choices(input_sample.values, k=sample_size)
+        except:
+            re_sampled = random.choices(input_sample, k=sample_size)
+
+        if func == 'mean':
+            lst_means.append(np.nanmean(np.array(re_sampled), axis=0))
+        elif func == 'median':
+            lst_means.append(np.median(np.array(re_sampled), axis=0))
+        # lst_means.append(np.median(np.array(re_sampled), axis=0))
+
+    # CI
+    lower, mean, upper = percentiles(lst_means, alpha)
+    dict_return = {'lower': lower, 'mean': mean, 'upper': upper}
+
+    if as_dict:
+        return dict_return
+    else:
+        return mean, np.array([np.abs(lower - mean), (upper - mean)])
