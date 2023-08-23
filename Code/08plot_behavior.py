@@ -7,16 +7,11 @@ import os
 import numpy as np
 import pandas as pd
 import random
-import math
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib import patches
 from scipy.stats import linregress
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
-import pingouin as pg
-import rpy2
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
 import pymer4

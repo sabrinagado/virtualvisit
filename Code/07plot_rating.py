@@ -6,18 +6,15 @@
 import os
 import pandas as pd
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from scipy.stats import linregress
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
-import pingouin as pg
-import random
-from Code.toolbox import utils
-import rpy2
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
 import pymer4
+
+from Code.toolbox import utils
 
 dir_path = os.getcwd()
 save_path = os.path.join(dir_path, 'Plots', 'Ratings')
