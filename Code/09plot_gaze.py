@@ -33,7 +33,7 @@ vps = [vp for vp in vps if not vp in problematic_subjects]
 
 # Gaze on ROIs of Virtual Humans
 df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
-
+SA_score = "SPAI"
 dv = "Gaze Proportion"
 y_label = "Gaze Proportion on Person"
 
@@ -114,7 +114,7 @@ max = round(df_acq[dv].max(), 2) * 1.1
 
 fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(3 * len(phases), 6))
 titles = ["Friendly Interaction", "Unfriendly Interaction", "Neutral Interaction"]
-df_acq = df_acq.sort_values(by="SPAI")
+df_acq = df_acq.sort_values(by=SA_score)
 for idx_phase, phase in enumerate(phases):
     # idx_phase = 0
     # phase = "FriendlyInteraction"
@@ -131,10 +131,10 @@ for idx_phase, phase in enumerate(phases):
 
         df_roi = df_phase.loc[df_phase['ROI'] == roi].dropna(subset=dv).reset_index(drop=True)
 
-        x = df_roi["SPAI"].to_numpy()
+        x = df_roi[SA_score].to_numpy()
         y = df_roi[dv].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_acq["SPAI"].to_numpy()
+        all_x = df_acq[SA_score].to_numpy()
         all_y = df_acq[dv].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -146,11 +146,11 @@ for idx_phase, phase in enumerate(phases):
 
         p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
         if idx_roi == 0:
-            axes[idx_phase].text(df_acq["SPAI"].min() + 0.01 * np.max(x), 0.95 * max,
+            axes[idx_phase].text(df_acq[SA_score].min() + 0.01 * np.max(x), 0.95 * max,
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_roi])
         else:
-            axes[idx_phase].text(df_acq["SPAI"].min() + 0.01 * np.max(x), 0.91 * max,
+            axes[idx_phase].text(df_acq[SA_score].min() + 0.01 * np.max(x), 0.91 * max,
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_roi])
 
@@ -158,24 +158,24 @@ for idx_phase, phase in enumerate(phases):
         axes[idx_phase].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.6,
                 label=roi.capitalize())
 
-    axes[idx_phase].legend()
+    axes[idx_phase].legend(loc="upper right")
     axes[idx_phase].set_title(f"{titles[idx_phase]} (N = {len(df_phase['VP'].unique())})", fontweight='bold')
     axes[idx_phase].set_ylim([0, max])
-    axes[idx_phase].set_xlabel("SPAI")
+    axes[idx_phase].set_xlabel(SA_score)
     axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 axes[0].set_ylabel(y_label)
 
 plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"gaze_acq-{dv}_SPAI.png"), dpi=300)
+plt.savefig(os.path.join(save_path, f"gaze_acq-{dv}_{SA_score}.png"), dpi=300)
 plt.close()
 
 df_acq = df_acq.rename(columns={dv: "gaze"})
-df_acq["SPAI"] = (df_acq["SPAI"] - df_acq["SPAI"].mean()) / df_acq["SPAI"].std()
+df_acq[SA_score] = (df_acq[SA_score] - df_acq[SA_score].mean()) / df_acq[SA_score].std()
 
 # df_acq = df_acq.loc[~(df_acq["Condition"].str.contains("neutral"))]
-formula = f"gaze ~ Condition + SPAI + ROI +" \
-          f"Condition:SPAI + Condition:ROI + SPAI:ROI +" \
-          f"Condition:SPAI:ROI + (1 | VP)"
+formula = f"gaze ~ Condition + {SA_score} + ROI +" \
+          f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI +" \
+          f"Condition:{SA_score}:ROI + (1 | VP)"
 
 model = pymer4.models.Lmer(formula, data=df_acq)
 model.fit(factors={"Condition": ["friendly", "unfriendly", "neutral"], "ROI": ["body", "head"]}, summarize=False)
@@ -191,13 +191,13 @@ df_click = df_gaze.loc[df_gaze["Phase"].isin(phases)]
 df_click["Phase_corr"] = [string[0].split("Test_")[1].lower() for string in df_click["Phase"].str.split("WasClicked")]
 df_click = df_click.loc[df_click["Phase_corr"] == df_click["Condition"]]
 df_click = df_click.drop(columns="Phase_corr")
-df_spai = df_click[["VP", "SPAI"]].drop_duplicates(subset="VP")
+df_spai = df_click[["VP", SA_score]].drop_duplicates(subset="VP")
 df_grouped = df_click.groupby(["VP", "Phase", "Person", "Condition", "ROI"]).mean(numeric_only=True).reset_index()
 max = round(df_grouped[dv].max(), 2) * 1.1
 
 fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(8, 6))
 titles = ["Fixations after Click on\nFriendly Person", "Fixations after Click on\nUnfriendly Person"]
-df_grouped = df_grouped.sort_values(by="SPAI")
+df_grouped = df_grouped.sort_values(by=SA_score)
 for idx_phase, phase in enumerate(phases):
     # idx_phase = 0
     # phase = "Test_FriendlyWasClicked"
@@ -214,10 +214,10 @@ for idx_phase, phase in enumerate(phases):
 
         df_roi = df_phase.loc[df_phase['ROI'] == roi].dropna(subset=dv).reset_index(drop=True)
 
-        x = df_roi["SPAI"].to_numpy()
+        x = df_roi[SA_score].to_numpy()
         y = df_roi[dv].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_grouped["SPAI"].to_numpy()
+        all_x = df_grouped[SA_score].to_numpy()
         all_y = df_grouped[dv].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -230,11 +230,11 @@ for idx_phase, phase in enumerate(phases):
 
         p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
         if idx_roi == 0:
-            axes[idx_phase].text(df_click["SPAI"].min() + 0.01 * np.max(x), 0.95 * max,
+            axes[idx_phase].text(df_click[SA_score].min() + 0.01 * np.max(x), 0.95 * max,
                                  r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                                  color=colors[idx_roi])
         else:
-            axes[idx_phase].text(df_click["SPAI"].min() + 0.01 * np.max(x), 0.91 * max,
+            axes[idx_phase].text(df_click[SA_score].min() + 0.01 * np.max(x), 0.91 * max,
                                  r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                                  color=colors[idx_roi])
 
@@ -245,20 +245,20 @@ for idx_phase, phase in enumerate(phases):
     axes[idx_phase].legend(loc="upper right")
     axes[idx_phase].set_title(f"{titles[idx_phase]} (N = {len(df_phase['VP'].unique())})", fontweight='bold')
     axes[idx_phase].set_ylim([0, max])
-    axes[idx_phase].set_xlabel("SPAI")
+    axes[idx_phase].set_xlabel(SA_score)
     axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 axes[0].set_ylabel(y_label)
 
 plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"gaze_click-{dv}_SPAI.png"), dpi=300)
+plt.savefig(os.path.join(save_path, f"gaze_click-{dv}_{SA_score}.png"), dpi=300)
 plt.close()
 
 df_click = df_click.rename(columns={dv: "gaze"})
-df_click["SPAI"] = (df_click["SPAI"] - df_click["SPAI"].mean()) / df_click["SPAI"].std()
+df_click[SA_score] = (df_click[SA_score] - df_click[SA_score].mean()) / df_click[SA_score].std()
 
-formula = f"gaze ~ Condition + SPAI + ROI +" \
-          f"Condition:SPAI + Condition:ROI + SPAI:ROI +" \
-          f"Condition:SPAI:ROI + (1 | VP)"
+formula = f"gaze ~ Condition + {SA_score} + ROI +" \
+          f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI +" \
+          f"Condition:{SA_score}:ROI + (1 | VP)"
 
 model = pymer4.models.Lmer(formula, data=df_click)
 model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["body", "head"]}, summarize=False)
@@ -269,6 +269,7 @@ estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="
 
 # Test: Rooms
 df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
+max = round(df_test[dv].max(), 2) * 1.1
 conditions = ["friendly", "unfriendly"]
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
 boxWidth = 1 / (len(conditions) + 1)
@@ -335,7 +336,7 @@ max = round(df_test[dv].max(), 2) * 1.1
 conditions = ["friendly", "unfriendly"]
 titles = ["Spontaneous Fixations on\nFriendly Person", "Spontaneous Fixations on\nUnfriendly Person"]
 fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(8, 6))
-df_test = df_test.sort_values(by="SPAI")
+df_test = df_test.sort_values(by=SA_score)
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
     # condition = "FriendlyInteraction"
@@ -352,10 +353,10 @@ for idx_condition, condition in enumerate(conditions):
 
         df_roi = df_condition.loc[df_condition['ROI'] == roi].dropna(subset=dv).reset_index(drop=True)
 
-        x = df_roi["SPAI"].to_numpy()
+        x = df_roi[SA_score].to_numpy()
         y = df_roi[dv].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_test["SPAI"].to_numpy()
+        all_x = df_test[SA_score].to_numpy()
         all_y = df_test[dv].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -368,11 +369,11 @@ for idx_condition, condition in enumerate(conditions):
 
         p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
         if idx_roi == 0:
-            axes[idx_condition].text(df_test["SPAI"].min() + 0.01 * np.max(x), 0.95 * max,
+            axes[idx_condition].text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * max,
                                  r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                                  color=colors[idx_roi])
         else:
-            axes[idx_condition].text(df_test["SPAI"].min() + 0.01 * np.max(x), 0.91 * max,
+            axes[idx_condition].text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * max,
                                  r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                                  color=colors[idx_roi])
 
@@ -383,21 +384,21 @@ for idx_condition, condition in enumerate(conditions):
     axes[idx_condition].legend(loc="upper right")
     axes[idx_condition].set_title(f"{titles[idx_condition]} (N = {len(df_condition['VP'].unique())})", fontweight='bold')
     axes[idx_condition].set_ylim([0, max])
-    axes[idx_condition].set_xlabel("SPAI")
+    axes[idx_condition].set_xlabel(SA_score)
     axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 axes[0].set_ylabel(y_label)
 
 plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"gaze_test-{dv}_SPAI.png"), dpi=300)
+plt.savefig(os.path.join(save_path, f"gaze_test-{dv}_{SA_score}.png"), dpi=300)
 plt.close()
 
 df_test = df_test.rename(columns={dv: "gaze"})
 df_test = df_test.loc[df_test["Condition"].str.contains("friendly")]
-df_test["SPAI"] = (df_test["SPAI"] - df_test["SPAI"].mean()) / df_test["SPAI"].std()
+df_test[SA_score] = (df_test[SA_score] - df_test[SA_score].mean()) / df_test[SA_score].std()
 
-formula = f"gaze ~ Condition + SPAI + ROI +" \
-          f"Condition:SPAI + Condition:ROI + SPAI:ROI +" \
-          f"Condition:SPAI:ROI + (1 | VP)"
+formula = f"gaze ~ Condition + {SA_score} + ROI +" \
+          f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI +" \
+          f"Condition:{SA_score}:ROI + (1 | VP)"
 
 model = pymer4.models.Lmer(formula, data=df_test)
 model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["body", "head"]}, summarize=False)
@@ -409,17 +410,17 @@ estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="
 
 # Difference
 df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
-df_spai = df_test[["VP", "SPAI"]].drop_duplicates(subset="VP")
-df_diff = df_test.groupby(["VP", "Person", "Condition"]).sum().reset_index()
+df_spai = df_test[["VP", SA_score]].drop_duplicates(subset="VP")
+df_diff = df_test.groupby(["VP", "Person", "Condition"]).sum(numeric_only=True).reset_index()
 df_diff = df_diff.pivot(index='VP', columns='Condition', values='Gaze Proportion').reset_index()
 df_diff["difference"] = df_diff["unfriendly"] - df_diff["friendly"]
 
 df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-df_diff = df_diff.sort_values(by="SPAI")
+df_diff = df_diff.sort_values(by=SA_score)
 colors = ['teal']
-x = df_diff["SPAI"].to_numpy()
+x = df_diff[SA_score].to_numpy()
 y = df_diff["difference"].to_numpy()
 linreg = linregress(x, y)
 y_est = linreg.slope * x + linreg.intercept
@@ -435,12 +436,12 @@ c = np.where(y < 0, 'teal', 'gold')
 ax.scatter(x, y, s=30, c=c, alpha=0.6)
 
 p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-ax.text(df_diff["SPAI"].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
+ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
         r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color="grey")
 
 ax.set_title(f"Avoidance vs. Hypervigilance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
 # ax.set_ylim([0, max])
-ax.set_xlabel("SPAI")
+ax.set_xlabel(SA_score)
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.axhline(0, linewidth=0.8, color="k", linestyle="dashed")
 ax.set_ylabel("Difference Gaze Proportion: Unfriendly-Friendly")
@@ -450,5 +451,5 @@ ax.legend(
     ["Hypervigilance", "Avoidance"], loc="upper right")
 
 plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"gaze_test-{dv}-diff_SPAI.png"), dpi=300)
+plt.savefig(os.path.join(save_path, f"gaze_test-{dv}-diff_{SA_score}.png"), dpi=300)
 plt.close()

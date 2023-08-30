@@ -24,6 +24,7 @@ if not os.path.exists(save_path):
 
 df_rating = pd.read_csv(os.path.join(dir_path, 'Data', 'ratings.csv'), decimal='.', sep=';')
 colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
+SA_score = "SIAS"
 
 # Ratings Virtual Humans
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
@@ -141,52 +142,50 @@ plt.close()
 # Ratings Virtual Humans, Relationship with Social Anxiety
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 labels = ["Sympathy", "Fear", "Anger"]
-conditions = ['Friendly', 'Neutral', 'Unfriendly']
+conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
+colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
 
 for idx_label, label in enumerate(labels):
     # idx_label = 0
     # label = labels[idx_label]
     print(label)
     df_crit = df_rating.loc[df_rating["Criterion"] == label]
-    df_crit = df_crit.sort_values(by="SPAI")
-    df_crit = df_crit.loc[~(df_crit["Condition"] == "unknown")]
+    df_crit = df_crit.sort_values(by=SA_score)
+    # df_crit = df_crit.loc[~(df_crit["Condition"] == "unknown")]
 
     df_ancova = df_crit.copy()
-    df_ancova["SPAI"] = (df_ancova["SPAI"] - df_ancova["SPAI"].mean()) / df_ancova["SPAI"].std()
-    formula = f"Value ~  SPAI + Condition + Condition:SPAI + (1 | VP)"
+    df_ancova = df_ancova.loc[df_ancova["Condition"].isin(["friendly", "unfriendly"])]
+    df_ancova[SA_score] = (df_ancova[SA_score] - df_ancova[SA_score].mean()) / df_ancova[SA_score].std()
+    formula = f"Value ~  {SA_score} + Condition + Condition:{SA_score} + (1 | VP)"
     model = pymer4.models.Lmer(formula, data=df_ancova)
-    model.fit(factors={"Condition": ["friendly", "neutral", "unfriendly"]}, summarize=False)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
     sum_sq_error = (sum(i*i for i in model.residuals))
     anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
     estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-    # ancova = pg.mixed_anova(dv='Value', within='Condition', between='SPAI', subject='VP', data=df_ancova, effsize='np2')
-    # p = ancova["p-unc"].item()
-    # contrasts = pg.pairwise_tests(dv='Value', within='Condition', subject='VP', data=df_crit).round(3)
-
-    if anova.loc["SPAI", "P-val"].item() < 0.05:
-        print(f"SPAI Main Effect ({label}), p={round(anova.loc['SPAI', 'P-val'].item(), 3)}, p_eta_2={anova.loc['SPAI', 'p_eta_2'].item()}")
+    if anova.loc[SA_score, "P-val"].item() < 0.05:
+        print(f"{SA_score} Main Effect ({label}), p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={anova.loc[SA_score, 'p_eta_2'].item()}")
     if anova.loc["Condition", "P-val"].item() < 0.05:
         print(f"Condition Main Effect ({label}), p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc['Condition', 'p_eta_2'].item()}")
-    if anova.loc["SPAI:Condition", "P-val"].item() < 0.05:
-        print(f"Significant Interaction, p={round(anova.loc['SPAI:Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc['SPAI:Condition', 'p_eta_2'].item()}")
+    if anova.loc[f'{SA_score}:Condition', 'P-val'].item() < 0.05:
+        print(f"Significant Interaction, p={round(anova.loc[f'{SA_score}:Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc[f'{SA_score}:Condition', 'p_eta_2'].item()}")
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
-        df_spai = df_crit.groupby(["VP"])["SPAI"].mean(numeric_only=True).reset_index()
-        df_spai = df_spai.sort_values(by="SPAI")
+        df_spai = df_crit.groupby(["VP"])[SA_score].mean(numeric_only=True).reset_index()
+        df_spai = df_spai.sort_values(by=SA_score)
 
         df_cond = df_crit.loc[df_crit['Condition'] == condition.lower()].reset_index(drop=True)
         df_cond = df_cond.dropna(subset="Value")
         df_cond = df_cond.groupby(["VP"]).mean(numeric_only=True).reset_index()
-        df_cond = df_cond.sort_values(by="SPAI")
+        df_cond = df_cond.sort_values(by=SA_score)
 
-        x = df_cond["SPAI"].to_numpy()
+        x = df_cond[SA_score].to_numpy()
         y = df_cond["Value"].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_crit["SPAI"].to_numpy()
+        all_x = df_crit[SA_score].to_numpy()
         all_y = df_crit["Value"].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -197,16 +196,20 @@ for idx_label, label in enumerate(labels):
         axes[idx_label].fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
         p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        if idx_condition == 0:
-            axes[idx_label].text(df_crit["SPAI"].min() + 0.01 * np.max(x), 0.95 * df_crit["Value"].max(),
+        if idx_condition == 2:
+            axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.95 * df_crit["Value"].max(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
+        elif idx_condition == 3:
+            axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.91 * df_crit["Value"].max(),
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_condition])
         elif idx_condition == 1:
-            axes[idx_label].text(df_crit["SPAI"].min() + 0.01 * np.max(x), 0.91 * df_crit["Value"].max(),
+            axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.87 * df_crit["Value"].max(),
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_condition])
-        else:
-            axes[idx_label].text(df_crit["SPAI"].min() + 0.01 * np.max(x), 0.87 * df_crit["Value"].max(),
+        elif idx_condition == 0:
+            axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.83 * df_crit["Value"].max(),
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_condition])
 
@@ -218,10 +221,19 @@ for idx_label, label in enumerate(labels):
     axes[idx_label].set_ylim([-2, df_crit["Value"].max()+2])
     axes[idx_label].set_title(f"{label} (N = {len(df_cond['VP'].unique())})", fontweight='bold')
     axes[idx_label].set_ylabel(label)
-    axes[idx_label].set_xticks(range(0, 6))
-    axes[idx_label].set_xlabel("SPAI")
+    if "SPAI" in SA_score:
+        axes[idx_label].set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        axes[idx_label].set_xticks(range(5, 65, 5))
+    axes[idx_label].set_xlabel(SA_score)
     axes[idx_label].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 axes[2].legend(loc="upper right")
+axes[2].legend(
+    [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor='lightgrey', markeredgewidth=1, markerfacecolor='lightgrey', alpha=.7)],
+    ["Friendly", "Unfriendly", "Neutral", "Unknown"], loc="upper right")
 
 # fig.legend(
 #     [Line2D([0], [0], marker='o', markeredgecolor=colors[0], markeredgewidth=1, markerfacecolor=colors[0], alpha=.7, lw=0),
@@ -230,7 +242,7 @@ axes[2].legend(loc="upper right")
 #     conditions, loc="center right")
 # fig.subplots_adjust(right=0.89)
 plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"ratings_humans_SPAI.png"), dpi=300, bbox_inches="tight")
+plt.savefig(os.path.join(save_path, f"ratings_humans_{SA_score}.png"), dpi=300, bbox_inches="tight")
 plt.close()
 
 
@@ -363,10 +375,6 @@ for idx_room, room in enumerate(rooms):
         anova = model.anova(force_orthogonal=True)
         sum_sq_error = (sum(i * i for i in model.residuals))
         anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-
-        # ancova = pg.mixed_anova(dv='Value', within='Condition', between='SPAI', subject='VP', data=df_ancova, effsize='np2')
-        # p = ancova["p-unc"].item()
-        # contrasts = pg.pairwise_tests(dv='Value', within='Condition', subject='VP', data=df_crit).round(3)
 
         max = df_crit["Value"].max()
         if not room == "Office":

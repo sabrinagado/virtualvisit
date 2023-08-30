@@ -26,10 +26,11 @@ if not os.path.exists(save_path):
 red = '#E2001A'
 green = '#B1C800'
 blue = '#1F82C0'
+SA_score = "SIAS"
 
 # Acquisition
 ylabels = ["Heart Rate (BPM)", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
-colors = [green, blue, red]
+colors = [green, red, blue]
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
     # physio_idx = 0
@@ -40,9 +41,9 @@ for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda",
     if physiology == "hr":
         df = df.loc[(df[column_name] >= df[column_name].mean() - 3 * df[column_name].std()) & (df[column_name] <= df[column_name].mean() + 3 * df[column_name].std())]  # exclude outliers
 
-    phases = ["FriendlyInteraction", "NeutralInteraction", "UnfriendlyInteraction"]
+    phases = ["FriendlyInteraction", "UnfriendlyInteraction"]  # "NeutralInteraction",
     # fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
-    titles = ["Friendly Interaction", "Neutral Interaction", "Unfriendly Interaction"]
+    titles = ["Friendly Interaction", "Unfriendly Interaction"]  # "Neutral Interaction",
     for idx_phase, phase in enumerate(phases):
         # idx_phase = 0
         # phase = phases[idx_phase]
@@ -286,16 +287,16 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
 
     titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
     df_test = df_subset.loc[df_subset['phase'] == "Test"]
-    df_test = df_test.sort_values(by="SPAI")
+    df_test = df_test.sort_values(by=SA_score)
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
         df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
 
-        x = df_cond["SPAI"].to_numpy()
+        x = df_cond[SA_score].to_numpy()
         y = df_cond[dv].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_test["SPAI"].to_numpy()
+        all_x = df_test[SA_score].to_numpy()
         all_y = df_cond[dv].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -307,11 +308,11 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
 
         p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
         if idx_condition == 0:
-            ax.text(df_test["SPAI"].min() + 0.01 * np.max(x), 0.95 * (df_test[dv].max()-df_test[dv].min()) + df_test[dv].min(),
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_test[dv].max()-df_test[dv].min()) + df_test[dv].min(),
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_condition])
         else:
-            ax.text(df_test["SPAI"].min() + 0.01 * np.max(x), 0.91 * (df_test[dv].max()-df_test[dv].min()) + df_test[dv].min(),
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_test[dv].max()-df_test[dv].min()) + df_test[dv].min(),
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_condition])
 
@@ -319,12 +320,12 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6,
                 label=titles[idx_condition])
 
-    ax.set_xlabel("SPAI")
+    ax.set_xlabel(SA_score)
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"{ylabel} in Test Phase")
     ax.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, f"{physiology}_test_SA.png"), dpi=300)
+    plt.savefig(os.path.join(save_path, f"{physiology}_test_{SA_score}.png"), dpi=300)
     plt.close()
 
 
@@ -346,12 +347,12 @@ for physiology in ["pupil", "eda", "hr"]:
     df_subset.loc[df_subset['Phase'].str.contains("Living"), "room"] = "Living"
     df_subset.loc[df_subset['Phase'].str.contains("Dining"), "room"] = "Dining"
     df_subset = df_subset.rename(columns={dv: physiology})
-    df_subset["SPAI"] = (df_subset["SPAI"] - df_subset["SPAI"].mean()) / df_subset["SPAI"].std()
+    df_subset[SA_score] = (df_subset[SA_score] - df_subset[SA_score].mean()) / df_subset[SA_score].std()
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
-    formula = f"{physiology} ~ Phase + Condition + SPAI + " \
-              f"Phase:Condition + Phase:SPAI + Condition:SPAI +" \
-              f"Phase:Condition:SPAI +" \
+    formula = f"{physiology} ~ Phase + Condition + {SA_score} + " \
+              f"Phase:Condition + Phase:{SA_score} + Condition:{SA_score} +" \
+              f"Phase:Condition:{SA_score} +" \
               f"(1 | VP)"
 
     model = pymer4.models.Lmer(formula, data=df_subset)

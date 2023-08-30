@@ -285,9 +285,9 @@ for vp in vps:
         start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
         start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
         start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
-        start_test = df_event.loc[
-            (df_event["event"] == "EnterOffice") & (df_event["timestamp"] > start_conditioning) & (
-                        df_event["timestamp"] < start_roomrating2), "timestamp"].reset_index(drop=True)[0]
+        start_test = start_roomrating2 - timedelta(seconds=180)
+        end_acq = df_event.loc[(df_event["event"] == "EnterOffice") & (df_event["timestamp"] > start_conditioning) & (
+                    df_event["timestamp"] < start_test), "timestamp"].reset_index(drop=True)[0]
         start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
         end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
     except:
@@ -302,7 +302,7 @@ for vp in vps:
     df_hab["event"] = ["Habituation_" + name[1] for name in df_hab["event"].str.split("Enter")]
     dfs.append(df_hab)
 
-    df_acq = df_event.loc[(start_conditioning <= df_event["timestamp"]) & (df_event["timestamp"] < start_test)]
+    df_acq = df_event.loc[(start_conditioning <= df_event["timestamp"]) & (df_event["timestamp"] < end_acq)]
     df_acq = df_acq.loc[(df_acq["event"].str.contains("Interaction")) & ~(df_acq["event"].str.contains("Finished"))]
     df_acq["duration"] = 5
     df_acq["event"] = [name[1] for name in df_acq["event"].str.split("Start")]
@@ -310,8 +310,10 @@ for vp in vps:
     dfs.append(df_acq)
 
     df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
-    df_test = df_test.loc[~(df_test["event"].str.contains("Teleport"))]
-    df_test = df_test.loc[(df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))]
+    df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
+    df_test = df_test.sort_values(by="timestamp")
+    df_test = df_test.loc[
+        (df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))].reset_index(drop=True)
     room = ""
     for idx_row, row in df_test.iterrows():
         # idx_row = 0
@@ -322,8 +324,9 @@ for vp in vps:
             df_test = pd.concat(
                 [df_test, pd.DataFrame({"timestamp": [row["timestamp"] + timedelta(seconds=3)], "event": [room]})])
     df_test = df_test.sort_values(by="timestamp").reset_index(drop=True)
-    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
+    df_test = drop_consecutive_duplicates(df_test, subset="event", keep="first", times="timestamp", tolerance=0.1)
     df_test = df_test.reset_index(drop=True)
+    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
     df_test.loc[len(df_test) - 1, "duration"] = (
                 start_roomrating2 - df_test.loc[len(df_test) - 1, "timestamp"]).total_seconds()
     df_test = df_test.loc[df_test["event"].str.contains("Enter")]
@@ -331,6 +334,8 @@ for vp in vps:
     dfs.append(df_test)
 
     df_test_person = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
+    df_test_person = pd.concat([df_test_person, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
+    df_test_person = df_test_person.sort_values(by="timestamp").reset_index(drop=True)
     df_test_person = df_test_person.loc[(df_test_person["event"].str.contains("Clicked"))]
     if len(df_test_person) > 0:
         df_test_person["duration"] = 3
