@@ -31,7 +31,6 @@ vps = np.arange(start, end + 1)
 problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
 vps = [vp for vp in vps if not vp in problematic_subjects]
 
-# Gaze on ROIs of Virtual Humans
 df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
 SA_score = "SPAI"
 dv = "Gaze Proportion"
@@ -40,13 +39,7 @@ y_label = "Gaze Proportion on Person"
 red = '#E2001A'
 green = '#B1C800'
 blue = '#1F82C0'
-colors = [green, red, blue]
 
-meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
-max = round(df_gaze.loc[df_gaze["ROI"] != "other", dv].max(), 2) + 0.1
 
 # Visualize ET Validation
 points_start = pd.DataFrame(columns=["x", "y"])
@@ -268,6 +261,10 @@ anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
 estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
 
 # Test: Rooms
+meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
+fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
+
 df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
 max = round(df_test[dv].max(), 2) * 1.1
 conditions = ["friendly", "unfriendly"]
@@ -442,6 +439,10 @@ ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"
 ax.set_title(f"Avoidance vs. Hypervigilance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
 # ax.set_ylim([0, max])
 ax.set_xlabel(SA_score)
+if "SPAI" in SA_score:
+    ax.set_xticks(range(0, 6))
+elif "SIAS" in SA_score:
+    ax.set_xticks(range(5, 65, 5))
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.axhline(0, linewidth=0.8, color="k", linestyle="dashed")
 ax.set_ylabel("Difference Gaze Proportion: Unfriendly-Friendly")
@@ -453,3 +454,31 @@ ax.legend(
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"gaze_test-{dv}-diff_{SA_score}.png"), dpi=300)
 plt.close()
+
+df_diff = df_diff[["VP", "difference"]]
+df_diff = df_diff.rename(columns={"difference": "gaze_diff"})
+df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
+try:
+    df_aa = pd.read_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';')
+    if "gaze_diff" in df_aa.columns:
+        df_aa.update(df_diff)
+    else:
+        df_aa = df_aa.merge(df_diff, on="VP")
+    df_aa.to_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+except:
+    df_diff.to_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+
+x = df_aa["distance_diff"].to_numpy()
+y = df_aa["time_diff"].to_numpy()
+linreg = linregress(x, y)
+print(f"Interpersonal Difference x Time: r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
+
+x = df_aa["distance_diff"].to_numpy()
+y = df_aa["gaze_diff"].to_numpy()
+linreg = linregress(x, y)
+print(f"Interpersonal Difference x Gaze: r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
+
+x = df_aa["time_diff"].to_numpy()
+y = df_aa["gaze_diff"].to_numpy()
+linreg = linregress(x, y)
+print(f"Gaze x Time: r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
