@@ -1,6 +1,5 @@
 # =============================================================================
-# Scores
-# source: SosciSurvey
+# Power Analysis
 # study: Virtual Visit
 # =============================================================================
 import os
@@ -104,12 +103,7 @@ ax.axvline(effect, color=colors[3], linestyle="--")
 pwr = pwr_analysis.solve_power(effect_size=mean_diff/std, nobs=N1, alpha=alpha, alternative="two-sided")
 ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for N = {N1}: {round(effect, 2)} {measure},\nPower: {round(pwr, 2)}", color=colors[3])
 
-# # N = 96:
-# effect = pwr_analysis.solve_power(nobs=N2, alpha=alpha, power=power, alternative="two-sided") * std
-# ax.axhline(N2, color=colors[4], linestyle="--")
-# ax.text(effect + 0.01 * np.max(differences), N2 + 0.01 * np.max(sample_sizes), f"N: {math.ceil(N2)}", color=colors[4])
-# ax.axvline(effect, color=colors[4], linestyle="--")
-# ax.text(effect + 0.01 * np.max(differences), 0.65 * np.max(sample_sizes), f"Effect for\nN = {N2}: \n{round(effect, 2)} {measure}", color=colors[4])
+
 
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"pwr_{dv.lower().replace(' ', '_')}.png"), dpi=300)

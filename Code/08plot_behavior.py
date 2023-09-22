@@ -454,7 +454,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
         df_grouped = df_test.groupby(["VP", "Condition"]).min(numeric_only=True).reset_index()
     df_grouped = df_grouped.drop(columns=SA_score)
     df_grouped = df_grouped.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
-
+    df_grouped = df_grouped.sort_values(by=SA_score)
 
     colors = [green, red]
 
@@ -553,7 +553,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
         x = df_cond[SA_score].to_numpy()
         y = df_cond["distance"].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_spai[SA_score].to_numpy()
+        all_x = df_grouped[SA_score].to_numpy()
         all_y = df_cond["distance"].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -1217,6 +1217,139 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
     plt.close()
 
 
+df = pd.read_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';')
+df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
+df_spai.sort()
+cutoff_sa = 2.79 if SA_score == "SPAI" else 30
+
+min_x = -1300
+max_x = 450
+step_x = 20
+res_x = int(abs(min_x-max_x)/step_x)
+X = np.arange(min_x, max_x, step_x)
+min_y = -1000
+max_y = -350
+step_y = 20
+res_y = int(abs(min_y-max_y)/step_y)
+Y = np.arange(min_y, max_y, step_y)
+
+for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({round(cutoff_sa, 2)})", f"Median ({round(np.median(df_spai), 2)})"], ["cutoff", "median"]):
+    # cutoff, text, title = np.median(df_spai), f"Median ({round(np.median(df_spai), 2)})", "median"
+    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(18, 6))
+
+    idx_row = 0
+    for idx_row in [0, 1]:
+        if idx_row == 0:
+            df_group = df.loc[df[SA_score] >= cutoff]
+            hsa = len(df_group["VP"].unique())
+        elif idx_row == 1:
+            df_group = df.loc[df[SA_score] < cutoff]
+            lsa = len(df_group["VP"].unique())
+
+        for idx_phase, phase in enumerate(["Habituation", "Test"]):
+            # idx_phase, phase = 0, "Habituation"
+            # idx_phase, phase = 1, "Test"
+            df_phase = df_group.loc[df_group["phase"].str.contains(phase)]
+
+            if phase == "Habituation":
+                idx_col = 0
+                counts = np.zeros((res_y, res_x))
+
+                for a in range(len(df_phase)):
+                    # a = 0
+                    for b1 in range(res_y):
+                        # b1 = 0
+                        if (Y[b1] - step_y / 2) <= df_phase["x"].values[a] < (Y[b1] + step_y / 2):
+                            for b2 in range(res_x):
+                                # b2 = 0
+                                if (X[b2] - step_x / 2) <= df_phase["y"].values[a] < (X[b2] + step_x / 2):
+                                    counts[b1, b2] += 1
+                cols = (counts != 0).argmax(axis=0)
+                first_non_zero_col = (cols != 0).argmax(axis=0)
+                last_non_zero_col = (cols[first_non_zero_col:] != 0).argmin(axis=0) + first_non_zero_col - 1
+                rows = (counts != 0).argmax(axis=1)
+                first_non_zero_row = (rows != 0).argmax(axis=0)
+                last_non_zero_row = (rows[first_non_zero_row:] != 0).argmin(axis=0) + first_non_zero_row - 1
+
+                axes[idx_row, idx_col].hlines(y=first_non_zero_row - 2, xmin=first_non_zero_col - 1, xmax=last_non_zero_col + 1, linewidth=1, color='lightgrey')
+                axes[idx_row, idx_col].hlines(y=last_non_zero_row + 3, xmin=first_non_zero_col - 1, xmax=last_non_zero_col + 1, linewidth=1, color='lightgrey')
+                axes[idx_row, idx_col].vlines(x=first_non_zero_col - 1, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+                axes[idx_row, idx_col].vlines(x=last_non_zero_col + 1, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+                room_width = int((last_non_zero_col - first_non_zero_col) / 3)
+                axes[idx_row, idx_col].vlines(x=first_non_zero_col + room_width + 2, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+                axes[idx_row, idx_col].vlines(x=first_non_zero_col + 2 * room_width + 4, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+
+                axes[idx_row, idx_col].imshow(counts, cmap="magma_r", norm="log")
+                axes[idx_row, idx_col].axis('scaled')
+                axes[idx_row, idx_col].axis('off')
+                axes[idx_row, idx_col].invert_xaxis()
+                # axes[idx_row, idx_col].invert_yaxis()
+
+            elif phase == "Test":
+                try:
+                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = df_cond[["VP", "Roles", "Rooms"]]
+                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_phase = df_phase.merge(df_cond, on="VP")
+                    df_phase["Option"] = 1
+                    df_phase.loc[df_phase["Rooms"] == 1, "Option"] = 2
+                except:
+                    print("no conditions file")
+
+                for option in [1, 2]:
+                    # option = 1
+                    df_opt = df_phase.loc[df_phase["Option"] == option]
+                    idx_col = 1 if option == 1 else 2
+
+                    counts = np.zeros((res_y, res_x))
+                    for a in range(len(df_opt)):
+                        # a = 0
+                        for b1 in range(res_y):
+                            # b1 = 0
+                            if (Y[b1] - step_y / 2) <= df_opt["x"].values[a] < (Y[b1] + step_y / 2):
+                                for b2 in range(res_x):
+                                    # b2 = 0
+                                    if (X[b2] - step_x / 2) <= df_opt["y"].values[a] < (X[b2] + step_x / 2):
+                                        counts[b1, b2] += 1
+
+                    for room in ["Dining", "Living"]:
+                        # room = "Dining"
+                        if room == "Dining":
+                            position_x = first_non_zero_col + room_width / 2 - 2
+                            position_y = last_non_zero_row - 3
+                            color = green if option == 2 else red
+                        else:
+                            position_x = last_non_zero_col - 4.5
+                            position_y = first_non_zero_row + 1
+                            color = green if option == 1 else red
+                        circle = patches.Circle((position_x, position_y), radius=2, color=color, alpha=0.5)
+                        axes[idx_row, idx_col].add_patch(circle)
+                    axes[idx_row, idx_col].hlines(y=first_non_zero_row - 2, xmin=first_non_zero_col - 1, xmax=last_non_zero_col + 1, linewidth=1, color='lightgrey')
+                    axes[idx_row, idx_col].hlines(y=last_non_zero_row + 3, xmin=first_non_zero_col - 1, xmax=last_non_zero_col + 1, linewidth=1, color='lightgrey')
+                    axes[idx_row, idx_col].vlines(x=first_non_zero_col - 1, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+                    axes[idx_row, idx_col].vlines(x=last_non_zero_col + 1, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+                    room_width = int((last_non_zero_col - first_non_zero_col) / 3)
+                    axes[idx_row, idx_col].vlines(x=first_non_zero_col + room_width + 2, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+                    axes[idx_row, idx_col].vlines(x=first_non_zero_col + 2 * room_width + 4, ymin=first_non_zero_row - 2, ymax=last_non_zero_row + 3, linewidth=1, color='lightgrey')
+
+                    axes[idx_row, idx_col].imshow(counts, cmap="magma_r", norm="log")
+                    axes[idx_row, idx_col].axis('scaled')
+                    axes[idx_row, idx_col].axis('off')
+                    axes[idx_row, idx_col].invert_xaxis()
+    axes[0, 0].text(last_non_zero_col + 5.5, np.mean([first_non_zero_row, last_non_zero_row]), f"≥ {SA_score}-{text}", color="k", fontstyle="italic", verticalalignment='center', rotation=90)
+    axes[0, 0].text(last_non_zero_col + 9, np.mean([first_non_zero_row, last_non_zero_row]), f"HSA (N = {hsa})", color="k", verticalalignment='center', rotation=90)
+    axes[1, 0].text(last_non_zero_col + 5.5, np.mean([first_non_zero_row, last_non_zero_row]), f"< {SA_score}-{text}", color="k", fontstyle="italic", verticalalignment='center', rotation=90)
+    axes[1, 0].text(last_non_zero_col + 9, np.mean([first_non_zero_row, last_non_zero_row]), f"LSA (N = {lsa})", color="k", verticalalignment='center', rotation=90)
+
+    axes[0, 0].set_title("Habituation", fontweight="bold")
+    axes[0, 1].set_title("Test (Option 1)", fontweight="bold")
+    axes[0, 2].set_title("Test (Option 2)", fontweight="bold")
+
+    fig.subplots_adjust(wspace=0.02, hspace=-0.4)
+    plt.savefig(os.path.join(save_path, f"movement_heatmap_{title}_{SA_score}.png"), dpi=300, bbox_inches='tight')
+    plt.close()
+
+
 # Heatmap per SA-Group
 def draw_display(dispsize, imagefile=None):
     """Returns a matplotlib.pyplot Figure and its axes, with a size of
@@ -1301,8 +1434,7 @@ def gaussian(x, sx, y=None, sy=None):
     # gaussian matrix
     for i in range(x):
         for j in range(y):
-            M[j, i] = np.exp(
-                -1.0 * (((float(i) - xo) ** 2 / (2 * sx * sx)) + ((float(j) - yo) ** 2 / (2 * sy * sy))))
+            M[j, i] = np.exp(-1.0 * (((float(i) - xo) ** 2 / (2 * sx * sx)) + ((float(j) - yo) ** 2 / (2 * sy * sy))))
 
     return M
 
@@ -1402,8 +1534,8 @@ def draw_heatmap(gazepoints, dispsize, imagefile=None, alpha=0.5, gaussianwh=200
 
 
 df = pd.read_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';')
-df["y_hm"] = df["x"] + abs(-920)
-df["x_hm"] = df["y"] + abs(-1291)
+df["y_hm"] = df["x"] + 950  # abs(df["x"].min())
+df["x_hm"] = df["y"] + 1300  # abs(df["y"].min())
 
 df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
 df_spai.sort()
@@ -1411,39 +1543,50 @@ vps = df["VP"].unique()
 vps.sort()
 cutoff_sa = 2.79 if SA_score == "SPAI" else 30
 
-for phase in ["Habituation", "Test"]:
-    # phase = "Test"
-    df_phase = df.loc[df["phase"] == phase]
-    background_image = os.path.join(save_path, 'FloorPlan_Movement_sw.png')
+for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({round(cutoff_sa, 2)})", f"Median ({round(np.median(df_spai), 2)})"], ["cutoff", "median"]):
+    # cutoff = np.median(df_spai)
+    for group in ["lsa", "hsa"]:
+        # group = "hsa"
+        if group == "hsa":
+            df_group = df.loc[df[SA_score] >= cutoff]
+        elif group == "lsa":
+            df_group = df.loc[df[SA_score] < cutoff]
+        for phase in ["Habituation", "Test"]:
+            # phase = "Habituation"
+            df_phase = df_group.loc[df_group["phase"] == phase]
+            background_image = os.path.join(save_path, 'FloorPlan_Movement_sw.png')
+            alpha = 0.7
+            gaussianwh = 200
+            gaussiansd = 30
 
-    if phase == "Habituation":
-        data = list(zip(df_phase["x_hm"].astype("int"), df_phase["y_hm"].astype("int"), len(df_phase) * [1]))
-        draw_heatmap(data, dispsize=(1753, 520), alpha=0.7,
-                     imagefile=background_image, gaussianwh=100, gaussiansd=None)
+            if phase == "Habituation":
+                data = list(zip(df_phase["x_hm"].astype("int"), df_phase["y_hm"].astype("int"), len(df_phase) * [1]))
+                fig = draw_heatmap(data, dispsize=(1732, 580), alpha=alpha,
+                                   imagefile=background_image, gaussianwh=gaussianwh, gaussiansd=gaussiansd)
 
-        plt.savefig(os.path.join(save_path, f"heatmap_movement_habituation.png"), dpi=300, bbox_inches='tight')
-        plt.close()
-    elif phase == "Test":
-        try:
-            df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
-            df_cond = df_cond[["VP", "Roles", "Rooms"]]
-            df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
-            df_phase = df_phase.merge(df_cond, on="VP")
-            df_phase["Option"] = 1
-            df_phase.loc[df_phase["Rooms"] == 1, "Option"] = 2
-        except:
-            print("no conditions file")
+                plt.savefig(os.path.join(save_path, f"movement_heatmap_{title}_{SA_score}_{group}_habituation.png"), dpi=300, bbox_inches='tight')
+                plt.close()
+            elif phase == "Test":
+                try:
+                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = df_cond[["VP", "Roles", "Rooms"]]
+                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_phase = df_phase.merge(df_cond, on="VP")
+                    df_phase["Option"] = 1
+                    df_phase.loc[df_phase["Rooms"] == 1, "Option"] = 2
+                except:
+                    print("no conditions file")
 
-        for option in [1, 2]:
-            # option = 1
-            df_opt = df_phase.loc[df_phase["Option"] == option]
+                for option in [1, 2]:
+                    # option = 1
+                    df_opt = df_phase.loc[df_phase["Option"] == option]
 
-            data = list(zip(df_opt["x_hm"].astype("int"), df_opt["y_hm"].astype("int"), len(df_opt) * [1]))
-            draw_heatmap(data, dispsize=(1753, 520), alpha=0.7,
-                         imagefile=background_image, gaussianwh=100, gaussiansd=None)
+                    data = list(zip(df_opt["x_hm"].astype("int"), df_opt["y_hm"].astype("int"), len(df_opt) * [1]))
+                    fig = draw_heatmap(data, dispsize=(1732, 580), alpha=alpha,
+                                 imagefile=background_image, gaussianwh=gaussianwh, gaussiansd=gaussiansd)
 
-            plt.savefig(os.path.join(save_path, f"heatmap_movement_test_opt{option}.png"), dpi=300, bbox_inches='tight')
-            plt.close()
+                    plt.savefig(os.path.join(save_path, f"movement_heatmap_{title}_{SA_score}_{group}_test_opt{option}.png"), dpi=300, bbox_inches='tight')
+                    plt.close()
 
 
 # Walking Distance

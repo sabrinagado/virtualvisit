@@ -10,6 +10,7 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from scipy.stats import linregress
+from scipy import signal
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
 import pymer4
@@ -33,13 +34,51 @@ ylabels = ["Heart Rate (BPM)", "Skin Conductance Level [µS]", "Pupil Diameter [
 colors = [green, red, blue]
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
-    # physio_idx = 0
+    # physio_idx = 1
     # physiology = "eda"
     # column_name = "EDA"
     # ylabel = "Skin Conductance Level [µS]"
     df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
     if physiology == "hr":
         df = df.loc[(df[column_name] >= df[column_name].mean() - 3 * df[column_name].std()) & (df[column_name] <= df[column_name].mean() + 3 * df[column_name].std())]  # exclude outliers
+    elif physiology == "eda":
+        for vp in df["VP"].unique():
+            # vp = 2
+            df_vp = df.loc[df["VP"] == vp]
+            for event in df_vp["event"].unique():
+                # event = "FriendlyInteraction"
+                df_event = df_vp.loc[df_vp["event"] == event]
+                eda_signal = df_event["EDA"].to_numpy()
+
+                # Get local minima and maxima
+                local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
+                peak_values = list(eda_signal[local_maxima])
+                peak_times = list(local_maxima)
+
+                local_minima = signal.argrelextrema(eda_signal, np.less)[0]
+                onset_values = list(eda_signal[local_minima])
+                onset_times = list(local_minima)
+
+                scr_onsets = []
+                scr_peaks = []
+                scr_amplitudes = []
+                scr_risetimes = []
+                amplitude_min = 0.02
+                for onset_idx, onset in enumerate(onset_times):
+                    # onset_idx = 0
+                    # onset = onset_times[onset_idx]
+                    subsequent_peak_times = [peak_time for peak_time in peak_times if (onset - peak_time) < 0]
+                    if len(subsequent_peak_times) > 0:
+                        peak_idx = list(peak_times).index(min(subsequent_peak_times, key=lambda x: abs(x - onset)))
+                        rise_time = (peak_times[peak_idx] - onset) / 10
+                        amplitude = peak_values[peak_idx] - onset_values[onset_idx]
+                        if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
+                            scr_onsets.append(onset)
+                            scr_peaks.append(peak_times[peak_idx])
+                            scr_amplitudes.append(amplitude)
+                            scr_risetimes.append(rise_time)
+                if len(scr_amplitudes) == 0:
+                    df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
 
     phases = ["FriendlyInteraction", "UnfriendlyInteraction"]  # "NeutralInteraction",
     # fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
@@ -83,25 +122,62 @@ for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda",
 
 axes[2].legend(loc="upper right")
 plt.tight_layout()
-for end in (['.png']):  # '.pdf',
-    plt.savefig(os.path.join(save_path, f"physiology_acq{end}"), dpi=300)
+plt.savefig(os.path.join(save_path, f"physiology_acq.png"), dpi=300)
 plt.close()
 
 
 # Clicks
-ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
+ylabels = ["Heart Rate (BPM)", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
 colors = [green, red]
-for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "EDA", "ECG"], ylabels):
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
+for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
     # physiology = "hr"
     # column_name = "ECG"
     # ylabel = "Heart Rate (BPM)"
     df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
     if physiology == "hr":
         df = df.loc[(df[column_name] >= df[column_name].mean() - 3 * df[column_name].std()) & (df[column_name] <= df[column_name].mean() + 3 * df[column_name].std())]  # exclude outliers
+    elif physiology == "eda":
+        for vp in df["VP"].unique():
+            # vp = 2
+            df_vp = df.loc[df["VP"] == vp]
+            for event in df_vp["event"].unique():
+                # event = "FriendlyInteraction"
+                df_event = df_vp.loc[df_vp["event"] == event]
+                eda_signal = df_event["EDA"].to_numpy()
+                # Get local minima and maxima
+                local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
+                peak_values = list(eda_signal[local_maxima])
+                peak_times = list(local_maxima)
+
+                local_minima = signal.argrelextrema(eda_signal, np.less)[0]
+                onset_values = list(eda_signal[local_minima])
+                onset_times = list(local_minima)
+
+                scr_onsets = []
+                scr_peaks = []
+                scr_amplitudes = []
+                scr_risetimes = []
+                amplitude_min = 0.02
+                for onset_idx, onset in enumerate(onset_times):
+                    # onset_idx = 0
+                    # onset = onset_times[onset_idx]
+                    subsequent_peak_times = [peak_time for peak_time in peak_times if (onset - peak_time) < 0]
+                    if len(subsequent_peak_times) > 0:
+                        peak_idx = list(peak_times).index(min(subsequent_peak_times, key=lambda x: abs(x - onset)))
+                        rise_time = (peak_times[peak_idx] - onset) / 10
+                        amplitude = peak_values[peak_idx] - onset_values[onset_idx]
+                        if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
+                            scr_onsets.append(onset)
+                            scr_peaks.append(peak_times[peak_idx])
+                            scr_amplitudes.append(amplitude)
+                            scr_risetimes.append(rise_time)
+                if len(scr_amplitudes) == 0:
+                    df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
+
     df = df.loc[df["time"] < 3]
 
     phases = ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
     titles = ["Friendly Clicked", "Unfriendly Clicked"]
     for idx_phase, phase in enumerate(phases):
         # idx_phase = 0
@@ -113,10 +189,10 @@ for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "ED
         sem = df_phase.groupby("time")[column_name].sem()
 
         # Plot line
-        ax.plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-        ax.fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
+        axes[physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
+        axes[physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
 
-    y_pos = ax.get_ylim()[0] + 0.02 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+    y_pos = axes[physio_idx].get_ylim()[0] + 0.02 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
 
     for timepoint in df["time"].unique():
         # timepoint = 0
@@ -130,21 +206,21 @@ for physiology, column_name, ylabel in zip(["pupil", "eda", "hr"], ["pupil", "ED
 
         p = anova.loc["event", "P-val"].item()
         if p < 0.05:
-            ax.hlines(y=y_pos, xmin=timepoint, xmax=timepoint+0.1, linewidth=5, color='gold')
+            axes[physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint+0.1, linewidth=5, color='gold')
 
     # Style Plot
-    ax.set_xlim([0, 2.9])
-    ax.set_ylabel(ylabel)
-    ax.set_title(f"{ylabel.split(' [')[0]} (N = {len(df['VP'].unique())})", fontweight='bold')
-    ax.set_xlabel("Seconds after Click")
-    ax.legend(loc="upper right")
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.legend()
+    axes[physio_idx].set_xlim([0, 2.9])
+    axes[physio_idx].set_ylabel(ylabel)
+    axes[physio_idx].set_title(f"{ylabel.split(' [')[0]} (N = {len(df['VP'].unique())})", fontweight='bold')
+    axes[physio_idx].set_xlabel("Seconds after Click")
+    axes[physio_idx].legend(loc="upper right")
+    axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
-    plt.tight_layout()
-    for end in (['.png']):  # '.pdf',
-        plt.savefig(os.path.join(save_path, f"{physiology}_click{end}"), dpi=300)
-    plt.close()
+axes[2].legend()
+
+plt.tight_layout()
+plt.savefig(os.path.join(save_path, f"physiology_click.png"), dpi=300)
+plt.close()
 
 
 # Test Phase

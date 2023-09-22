@@ -24,7 +24,7 @@ if not os.path.exists(save_path):
 
 df_rating = pd.read_csv(os.path.join(dir_path, 'Data', 'ratings.csv'), decimal='.', sep=';')
 colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
-SA_score = "SIAS"
+SA_score = "SPAI"
 
 # Ratings Virtual Humans
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
