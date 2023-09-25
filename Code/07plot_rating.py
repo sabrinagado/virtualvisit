@@ -146,7 +146,7 @@ conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
 colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
 
 for idx_label, label in enumerate(labels):
-    # idx_label = 0
+    # idx_label = 1
     # label = labels[idx_label]
     print(label)
     df_crit = df_rating.loc[df_rating["Criterion"] == label]

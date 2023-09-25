@@ -324,7 +324,7 @@ plt.close()
 
 
 # Time spent in the different rooms: Correlation with SPAI
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1
 pos = [1]
 
@@ -369,9 +369,98 @@ elif "SIAS" in SA_score:
     ax.set_xticks(range(5, 65, 5))
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Total Duration [s] in Test Phase")
+ax.set_title(f"Time Spent Close to Virtual Humans", fontweight='bold')
 ax.legend()
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"duration_test_{SA_score}.png"), dpi=300)
+plt.close()
+
+df_crit = df_test.copy()
+df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+formula = f"duration ~ Condition + {SA_score} + " \
+          f"Condition:{SA_score} + (1 | VP)"
+
+model = pymer4.models.Lmer(formula, data=df_crit)
+model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+anova = model.anova(force_orthogonal=True)
+sum_sq_error = (sum(i * i for i in model.residuals))
+anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+
+
+# Time spent in the different rooms: Correlation with SPAI (Test-Habituation)
+df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
+df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
+df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
+df_subset = df_subset.dropna(subset="duration")
+df_subset = df_subset.groupby(["VP", "phase", "Condition"]).sum(numeric_only=True).reset_index()
+df_subset = df_subset.drop(columns=SA_score)
+df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+
+df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
+df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values='duration').reset_index()
+df_diff = df_diff.fillna(0)
+df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
+df_diff["unfriendly"] = df_diff[("Test"), ("unfriendly")] - df_diff[("Habituation"), ("unfriendly")]
+df_diff = df_diff.iloc[:, [0, 7, 8]]
+df_diff.columns = df_diff.columns.droplevel(level=1)
+df_diff = df_diff.merge(df_spai, on="VP")
+df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
+df_diff = df_diff.sort_values(by=SA_score)
+
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+boxWidth = 1
+pos = [1]
+conditions = ["friendly", "unfriendly"]
+titles = ["Friendly", "Unfriendly"]
+
+for idx_condition, condition in enumerate(conditions):
+    # idx_condition = 0
+    # condition = conditions[idx_condition]
+    df_cond = df_diff.loc[df_diff['Condition'] == condition].reset_index(drop=True)
+    df_cond = df_cond.dropna(subset="difference")
+    df_cond = df_cond.sort_values(by=SA_score)
+
+    x = df_cond[SA_score].to_numpy()
+    y = df_cond["difference"].to_numpy()
+    linreg = linregress(x, y)
+    all_x = df_diff[SA_score].to_numpy()
+    all_y = df_cond["difference"].to_numpy()
+    all_y_est = linreg.slope * all_x + linreg.intercept
+    all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+        1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+    # Plot regression line
+    ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+    ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+
+    p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+    if idx_condition == 0:
+        ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                color=colors[idx_condition])
+    else:
+        ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                color=colors[idx_condition])
+
+    # Plot raw data points
+    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6,
+            label=titles[idx_condition])
+
+ax.set_xlabel(SA_score)
+if "SPAI" in SA_score:
+    ax.set_xticks(range(0, 6))
+elif "SIAS" in SA_score:
+    ax.set_xticks(range(5, 65, 5))
+ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+ax.set_ylabel(f"Difference (Test - Habituation) Between\nTime Spent Close to the Position of the Virtual Humans [s]")
+ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Humans", fontweight='bold')
+ax.legend(loc="upper right")
+plt.tight_layout()
+plt.savefig(os.path.join(save_path, f"duration_diff_{SA_score}.png"), dpi=300)
 plt.close()
 
 

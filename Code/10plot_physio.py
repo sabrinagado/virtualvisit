@@ -27,10 +27,10 @@ if not os.path.exists(save_path):
 red = '#E2001A'
 green = '#B1C800'
 blue = '#1F82C0'
-SA_score = "SIAS"
+SA_score = "SPAI"
 
 # Acquisition
-ylabels = ["Heart Rate (BPM)", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
+ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
 colors = [green, red, blue]
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
@@ -127,7 +127,7 @@ plt.close()
 
 
 # Clicks
-ylabels = ["Heart Rate (BPM)", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
+ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
 colors = [green, red]
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
@@ -227,12 +227,11 @@ plt.close()
 red = '#E2001A'
 green = '#B1C800'
 colors = [green, red]
-ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate (BPM)"]
+ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate [BPM]"]
 dvs = ["Pupil Dilation (Mean)", "SCL (Mean)", "HR (Mean)"]
 for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
-    # physiology = "pupil"
-    # ylabel = "Pupil Diameter [mm]"
-    # dv = "Pupil Dilation (Mean)"
+    # physiology = "hr"
+    # ylabel, dv = ylabels[2], dvs[2]
     df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}.csv'), decimal='.', sep=';')
 
     df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
@@ -242,10 +241,12 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
     df_subset.loc[df_subset['Phase'].str.contains("Living"), "room"] = "Living"
     df_subset.loc[df_subset['Phase'].str.contains("Dining"), "room"] = "Dining"
 
+    df_subset = df_subset.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
+
     conditions = ["friendly", "unfriendly"]
     phases = ['Habituation', 'Test']
     titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -307,14 +308,14 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
                        widths=0.8 * boxWidth)
 
         df_cond = df_cond.rename(columns={dv: physiology})
-        formula = f"{physiology} ~ Phase + (1 | VP)"
+        formula = f"{physiology} ~ phase + (1 | VP)"
 
         model = pymer4.models.Lmer(formula, data=df_cond)
-        model.fit(factors={"Phase": ['Habituation_DiningRoom', 'Test_DiningRoom', 'Habituation_LivingRoom', 'Test_LivingRoom']}, summarize=False)
+        model.fit(factors={"phase": ['Habituation', 'Test']}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        estimates, contrasts = model.post_hoc(marginal_vars="Phase", p_adjust="holm")
+        estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
 
-        p = anova.loc["Phase", "P-val"].item()
+        p = anova.loc["phase", "P-val"].item()
         max = df_subset[dv].max()
         if p < 0.05:
             ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
@@ -323,17 +324,23 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
             p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
             ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
 
-    df_crit = df_subset.loc[df_subset["phase"].str.contains("Test")]
-    df_crit = df_crit.rename(columns={dv: physiology})
+    df_crit = df_subset.copy()
     df_crit = df_crit.loc[df_crit["Condition"].isin(conditions)]
-    formula = f"{physiology} ~ Condition + (1 | VP)"
+    df_crit = df_crit.rename(columns={dv: physiology})
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+    formula = f"{physiology} ~ phase + Condition + {SA_score} + " \
+              f"phase:Condition + phase:{SA_score} + Condition:{SA_score} +" \
+              f"phase:Condition:{SA_score} + (1 | VP)"
 
     model = pymer4.models.Lmer(formula, data=df_crit)
-    model.fit(factors={"Condition": ['friendly', 'unfriendly']}, summarize=False)
+    model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="phase", p_adjust="holm")
 
-    p = anova.loc["Condition", "P-val"].item()
+    p = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
     max = df_subset[dv].max()
     if p < 0.05:
         ax.hlines(y=max * 1.10, xmin=2 * boxWidth, xmax=1 + 2 * boxWidth, linewidth=0.7, color='k')
@@ -346,18 +353,19 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
     ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(ylabel)
+    ax.set_title(ylabel.split("[")[0], fontweight='bold')
 
     fig.legend(
         [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
         ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    fig.subplots_adjust(right=0.76)
-    plt.savefig(os.path.join(save_path, f"{physiology}_test.png"), dpi=300, bbox_inches="tight")
+    fig.subplots_adjust(right=0.7)
+    plt.savefig(os.path.join(save_path, f"{physiology}_hab-test.png"), dpi=300, bbox_inches="tight")
     plt.close()
 
-    # Time spent in the different rooms: Correlation with SPAI
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
+    # Correlation with SPAI
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     boxWidth = 1
     pos = [1]
 
@@ -393,15 +401,81 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
                     color=colors[idx_condition])
 
         # Plot raw data points
-        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6,
-                label=titles[idx_condition])
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
 
     ax.set_xlabel(SA_score)
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"{ylabel} in Test Phase")
+    ax.set_title(ylabel.split("[")[0], fontweight='bold')
     ax.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, f"{physiology}_test_{SA_score}.png"), dpi=300)
+    plt.close()
+
+    # Correlation with SPAI (Test-Habituation)
+    df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
+    df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values=dv).reset_index()
+    df_diff = df_diff.dropna()
+    df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
+    df_diff["unfriendly"] = df_diff[("Test"), ("unfriendly")] - df_diff[("Habituation"), ("unfriendly")]
+    df_diff.columns = df_diff.columns.droplevel(level=1)
+    df_diff = df_diff[["VP", "friendly", "unfriendly"]]
+    df_diff = df_diff.merge(df_spai, on="VP")
+    df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
+    df_diff = df_diff.sort_values(by=SA_score)
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    boxWidth = 1
+    pos = [1]
+    conditions = ["friendly", "unfriendly"]
+    titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
+
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_diff.loc[df_diff['Condition'] == condition].reset_index(drop=True)
+        df_cond = df_cond.dropna(subset="difference")
+        df_cond = df_cond.sort_values(by=SA_score)
+
+        x = df_cond[SA_score].to_numpy()
+        y = df_cond["difference"].to_numpy()
+        linreg = linregress(x, y)
+        all_x = df_diff[SA_score].to_numpy()
+        all_y = df_cond["difference"].to_numpy()
+        all_y_est = linreg.slope * all_x + linreg.intercept
+        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+        # Plot regression line
+        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                    0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
+        else:
+            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                    0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
+
+        # Plot raw data points
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+
+    ax.set_xlabel(SA_score)
+    if "SPAI" in SA_score:
+        ax.set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        ax.set_xticks(range(5, 65, 5))
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Difference (Test - Habituation) in {ylabel}")
+    ax.set_title(ylabel.split("[")[0], fontweight='bold')
+    ax.legend(loc="upper right")
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"{physiology}_diff_{SA_score}.png"), dpi=300)
     plt.close()
 
 
