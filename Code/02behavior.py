@@ -452,8 +452,10 @@ df_move = df_move.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredne
 df_move = df_move.drop(columns=['ID'])
 df_move.to_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';', index=False)
 
-df_distance = df_distance.reset_index(drop=True)
-df_distance["VP"] = df_distance["VP"].astype("int")
+df_distance = pd.read_csv(os.path.join(dir_path, 'Data', 'walking_distance.csv'), decimal='.', sep=';')
+df_distance = df_distance.iloc[:, 0:5]
+# df_distance = df_distance.reset_index(drop=True)
+# df_distance["VP"] = df_distance["VP"].astype("int")
 df_distance = df_distance.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                    'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                    'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
@@ -473,6 +475,18 @@ df_dist_vh = df_dist_vh.merge(df_scores[['ID', 'gender', 'age', 'motivation', 't
                                    'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_dist_vh = df_dist_vh.drop(columns=['ID'])
 df_dist_vh.to_csv(os.path.join(dir_path, 'Data', 'distance_vh.csv'), decimal='.', sep=';', index=False)
+
+df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
+df_event = df_event.iloc[:, 0:5]
+
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_event = df_event.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
+                                   'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
+                                   'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
+                                   'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
+                                   'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
+df_event = df_event.drop(columns=['ID'])
+df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';', index=False)
 
 
 # # Interpersonal Distance

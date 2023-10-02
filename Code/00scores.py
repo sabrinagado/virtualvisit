@@ -158,13 +158,13 @@ df_isk = df_isk[['ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']]
 df_asi = df_scores.filter(like='ASI_')
 df_asi = df_asi - 1
 
+df_asi['ASI3'] = df_asi.sum(axis=1)
 df_asi_pc = df_asi.filter(like='PC')  # Physical Concerns
 df_asi['ASI3-PC'] = df_asi_pc.sum(axis=1)
 df_asi_cc = df_asi.filter(like='CC')  # Cognitive Concerns
 df_asi['ASI3-CC'] = df_asi_cc.sum(axis=1)
 df_asi_sc = df_asi.filter(like='SC')  # Social Concerns
 df_asi['ASI3-SC'] = df_asi_sc.sum(axis=1)
-df_asi['ASI3'] = df_asi.sum(axis=1)
 
 df_asi = df_asi[['ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC']]
 
@@ -206,8 +206,8 @@ df_ssq['SSQ-diff'] = df_ssq['SSQ-post'] - df_ssq['SSQ-pre']
 
 df_subjects = df_scores[['ID', 'age', 'gender']]
 df_problematic_subjects = pd.concat([df_subjects, df_ssq], axis=1)
-cutoff = df_problematic_subjects["SSQ-diff"].mean() + df_problematic_subjects["SSQ-diff"].std()  # .quantile(0.75)
-df_problematic_subjects = df_problematic_subjects.loc[df_problematic_subjects["SSQ-diff"] > cutoff]
+cutoff_ssq = df_problematic_subjects["SSQ-diff"].mean() + df_problematic_subjects["SSQ-diff"].std()  # .quantile(0.75)
+df_problematic_subjects = df_problematic_subjects.loc[df_problematic_subjects["SSQ-diff"] > cutoff_ssq]
 problematic_subjects = list(np.unique(problematic_subjects + df_problematic_subjects["ID"].to_list()))
 
 # old_columns = df_problematic_subjects.columns
@@ -307,11 +307,36 @@ scales = ["SSQ-post", "SSQ-diff", "IPQ", "MPS", "ASI", "SPAI", "SIAS", "AQ", "IS
 colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
 
 for idx_scale, scale in enumerate(scales):
-    # idx_scale = 1
+    # idx_scale = 5
     # scale = scales[idx_scale]
     df_scale = df.filter(like=scale)
-    min = np.min(df_scale.min()) - 0.02 * np.max(df_scale.max())
-    max = np.max(df_scale.max()) + 0.02 * np.max(df_scale.max())
+    cutoff = None
+    if scale == "SPAI":
+        min = 0
+        max = 5
+        cutoff = 2.79
+    elif scale == "IPQ":
+        min = 0
+        max = 6
+    elif scale == "MPS":
+        min = 1
+        max = 5
+    elif scale == "ASI":
+        min = 0
+        max = 4 * 18
+    elif scale == "SIAS":
+        cutoff = 30
+        min = np.min(df_scale.min())
+        max = np.max(df_scale.max())
+    elif scale == "AQ":
+        min = 0
+        max = 33
+        cutoff = 17
+    else:
+        min = np.min(df_scale.min())
+        max = np.max(df_scale.max())
+    min = min - 0.02 * max
+    max = max + 0.02 * max
     n_subscales = len(df_scale.columns)
     if n_subscales > 1:
         fig, axes = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 6))
@@ -368,12 +393,13 @@ for idx_scale, scale in enumerate(scales):
             axes[idx_subscale].set_ylim(min, max)
             axes[idx_subscale].grid(color='lightgrey', linestyle='-', linewidth=0.3)
             if subscale == "SSQ-diff":
-                axes[idx_subscale].axhline(cutoff, color="lightgrey", linewidth=0.8, linestyle="dashed")
+                axes[idx_subscale].axhline(cutoff_ssq, color="lightgrey", linewidth=0.8, linestyle="dashed")
+            elif subscale == "AQ-K":
+                axes[idx_subscale].axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
 
         fig.suptitle(scale)
         plt.tight_layout()
-        for end in (['.png']):  # '.pdf',
-            plt.savefig(os.path.join(save_path, f"{scale}_vr{end}"), dpi=300)
+        plt.savefig(os.path.join(save_path, f"{scale}_vr.png"), dpi=300)
         plt.close()
     elif n_subscales == 1:
         fig, ax = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 6))
@@ -392,7 +418,6 @@ for idx_scale, scale in enumerate(scales):
                     ax.plot(x, y, marker='o', ms=5, mfc="grey", mec="grey", alpha=0.3)
                 else:
                     ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_subscale], mec=colors[idx_subscale], alpha=0.3)
-
 
             # Plot boxplots
             meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -427,12 +452,14 @@ for idx_scale, scale in enumerate(scales):
                                        widths=0.8 * boxWidth)
 
             ax.set_xticklabels([subscale])
-            # ax.set_ylim(min, max)
+            ax.set_ylim(min, max)
             ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+            if cutoff:
+                ax.axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
+
         fig.suptitle(scale)
         plt.tight_layout()
-        for end in (['.png']):  # '.pdf',
-            plt.savefig(os.path.join(save_path, f"{scale}_vr{end}"), dpi=300)
+        plt.savefig(os.path.join(save_path, f"{scale}_vr.png"), dpi=300)
         plt.close()
 
     df_plot = df.copy()
