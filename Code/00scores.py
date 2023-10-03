@@ -313,7 +313,7 @@ for idx_scale, scale in enumerate(scales):
     cutoff = None
     if scale == "SPAI":
         min = 0
-        max = 5
+        max = 6
         cutoff = 2.79
     elif scale == "IPQ":
         min = 0
