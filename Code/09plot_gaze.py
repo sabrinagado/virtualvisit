@@ -33,8 +33,10 @@ vps = [vp for vp in vps if not vp in problematic_subjects]
 
 df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
 SA_score = "SPAI"
-dv = "Gaze Proportion"
-y_label = "Gaze Proportion on Person"
+dvs = ["Gaze Proportion", "Switches"]
+dv = dvs[0]
+y_labels = ["Gaze Proportion on Person", "Fixation Switches Towards Virtual Human"]
+y_label = y_labels[0]
 
 red = '#E2001A'
 green = '#B1C800'

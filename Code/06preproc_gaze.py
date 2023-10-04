@@ -172,7 +172,7 @@ for vp in vps:
 
         if "Clicked" in phase or "Interaction" in phase:
             for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
-                # character = "Emanuel"
+                # character = "Ettore"
                 for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
                     # roi = "head"
                     # searchstring = "Head"
@@ -181,6 +181,12 @@ for vp in vps:
                         continue
                     proportion = number / len(df_gaze_subset)
 
+                    if roi == "head":
+                        switches_towards_roi = (df_gaze_subset["actor"].str.contains(f"{character}Head") & (~(df_gaze_subset["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
+                    elif roi == "body":
+                        switches_towards_roi = ((df_gaze_subset["actor"].str.contains(f"{character}Head") | df_gaze_subset["actor"].str.contains(f"{character}_Char")) & ~(
+                            (df_gaze_subset["actor"].shift().str.contains(f"{character}Head") | df_gaze_subset["actor"].shift().str.contains(f"{character}_Char")))).sum(axis=0)
+
                     # Save as dataframe
                     df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
                                                  'Phase': [phase],
@@ -188,7 +194,8 @@ for vp in vps:
                                                  'Condition': [""],
                                                  'ROI': [roi],
                                                  'Gaze Proportion': [proportion],
-                                                 'Number': [number]})
+                                                 'Number': [number],
+                                                 'Switches': [switches_towards_roi]})
                     df_gaze_temp.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False,
                                         mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'gaze.csv'))))
             if ("Interaction" in phase) or ("Click" in phase):
@@ -252,6 +259,13 @@ for vp in vps:
                 proportion = 0
             proportion = number / len(df_gaze_test)
 
+            if roi == "head":
+                switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}Head") & (
+                    ~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
+            elif roi == "body":
+                switches_towards_roi = ((df_gaze_test["actor"].str.contains(f"{character}Head") | df_gaze_test[ "actor"].str.contains(f"{character}_Char")) & ~(
+                    (df_gaze_test["actor"].shift().str.contains(f"{character}Head") | df_gaze_test["actor"].shift().str.contains(f"{character}_Char")))).sum(axis=0)
+
             # Save as dataframe
             df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
                                          'Phase': ["Test"],
@@ -259,14 +273,15 @@ for vp in vps:
                                          'Condition': [""],
                                          'ROI': [roi],
                                          'Gaze Proportion': [proportion],
-                                         'Number': [number]})
+                                         'Number': [number],
+                                         'Switches': [switches_towards_roi]})
             df_gaze_temp.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False, mode='a',
                                 header=not (os.path.exists(os.path.join(dir_path, 'Data', 'gaze.csv'))))
 
 
 # Add Subject Data
 df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
-df_gaze = df_gaze.iloc[:, 0:7]
+df_gaze = df_gaze.iloc[:, 0:8]
 # df_gaze = df_gaze.loc[df_gaze['Number'] > 0]
 
 # Get conditions

@@ -18,7 +18,7 @@ from Code.toolbox import utils
 import mne
 
 plt.ion()
-matplotlib.use('QtAgg')
+# matplotlib.use('QtAgg')
 
 
 # % ===========================================================================

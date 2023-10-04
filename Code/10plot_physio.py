@@ -227,12 +227,15 @@ plt.close()
 red = '#E2001A'
 green = '#B1C800'
 colors = [green, red]
-ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate [BPM]"]
-dvs = ["Pupil Dilation (Mean)", "SCL (Mean)", "HR (Mean)"]
-for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
-    # physiology = "hr"
-    # ylabel, dv = ylabels[2], dvs[2]
-    df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}.csv'), decimal='.', sep=';')
+ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate [BPM]", "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
+dvs = ["Pupil Dilation (Mean)", "SCL (Mean)", "HR (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
+for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"], ylabels, dvs):
+    # physiology = "hrv_hf"
+    # ylabel, dv = ylabels[3], dvs[3]
+    if "hrv" in physiology:
+        df = pd.read_csv(os.path.join(dir_path, 'Data', f'hr.csv'), decimal='.', sep=';')
+    else:
+        df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}.csv'), decimal='.', sep=';')
 
     df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
     df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
@@ -242,6 +245,7 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
     df_subset.loc[df_subset['Phase'].str.contains("Dining"), "room"] = "Dining"
 
     df_subset = df_subset.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
+    df_subset = df_subset.dropna(subset=dv)
 
     conditions = ["friendly", "unfriendly"]
     phases = ['Habituation', 'Test']
@@ -414,6 +418,7 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
 
     # Correlation with SPAI (Test-Habituation)
     df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
+    df_spai = df_spai.sort_values(by=SA_score)
     df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values=dv).reset_index()
     df_diff = df_diff.dropna()
     df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
@@ -440,7 +445,7 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr"], ylabels, dvs):
         x = df_cond[SA_score].to_numpy()
         y = df_cond["difference"].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_diff[SA_score].to_numpy()
+        all_x = df_spai[SA_score].to_numpy()
         all_y = df_cond["difference"].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -510,5 +515,3 @@ for physiology in ["pupil", "eda", "hr"]:
                        "Phase": ['Habituation_DiningRoom', 'Test_DiningRoom', 'Habituation_LivingRoom', 'Test_LivingRoom']}, summarize=False)
     anova = model.anova(force_orthogonal=True)
     estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="Phase", p_adjust="holm")
-
-
