@@ -19,7 +19,7 @@ from Code.toolbox import utils
 
 
 dir_path = os.getcwd()
-save_path = os.path.join(dir_path, 'Plots', 'Physiology')
+save_path = os.path.join(dir_path, 'Plots-Wave1', 'Physiology')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
@@ -38,7 +38,7 @@ for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda",
     # physiology = "eda"
     # column_name = "EDA"
     # ylabel = "Skin Conductance Level [µS]"
-    df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
+    df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', f'{physiology}_interaction.csv'), decimal='.', sep=';')
     if physiology == "hr":
         df = df.loc[(df[column_name] >= df[column_name].mean() - 3 * df[column_name].std()) & (df[column_name] <= df[column_name].mean() + 3 * df[column_name].std())]  # exclude outliers
     elif physiology == "eda":
@@ -134,7 +134,7 @@ for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda",
     # physiology = "hr"
     # column_name = "ECG"
     # ylabel = "Heart Rate (BPM)"
-    df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}_interaction.csv'), decimal='.', sep=';')
+    df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', f'{physiology}_interaction.csv'), decimal='.', sep=';')
     if physiology == "hr":
         df = df.loc[(df[column_name] >= df[column_name].mean() - 3 * df[column_name].std()) & (df[column_name] <= df[column_name].mean() + 3 * df[column_name].std())]  # exclude outliers
     elif physiology == "eda":
@@ -233,9 +233,9 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
     # physiology = "hrv_hf"
     # ylabel, dv = ylabels[3], dvs[3]
     if "hrv" in physiology:
-        df = pd.read_csv(os.path.join(dir_path, 'Data', f'hr.csv'), decimal='.', sep=';')
+        df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', f'hr.csv'), decimal='.', sep=';')
     else:
-        df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}.csv'), decimal='.', sep=';')
+        df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', f'{physiology}.csv'), decimal='.', sep=';')
 
     df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
     df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
@@ -493,7 +493,7 @@ for physiology in ["pupil", "eda", "hr"]:
     elif physiology == "hr":
         dv = "HR (Mean)"
 
-    df = pd.read_csv(os.path.join(dir_path, 'Data', f'{physiology}.csv'), decimal='.', sep=';')
+    df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', f'{physiology}.csv'), decimal='.', sep=';')
 
     df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
     df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"

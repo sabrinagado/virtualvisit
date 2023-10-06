@@ -17,12 +17,12 @@ import pymer4
 from Code.toolbox import utils
 
 dir_path = os.getcwd()
-save_path = os.path.join(dir_path, 'Plots', 'Ratings')
+save_path = os.path.join(dir_path, 'Plots-Wave1', 'Ratings')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
 
-df_rating = pd.read_csv(os.path.join(dir_path, 'Data', 'ratings.csv'), decimal='.', sep=';')
+df_rating = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'ratings.csv'), decimal='.', sep=';')
 colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
 SA_score = "SPAI"
 

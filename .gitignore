@@ -135,10 +135,14 @@ dmypy.json
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
-Data/
+
+# Paths
 Data-Pilot/
-Plots/
-Gaze-Labeling/VP**
+Data-Wave1/
+Data-Wave2/
+Plots-Pilot/
+Plots-Wave1/
+Plots-Wave2/
 **/.DS_Store
 *.pdf
 *.png

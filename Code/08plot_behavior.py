@@ -20,7 +20,7 @@ import pymer4
 from Code.toolbox import utils
 
 dir_path = os.getcwd()
-save_path = os.path.join(dir_path, 'Plots', 'Behavior')
+save_path = os.path.join(dir_path, 'Plots-Wave1', 'Behavior')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
@@ -30,7 +30,7 @@ green = '#B1C800'
 colors = [green, red]
 SA_score = "SPAI"
 
-df = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';')
 
 # Time spent in Rooms
 df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
@@ -518,18 +518,18 @@ df_diff = df_diff[["VP", "difference"]]
 df_diff = df_diff.rename(columns={"difference": "time_diff"})
 df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
 try:
-    df_aa = pd.read_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';')
+    df_aa = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';')
     if "time_diff" in df_aa.columns:
         df_aa.update(df_diff)
     else:
         df_aa = df_aa.merge(df_diff, on="VP")
-    df_aa.to_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+    df_aa.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 except:
-    df_diff.to_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+    df_diff.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 
 
 # Interpersonal Distance
-df = pd.read_csv(os.path.join(dir_path, 'Data', 'distance_vh.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'distance_vh.csv'), decimal='.', sep=';')
 for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     # dist, title = "avg", "Average"
     # dist, title = "min", "Minimum"
@@ -946,18 +946,18 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     df_diff = df_diff.rename(columns={"difference": "distance_diff"})
     df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
     try:
-        df_aa = pd.read_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';')
+        df_aa = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';')
         if "distance_diff" in df_aa.columns:
             df_aa.update(df_diff)
         else:
             df_aa = df_aa.merge(df_diff, on="VP")
-        df_aa.to_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+        df_aa.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
     except:
-        df_diff.to_csv(os.path.join(dir_path, 'Data', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+        df_diff.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 
 
 # Clicks
-df = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';')
 df_subset = df.loc[df["event"].str.contains("Clicked")]
 df_subset = df_subset.groupby(["VP", "Condition"])["event"].count().reset_index()
 df_subset = df_subset.rename(columns={"event": "click_count"})
@@ -1116,8 +1116,8 @@ plt.close()
 
 
 # Movement
-df = pd.read_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';')
-df_dist = pd.read_csv(os.path.join(dir_path, 'Data', 'walking_distance.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
+df_dist = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'walking_distance.csv'), decimal='.', sep=';')
 
 vps = df["VP"].unique()
 vps.sort()
@@ -1172,10 +1172,10 @@ for vp_block in vps:
 
             if phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
                     df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
                     df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
                 except:
@@ -1205,7 +1205,7 @@ for vp_block in vps:
     plt.close()
 
 # Movement per SA-Group
-df = pd.read_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
 df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
 df_spai.sort()
 cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.4 * np.max(df_spai), vmax=np.max(df_spai) + 0.2 * np.max(df_spai))
@@ -1256,10 +1256,10 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
 
             if phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
                     df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
                     df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
                 except:
@@ -1306,7 +1306,7 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
     plt.close()
 
 
-df = pd.read_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
 df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
 df_spai.sort()
 cutoff_sa = 2.79 if SA_score == "SPAI" else 30
@@ -1376,9 +1376,9 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
 
             elif phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_phase = df_phase.merge(df_cond, on="VP")
                     df_phase["Option"] = 1
                     df_phase.loc[df_phase["Rooms"] == 1, "Option"] = 2
@@ -1622,7 +1622,7 @@ def draw_heatmap(gazepoints, dispsize, imagefile=None, alpha=0.5, gaussianwh=200
     return fig
 
 
-df = pd.read_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
 df["y_hm"] = df["x"] + 950  # abs(df["x"].min())
 df["x_hm"] = df["y"] + 1300  # abs(df["y"].min())
 
@@ -1657,9 +1657,9 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
                 plt.close()
             elif phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_phase = df_phase.merge(df_cond, on="VP")
                     df_phase["Option"] = 1
                     df_phase.loc[df_phase["Rooms"] == 1, "Option"] = 2
@@ -1679,7 +1679,7 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
 
 
 # Walking Distance
-df_dist = pd.read_csv(os.path.join(dir_path, 'Data', 'walking_distance.csv'), decimal='.', sep=';')
+df_dist = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'walking_distance.csv'), decimal='.', sep=';')
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 6))
 boxWidth = 1
@@ -1745,7 +1745,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"walking_distance_grouped_{SA_score}.png"), dpi=300)
 plt.close()
 
-df_hr = pd.read_csv(os.path.join(dir_path, 'Data', f'hr.csv'), decimal='.', sep=';')
+df_hr = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', f'hr.csv'), decimal='.', sep=';')
 df_hr = df_hr.loc[(df_hr["Phase"].str.contains("Habituation")) | (df_hr["Phase"].str.contains("Test"))]
 df_hr.loc[df_hr["Phase"].str.contains("Habituation"), "phase"] = "Habituation"
 df_hr.loc[df_hr["Phase"].str.contains("Test"), "phase"] = "Test"

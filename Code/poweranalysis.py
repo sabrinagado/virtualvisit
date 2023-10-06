@@ -18,7 +18,7 @@ Hypotheses:
 
 colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
 dir_path = os.getcwd()
-save_path = os.path.join(dir_path, 'Plots', 'Power Analysis')
+save_path = os.path.join(dir_path, 'Plots-Wave1', 'Power Analysis')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
@@ -34,7 +34,7 @@ pwr_analysis = pwr.TTestPower()
 # =============================================================================
 # Dwell Time
 # =============================================================================
-df_dwell = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
+df_dwell = pd.read_csv(os.path.join(dir_path, 'Data-Pilot', 'events.csv'), decimal='.', sep=';')
 df_dwell = df_dwell.loc[df_dwell["event"].str.contains("Habituation") | df_dwell["event"].str.contains("Test") & ~(df_dwell["event"].str.contains("Clicked"))]
 conditions = ["friendly", "unfriendly"]
 dwelltimes = pd.DataFrame()
@@ -112,7 +112,7 @@ plt.close()
 # =============================================================================
 # Interpersonal Distance
 # =============================================================================
-df_dist = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
+df_dist = pd.read_csv(os.path.join(dir_path, 'Data-Pilot', 'distance.csv'), decimal='.', sep=';')
 df_dist = df_dist.loc[df_dist["distance"] <= 1000]
 df_dist = df_dist.loc[df_dist["distance"] >= 1]
 df_dist = df_dist[df_dist["VP"].isin(vps_enterRoom)]
@@ -193,7 +193,7 @@ plt.close()
 # =============================================================================
 # Gaze
 # =============================================================================
-df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
+df_gaze = pd.read_csv(os.path.join(dir_path, 'Data-Pilot', 'gaze.csv'), decimal='.', sep=';')
 df_gaze = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
 df_gaze = df_gaze.loc[~(df_gaze["Phase"].str.contains("Office"))]
 df_gaze = df_gaze[df_gaze["VP"].isin(vps_enterRoom)]

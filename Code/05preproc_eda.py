@@ -470,7 +470,7 @@ for vp in vps:
 
     # Get EDA data
     try:
-        file_path = os.path.join(dir_path, 'Data', 'VP_' + vp, 'EDA')
+        file_path = os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, 'EDA')
         folder = [item for item in os.listdir(file_path)][0]
         file_path = os.path.join(file_path, folder)
 
@@ -497,9 +497,9 @@ for vp in vps:
     df_eda = df_eda.drop(columns=["time"])
 
     # Get Events
-    files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+    files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
     event_file = [file for file in files if "event" in file][0]
-    df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+    df_event = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, event_file), sep=';', decimal='.')
 
     if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
         df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
@@ -513,7 +513,7 @@ for vp in vps:
     for physio in ["ECG", "EDA"]:
         # physio = "EDA"
         try:
-            file_path_physio = os.path.join(dir_path, 'Data', 'VP_' + vp, physio)
+            file_path_physio = os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, physio)
             folder = [item for item in os.listdir(file_path_physio)][0]
             file_path_physio = os.path.join(file_path_physio, folder)
             start_time = ET.parse(os.path.join(file_path_physio, 'unisens.xml')).getroot().attrib['timestampStart']
@@ -726,8 +726,8 @@ for vp in vps:
                                         'SCR (Peaks per Minute)': [np.nan],
                                         'Duration': [0],
                                         'Proportion Usable Data': [0]})
-            df_eda_temp.to_csv(os.path.join(dir_path, 'Data', 'eda.csv'), decimal='.', sep=';', index=False, mode='a',
-                               header=not (os.path.exists(os.path.join(dir_path, 'Data', 'eda.csv'))))
+            df_eda_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'eda.csv'), decimal='.', sep=';', index=False, mode='a',
+                               header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'eda.csv'))))
             plt.close()
             continue
 
@@ -743,8 +743,8 @@ for vp in vps:
                                     'SCR (Peaks per Minute)': [np.sum(signals['SCR_Peaks']) / duration_post],
                                     'Duration': [duration_post],
                                     'Proportion Usable Data': [duration_pre / duration_post]})
-        df_eda_temp.to_csv(os.path.join(dir_path, 'Data', 'eda.csv'), decimal='.', sep=';', index=False, mode='a',
-                           header=not (os.path.exists(os.path.join(dir_path, 'Data', 'eda.csv'))))
+        df_eda_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'eda.csv'), decimal='.', sep=';', index=False, mode='a',
+                           header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'eda.csv'))))
         plt.close()
 
         if ("Interaction" in phase) or ("Click" in phase):
@@ -763,11 +763,11 @@ for vp in vps:
             df_eda_subset_save["VP"] = int(vp)
             df_eda_subset_save["event"] = phase
             df_eda_subset_save = df_eda_subset_save[["VP", "event", "time", "EDA"]]
-            df_eda_subset_save.to_csv(os.path.join(dir_path, 'Data', 'eda_interaction.csv'), decimal='.', sep=';', index=False,
-                                 mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'eda_interaction.csv'))))
+            df_eda_subset_save.to_csv(os.path.join(dir_path, 'Data-Wave1', 'eda_interaction.csv'), decimal='.', sep=';', index=False,
+                                 mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'eda_interaction.csv'))))
 
 # Add Subject Data
-df_eda = pd.read_csv(os.path.join(dir_path, 'Data', 'eda.csv'), decimal='.', sep=';')
+df_eda = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'eda.csv'), decimal='.', sep=';')
 df_eda = df_eda.iloc[:, 0:9]
 df_eda = df_eda.dropna(subset=['SCL (Mean)'])
 
@@ -787,15 +787,15 @@ for vp in vps:
     df_eda_vp = df_eda.loc[df_eda["VP"] == int(vp)]
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -814,17 +814,17 @@ for vp in vps:
 
 df_eda = pd.concat(dfs_eda)
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_eda = df_eda.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                  'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                  'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                  'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                  'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_eda = df_eda.drop(columns=['ID'])
-df_eda.to_csv(os.path.join(dir_path, 'Data', 'eda.csv'), decimal='.', sep=';', index=False)
+df_eda.to_csv(os.path.join(dir_path, 'Data-Wave1', 'eda.csv'), decimal='.', sep=';', index=False)
 
 # Add Subject Data
-df_scr = pd.read_csv(os.path.join(dir_path, 'Data', 'eda_interaction.csv'), decimal='.', sep=';')
+df_scr = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'eda_interaction.csv'), decimal='.', sep=';')
 df_scr = df_scr.iloc[:, 0:4]
 
 # Get conditions
@@ -837,15 +837,15 @@ for vp in vps:
     df_scr_vp = df_scr.loc[df_scr["VP"] == int(vp)]
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -864,11 +864,11 @@ for vp in vps:
 
 df_scr = pd.concat(dfs_scr)
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_scr = df_scr.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                      'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                      'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                      'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                      'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_scr = df_scr.drop(columns=['ID'])
-df_scr.to_csv(os.path.join(dir_path, 'Data', 'eda_interaction.csv'), decimal='.', sep=';', index=False)
+df_scr.to_csv(os.path.join(dir_path, 'Data-Wave1', 'eda_interaction.csv'), decimal='.', sep=';', index=False)

@@ -46,9 +46,9 @@ for vp in vps:
 
     # Get Events
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
         event_file = [file for file in files if "event" in file][0]
-        df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+        df_event = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, event_file), sep=';', decimal='.')
 
         if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
             df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
@@ -133,15 +133,15 @@ for vp in vps:
     df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -161,21 +161,21 @@ for vp in vps:
     df_event["VP"] = int(vp)
     df_event = df_event[["VP", "timestamp", "event", "Condition", "duration"]]
 
-    df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';', index=False, mode='a',
-                    header=not (os.path.exists(os.path.join(dir_path, 'Data', 'events.csv'))))
+    df_event.to_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';', index=False, mode='a',
+                    header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'events.csv'))))
 
 # Add Subject Data
-df_events = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
+df_events = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';')
 df_events = df_events.iloc[:, 0:5]
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_events = df_events.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                        'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                        'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                        'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                        'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_events = df_events.drop(columns=['ID'])
-df_events.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';', index=False)
+df_events.to_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';', index=False)
 
 # Movement
 df_distance = pd.DataFrame()
@@ -186,9 +186,9 @@ for vp in vps:
 
     # Get Movement File
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
         file = [file for file in files if "movement" in file][0]
-        df = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, file), sep=';', decimal='.')
+        df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, file), sep=';', decimal='.')
         if pd.to_datetime(df.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
             df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=2)
         else:
@@ -200,9 +200,9 @@ for vp in vps:
 
     # Get Events
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
         event_file = [file for file in files if "event" in file][0]
-        df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+        df_event = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, event_file), sep=';', decimal='.')
 
         if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
             df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
@@ -308,15 +308,15 @@ for vp in vps:
     df = pd.merge_asof(df, df_event[["timestamp", "name"]], on="timestamp", direction="backward").reset_index(drop=True)
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -391,8 +391,8 @@ for vp in vps:
         df_phase["phase"] = phase
         df_phase["VP"] = df_phase["VP"].astype("int")
 
-        df_phase.to_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';', index=False, mode='a',
-                        header=not (os.path.exists(os.path.join(dir_path, 'Data', 'movement.csv'))))
+        df_phase.to_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';', index=False, mode='a',
+                        header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'))))
 
         df_phase = df.loc[df["phase"] == phase].reset_index(drop=True)
         df_phase = df_phase.loc[~(df_phase["event"].str.contains("Office"))]
@@ -435,24 +435,24 @@ for vp in vps:
 
             df_section = df_section[['VP', 'time', 'phase', 'Condition', 'distance']]
 
-            df_section.to_csv(os.path.join(dir_path, 'Data', 'distance_vh.csv'), decimal='.', sep=';', index=False, mode='a',
-                            header=not (os.path.exists(os.path.join(dir_path, 'Data', 'distance_vh.csv'))))
+            df_section.to_csv(os.path.join(dir_path, 'Data-Wave1', 'distance_vh.csv'), decimal='.', sep=';', index=False, mode='a',
+                            header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'distance_vh.csv'))))
 
 # Add Subject Data
-df_move = pd.read_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';')
+df_move = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
 df_move = df_move.iloc[:, 0:8]
 df_move["distance_to_previous_scaled"] = (df_move["distance_to_previous"] - np.max(df_move["distance_to_previous"])) / (np.min(df_move["distance_to_previous"]) - np.max(df_move["distance_to_previous"]))
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_move = df_move.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                    'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                    'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                    'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                    'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_move = df_move.drop(columns=['ID'])
-df_move.to_csv(os.path.join(dir_path, 'Data', 'movement.csv'), decimal='.', sep=';', index=False)
+df_move.to_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';', index=False)
 
-df_distance = pd.read_csv(os.path.join(dir_path, 'Data', 'walking_distance.csv'), decimal='.', sep=';')
+df_distance = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'walking_distance.csv'), decimal='.', sep=';')
 df_distance = df_distance.iloc[:, 0:5]
 # df_distance = df_distance.reset_index(drop=True)
 # df_distance["VP"] = df_distance["VP"].astype("int")
@@ -462,31 +462,31 @@ df_distance = df_distance.merge(df_scores[['ID', 'gender', 'age', 'motivation', 
                                    'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                    'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_distance = df_distance.drop(columns=['ID'])
-df_distance.to_csv(os.path.join(dir_path, 'Data', 'walking_distance.csv'), decimal='.', sep=';', index=False)
+df_distance.to_csv(os.path.join(dir_path, 'Data-Wave1', 'walking_distance.csv'), decimal='.', sep=';', index=False)
 
-df_dist_vh = pd.read_csv(os.path.join(dir_path, 'Data', 'distance_vh.csv'), decimal='.', sep=';')
+df_dist_vh = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'distance_vh.csv'), decimal='.', sep=';')
 df_dist_vh = df_dist_vh.iloc[:, 0:5]
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_dist_vh = df_dist_vh.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                    'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                    'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                    'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                    'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_dist_vh = df_dist_vh.drop(columns=['ID'])
-df_dist_vh.to_csv(os.path.join(dir_path, 'Data', 'distance_vh.csv'), decimal='.', sep=';', index=False)
+df_dist_vh.to_csv(os.path.join(dir_path, 'Data-Wave1', 'distance_vh.csv'), decimal='.', sep=';', index=False)
 
-df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';')
+df_event = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';')
 df_event = df_event.iloc[:, 0:5]
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_event = df_event.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                    'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                    'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                    'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                    'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_event = df_event.drop(columns=['ID'])
-df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep=';', index=False)
+df_event.to_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';', index=False)
 
 
 # # Interpersonal Distance
@@ -497,9 +497,9 @@ df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep='
 #
 #     # Get Distances
 #     try:
-#         files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+#         files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
 #         file = [file for file in files if "distance" in file][0]
-#         df = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, file), sep=';', decimal='.')
+#         df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, file), sep=';', decimal='.')
 #         if pd.to_datetime(df.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
 #             df["timestamp"] = pd.to_datetime(df["timestamp"]) + timedelta(hours=2)
 #         else:
@@ -511,9 +511,9 @@ df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep='
 #
 #     # Get Events
 #     try:
-#         files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+#         files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
 #         event_file = [file for file in files if "event" in file][0]
-#         df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+#         df_event = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, event_file), sep=';', decimal='.')
 #
 #         if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
 #             df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
@@ -618,15 +618,15 @@ df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep='
 #     df = df.sort_values(by="timestamp")
 #
 #     try:
-#         df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+#         df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
 #         df_cond = df_cond[["VP", "Roles", "Rooms"]]
 #         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 #
-#         df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+#         df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
 #         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
 #         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 #
-#         df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+#         df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
 #         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
 #         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 #
@@ -686,19 +686,19 @@ df_event.to_csv(os.path.join(dir_path, 'Data', 'events.csv'), decimal='.', sep='
 #         df_phase["section"] = int(section)
 #         df_phase["Condition"] = condition
 #
-#         df_phase.to_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';', index=False, mode='a',
-#                         header=not (os.path.exists(os.path.join(dir_path, 'Data', 'distance.csv'))))
+#         df_phase.to_csv(os.path.join(dir_path, 'Data-Wave1', 'distance.csv'), decimal='.', sep=';', index=False, mode='a',
+#                         header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'distance.csv'))))
 #
 # # Add Subject Data
-# df_distance = pd.read_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';')
+# df_distance = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'distance.csv'), decimal='.', sep=';')
 # df_distance = df_distance.iloc[:, 0:6]
 #
-# df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+# df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 # df_distance = df_distance.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
 #                                            'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
 #                                            'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
 #                                            'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
 #                                            'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 # df_distance = df_distance.drop(columns=['ID'])
-# df_distance.to_csv(os.path.join(dir_path, 'Data', 'distance.csv'), decimal='.', sep=';', index=False)
+# df_distance.to_csv(os.path.join(dir_path, 'Data-Wave1', 'distance.csv'), decimal='.', sep=';', index=False)
 

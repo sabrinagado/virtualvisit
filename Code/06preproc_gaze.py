@@ -33,9 +33,9 @@ for vp in vps:
     print(f"VP: {vp}")
 
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
         file = [file for file in files if "gaze" in file][0]
-        df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, file), sep=';', decimal='.')
+        df_gaze = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, file), sep=';', decimal='.')
     except:
         print("no gaze file")
         continue
@@ -57,9 +57,9 @@ for vp in vps:
     df_gaze_resampled = pd.merge_asof(df_gaze_resampled, df_gaze[["timestamp", "actor"]], on="timestamp", tolerance=timedelta(milliseconds=100))
 
     # Get Events
-    files = [item for item in os.listdir(os.path.join(dir_path, 'Data', 'VP_' + vp)) if (item.endswith(".csv"))]
+    files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
     event_file = [file for file in files if "event" in file][0]
-    df_event = pd.read_csv(os.path.join(dir_path, 'Data', 'VP_' + vp, event_file), sep=';', decimal='.')
+    df_event = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, event_file), sep=';', decimal='.')
 
     if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
         df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
@@ -196,8 +196,8 @@ for vp in vps:
                                                  'Gaze Proportion': [proportion],
                                                  'Number': [number],
                                                  'Switches': [switches_towards_roi]})
-                    df_gaze_temp.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False,
-                                        mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'gaze.csv'))))
+                    df_gaze_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'gaze.csv'), decimal='.', sep=';', index=False,
+                                        mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'gaze.csv'))))
             if ("Interaction" in phase) or ("Click" in phase):
                 start = df_gaze_subset.loc[0, "timestamp"]
                 df_gaze_subset["time"] = pd.to_timedelta(df_gaze_subset["timestamp"] - start)
@@ -225,8 +225,8 @@ for vp in vps:
                 df_gaze_subset["VP"] = int(vp)
                 df_gaze_subset["event"] = phase
                 df_gaze_subset = df_gaze_subset[["VP", "event", "time", "pupil"]]
-                df_gaze_subset.to_csv(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'), decimal='.', sep=';', index=False,
-                                      mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'))))
+                df_gaze_subset.to_csv(os.path.join(dir_path, 'Data-Wave1', 'pupil_interaction.csv'), decimal='.', sep=';', index=False,
+                                      mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'pupil_interaction.csv'))))
         else:
             continue
 
@@ -240,8 +240,8 @@ for vp in vps:
         df_pupil_temp = pd.DataFrame({'VP': [int(vp)],
                                       'Phase': [row["event"]],
                                       'Pupil Dilation (Mean)': [row['pupil_mean']]})
-        df_pupil_temp.to_csv(os.path.join(dir_path, 'Data', 'pupil.csv'), decimal='.', sep=';', index=False, mode='a',
-                             header=not (os.path.exists(os.path.join(dir_path, 'Data', 'pupil.csv'))))
+        df_pupil_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'pupil.csv'), decimal='.', sep=';', index=False, mode='a',
+                             header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'pupil.csv'))))
 
     df_gaze = df_gaze.dropna(subset="event")
     df_gaze = df_gaze.dropna(subset="actor")
@@ -275,12 +275,12 @@ for vp in vps:
                                          'Gaze Proportion': [proportion],
                                          'Number': [number],
                                          'Switches': [switches_towards_roi]})
-            df_gaze_temp.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False, mode='a',
-                                header=not (os.path.exists(os.path.join(dir_path, 'Data', 'gaze.csv'))))
+            df_gaze_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'gaze.csv'), decimal='.', sep=';', index=False, mode='a',
+                                header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'gaze.csv'))))
 
 
 # Add Subject Data
-df_gaze = pd.read_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';')
+df_gaze = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'gaze.csv'), decimal='.', sep=';')
 df_gaze = df_gaze.iloc[:, 0:8]
 # df_gaze = df_gaze.loc[df_gaze['Number'] > 0]
 
@@ -294,15 +294,15 @@ for vp in vps:
     df_gaze_vp = df_gaze.loc[df_gaze["VP"] == int(vp)]
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -324,18 +324,18 @@ for vp in vps:
 df_gaze = pd.concat(dfs_gaze)
 df_gaze = df_gaze.loc[~(df_gaze["Phase"].str.contains("Test") & ((df_gaze["Condition"].str.contains("neutral")) | (df_gaze["Condition"].str.contains("unknown"))))]
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_gaze = df_gaze.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                    'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                    'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                    'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                    'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_gaze = df_gaze.drop(columns=['ID'])
-df_gaze.to_csv(os.path.join(dir_path, 'Data', 'gaze.csv'), decimal='.', sep=';', index=False)
+df_gaze.to_csv(os.path.join(dir_path, 'Data-Wave1', 'gaze.csv'), decimal='.', sep=';', index=False)
 
 
 # Add Subject Data
-df_pupil = pd.read_csv(os.path.join(dir_path, 'Data', 'pupil.csv'), decimal='.', sep=';')
+df_pupil = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'pupil.csv'), decimal='.', sep=';')
 df_pupil = df_pupil.iloc[:, 0:7]
 
 # Get conditions
@@ -348,15 +348,15 @@ for vp in vps:
     df_pupil_vp = df_pupil.loc[df_pupil["VP"] == int(vp)]
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -375,18 +375,18 @@ for vp in vps:
 
 df_pupil = pd.concat(dfs_pupil)
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_pupil = df_pupil.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                      'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                      'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                      'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                      'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_pupil = df_pupil.drop(columns=['ID'])
-df_pupil.to_csv(os.path.join(dir_path, 'Data', 'pupil.csv'), decimal='.', sep=';', index=False)
+df_pupil.to_csv(os.path.join(dir_path, 'Data-Wave1', 'pupil.csv'), decimal='.', sep=';', index=False)
 
 
 # Add Subject Data
-df_pupil = pd.read_csv(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'), decimal='.', sep=';')
+df_pupil = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'pupil_interaction.csv'), decimal='.', sep=';')
 df_pupil = df_pupil.iloc[:, 0:4]
 
 # Get conditions
@@ -399,15 +399,15 @@ for vp in vps:
     df_pupil_vp = df_pupil.loc[df_pupil["VP"] == int(vp)]
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -426,11 +426,11 @@ for vp in vps:
 
 df_pupil = pd.concat(dfs_pupil)
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
 df_pupil = df_pupil.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                      'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                      'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                      'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                      'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_pupil = df_pupil.drop(columns=['ID'])
-df_pupil.to_csv(os.path.join(dir_path, 'Data', 'pupil_interaction.csv'), decimal='.', sep=';', index=False)
+df_pupil.to_csv(os.path.join(dir_path, 'Data-Wave1', 'pupil_interaction.csv'), decimal='.', sep=';', index=False)

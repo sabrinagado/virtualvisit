@@ -70,7 +70,7 @@ def bootstrapping(input_sample,
 
 
 dir_path = os.getcwd()
-file_path = os.path.join(dir_path, 'Data')
+file_path = os.path.join(dir_path, 'Data-Wave1')
 file_name = [item for item in os.listdir(file_path) if (item.endswith(".xlsx") and "raw" in item)][0]
 df_scores = pd.read_excel(os.path.join(file_path, file_name))
 
@@ -298,7 +298,7 @@ print(df['gender'].value_counts(normalize=True))
 
 
 df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')
-save_path = os.path.join(dir_path, 'Plots', 'Scores')
+save_path = os.path.join(dir_path, 'Plots-Wave1', 'Scores')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
