@@ -9,6 +9,7 @@ import pandas as pd
 import random
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.patches import Circle
 from scipy.stats import linregress
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
@@ -44,10 +45,34 @@ blue = '#1F82C0'
 
 
 # Visualize ET Validation
-points_start = pd.DataFrame(columns=["x", "y"])
-points_end = pd.DataFrame(columns=["x", "y"])
+df_cal_all = pd.DataFrame(columns=["VP", "time", "position", "x", "y"])
 for vp in vps:
     # vp = vps[1]
+    vp = f"0{vp}" if vp < 10 else f"{vp}"
+    print(f"VP: {vp}")
+
+    try:
+        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
+        file = [file for file in files if "etcalibration" in file][0]
+        df_cal = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, file), sep=';', decimal='.')
+    except:
+        print("no gaze file")
+        continue
+
+    for idx_row, row in df_cal.iterrows():
+        # idx_row = 0
+        # row = df_cal.iloc[idx_row, :]
+        position = row["position"]
+        x = float(position.split("=")[1].split(",")[0]) + row["x_divergence"]
+        y = float(position.split("=")[2]) + row["y_divergence"]
+        df_cal_all = pd.concat([df_cal_all, pd.DataFrame({"VP": [vp], "time": [row["time"]], "position": [position], "x": [x], "y": [y]})])
+
+df_cal_all_agg = df_cal_all.groupby(["time", "position"])["x", "y"].agg(["mean", "std"]).reset_index()
+
+points_start = pd.DataFrame(columns=["VP", "x", "y", "color"])
+points_end = pd.DataFrame(columns=["VP", "x", "y", "color"])
+for vp in vps:
+    # vp = vps[0]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
@@ -63,17 +88,30 @@ for vp in vps:
         # idx_row = 0
         # row = df_cal.iloc[idx_row, :]
         position = row["position"]
+        reference = df_cal_all_agg.loc[(df_cal_all_agg[("time",)] == "Start") & (df_cal_all_agg[("position",)] == position)]
         x = float(position.split("=")[1].split(",")[0]) + row["x_divergence"]
         y = float(position.split("=")[2]) + row["y_divergence"]
-        points_start = pd.concat([points_start, pd.DataFrame({"x": [x], "y": [y]})])
+
+        if (((x > reference[("x", "mean")] + 3 * reference[("x", "std")]) | (x < reference[("x", "mean")] - 3 * reference[("x", "std")])) | (
+                (y > reference[("y", "mean")] + 3 * reference[("y", "std")]) | (y < reference[("y", "mean")] - 3 * reference[("y", "std")]))).item():
+            color = "red"
+        else:
+            color = "black"
+        points_start = pd.concat([points_start, pd.DataFrame({"VP": [vp], "x": [x], "y": [y], "color": [color]})])
 
     for idx_row, row in df_cal.loc[df_cal["time"] == "End"].iterrows():
         # idx_row = 0
         # row = df_cal.iloc[idx_row, :]
         position = row["position"]
+        reference = df_cal_all_agg.loc[(df_cal_all_agg[("time",)] == "End") & (df_cal_all_agg[("position",)] == position)]
         x = float(position.split("=")[1].split(",")[0]) + row["x_divergence"]
         y = float(position.split("=")[2]) + row["y_divergence"]
-        points_end = pd.concat([points_end, pd.DataFrame({"x": [x], "y": [y]})])
+        if (((x > reference[("x", "mean")] + 3 * reference[("x", "std")]) | (x < reference[("x", "mean")] - 3 * reference[("x", "std")])) | (
+                    (y > reference[("y", "mean")] + 3 * reference[("y", "std")]) | (y < reference[("y", "mean")] - 3 * reference[("y", "std")]))).item():
+            color = "red"
+        else:
+            color = "black"
+        points_end = pd.concat([points_end, pd.DataFrame({"VP": [vp], "x": [x], "y": [y], "color": [color]})])
 
 points_cal = pd.DataFrame(columns=["x", "y"])
 for idx_row, row in df_cal.loc[df_cal["time"] == "Start"].iterrows():
@@ -84,20 +122,34 @@ for idx_row, row in df_cal.loc[df_cal["time"] == "Start"].iterrows():
     y = float(position.split("=")[2])
     points_cal = pd.concat([points_cal, pd.DataFrame({"x": [x], "y": [y]})])
 
+
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
+for idx_row, row in points_cal.iterrows():
+    # idx_row = 0
+    # row = points_cal.iloc[idx_row, :]
+    x = row["x"]
+    y = row["y"]
+    circle_start = Circle((x, y), 15, fill=False, linestyle="--", linewidth=0.8, color="darkgrey")
+    axes[0].add_artist(circle_start)
+    circle_end = Circle((x, y), 15, fill=False, linestyle="--", linewidth=0.8, color="darkgrey")
+    axes[1].add_artist(circle_end)
+
 for idx_points, (points, title) in enumerate(zip([points_start, points_end], ["Start", "End"])):
     # idx_points = 0
     # points = points_start
-    axes[idx_points].scatter(points["x"], points["y"], marker='+', s=20, c="k", linewidths=0.8)
-    axes[idx_points].scatter(points_cal["x"], points_cal["y"], marker='+', s=100, c="red", linewidths=0.8)
+    axes[idx_points].scatter(points["x"], points["y"], marker='+', s=20, color="black", linewidths=0.8)
+    axes[idx_points].scatter(points_cal["x"], points_cal["y"], marker='+', s=100, color="blue", linewidths=1)
     axes[idx_points].set_title(title)
     axes[idx_points].set_ylim(points_cal["y"].min()-20, points_cal["y"].max()+20)
     axes[idx_points].set_xlim(points_cal["x"].min() - 20, points_cal["x"].max() + 20)
 
+axes[0].set_xticklabels([])
+axes[0].set_yticklabels([])
+axes[1].set_xticklabels([])
+axes[1].set_yticklabels([])
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"et_calibration.png"), dpi=300)
 plt.close()
-
 
 # Acquisition: Interactions, Relationship SPAI
 phases = ["FriendlyInteraction", "UnfriendlyInteraction", "NeutralInteraction"]
