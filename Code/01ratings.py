@@ -7,39 +7,44 @@ import os
 import pandas as pd
 import numpy as np
 
+wave = 2
 dir_path = os.getcwd()
 start = 1
 end = 64
 vps = np.arange(start, end + 1)
 
-problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
+if wave == 1:
+    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
+elif wave == 2:
+    problematic_subjects = []
+
 vps = [vp for vp in vps if not vp in problematic_subjects]
 
 for vp in vps:
-    # vp = vps[52]
+    # vp = vps[0]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
     # Get rating data
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if (item.endswith(".csv"))]
         file = [file for file in files if "rating" in file][0]
-        df_ratings = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, file), sep=';', decimal='.')
+        df_ratings = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, file), sep=';', decimal='.')
     except:
         print("no ratings file")
         continue
 
     # Get conditions
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -81,20 +86,20 @@ for vp in vps:
                                        'Condition': [row['condition']],
                                        'Criterion': [row['criterion']],
                                        'Value': [row['value']]})
-        df_rating_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'ratings.csv'), decimal='.', sep=';', index=False, mode='a',
-                              header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'ratings.csv'))))
+        df_rating_temp.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'), decimal='.', sep=';', index=False, mode='a',
+                              header=not (os.path.exists(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'))))
 
 # Add Subject Data
-df_rating = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'ratings.csv'), decimal='.', sep=';')
+df_rating = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'), decimal='.', sep=';')
 df_rating = df_rating.iloc[:, 0:6]
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'scores_summary.csv'), decimal=',', sep=';')
 df_rating = df_rating.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                        'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                        'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                        'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                        'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_rating = df_rating.drop(columns=['ID'])
-df_rating.to_csv(os.path.join(dir_path, 'Data-Wave1', 'ratings.csv'), decimal='.', sep=';', index=False)
+df_rating.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'), decimal='.', sep=';', index=False)
 
 problematic_subjects = list(np.unique(problematic_subjects))

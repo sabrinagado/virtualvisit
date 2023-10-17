@@ -16,13 +16,19 @@ import pymer4
 
 from Code.toolbox import utils
 
+wave = 2
+if wave == 1:
+    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
+elif wave == 2:
+    problematic_subjects = []
+
 dir_path = os.getcwd()
-save_path = os.path.join(dir_path, 'Plots-Wave1', 'Ratings')
+save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Ratings')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
 
-df_rating = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'ratings.csv'), decimal='.', sep=';')
+df_rating = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'), decimal='.', sep=';')
 colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
 SA_score = "SPAI"
 

@@ -68,9 +68,9 @@ def bootstrapping(input_sample,
     else:
         return mean, np.array([np.abs(lower - mean), (upper - mean)])
 
-
+wave = 2
 dir_path = os.getcwd()
-file_path = os.path.join(dir_path, 'Data-Wave1')
+file_path = os.path.join(dir_path, f'Data-Wave{wave}')
 file_name = [item for item in os.listdir(file_path) if (item.endswith(".xlsx") and "raw" in item)][0]
 df_scores = pd.read_excel(os.path.join(file_path, file_name))
 
@@ -82,7 +82,10 @@ df_scores['handedness'] = df_scores['handedness'].replace({1: "right", 2: "left"
 df_scores['smoking'] = df_scores['smoking'].replace({1: "smoker", 2: "no smoker"})
 
 # ToDo: Adapt problematic subject list
-problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
+if wave == 1:
+    problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
+elif wave == 2:
+    problematic_subjects = []
 
 # % ===========================================================================
 # SPAI
@@ -298,7 +301,7 @@ print(df['gender'].value_counts(normalize=True))
 
 
 df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')
-save_path = os.path.join(dir_path, 'Plots-Wave1', 'Scores')
+save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Scores')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)

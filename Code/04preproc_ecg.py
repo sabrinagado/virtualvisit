@@ -24,12 +24,17 @@ plt.ion()
 # % ===========================================================================
 # Read in Data, Add Timestamps and Events
 # =============================================================================
+wave = 2
 dir_path = os.getcwd()
-start = 31
+start = 1
 end = 64
 vps = np.arange(start, end + 1)
 
-problematic_subjects = [1, 3, 7, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53, 56, 61, 64]  # 7, 56, 61 and 64 have bad ECG signal quality
+if wave == 1:
+    problematic_subjects = [1, 3, 7, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53, 56, 61, 64]  # 7, 56, 61 and 64 have bad ECG signal quality
+elif wave == 2:
+    problematic_subjects = []
+
 vps = [vp for vp in vps if not vp in problematic_subjects]
 
 
@@ -189,7 +194,7 @@ for vp in vps:
 
     # Get ECG data
     try:
-        file_path = os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, 'ECG')
+        file_path = os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, 'ECG')
         folder = [item for item in os.listdir(file_path)][0]
         file_path = os.path.join(file_path, folder)
 
@@ -217,9 +222,9 @@ for vp in vps:
     df_ecg = df_ecg.drop(columns=["time"])
 
     # Get Events
-    files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
+    files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if (item.endswith(".csv"))]
     event_file = [file for file in files if "event" in file][0]
-    df_event = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, event_file), sep=';', decimal='.')
+    df_event = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, event_file), sep=';', decimal='.')
 
     if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
         df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
@@ -233,7 +238,7 @@ for vp in vps:
     for physio in ["ECG", "EDA"]:
         # physio = "EDA"
         try:
-            file_path_physio = os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, physio)
+            file_path_physio = os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, physio)
             folder = [item for item in os.listdir(file_path_physio)][0]
             file_path_physio = os.path.join(file_path_physio, folder)
             start_time = ET.parse(os.path.join(file_path_physio, 'unisens.xml')).getroot().attrib['timestampStart']
@@ -468,8 +473,8 @@ for vp in vps:
                                        'HRV (HF_nu)': [np.nan],
                                        'Proportion Usable Data': [0],
                                        'Duration': [0]})
-            df_hr_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
-                              header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'hr.csv'))))
+            df_hr_temp.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
+                              header=not (os.path.exists(os.path.join(dir_path, f'Data-Wave{wave}', 'hr.csv'))))
             plt.close()
             continue
 
@@ -489,8 +494,8 @@ for vp in vps:
             df_ecg_subset_save["VP"] = int(vp)
             df_ecg_subset_save["event"] = phase
             df_ecg_subset_save = df_ecg_subset_save[["VP", "event", "time", "ECG"]]
-            df_ecg_subset_save.to_csv(os.path.join(dir_path, 'Data-Wave1', 'hr_interaction.csv'), decimal='.', sep=';',
-                                      index=False, mode='a', header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'hr_interaction.csv'))))
+            df_ecg_subset_save.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'hr_interaction.csv'), decimal='.', sep=';',
+                                      index=False, mode='a', header=not (os.path.exists(os.path.join(dir_path, f'Data-Wave{wave}', 'hr_interaction.csv'))))
 
         # duration
         duration_post = len(signals["ECG_Clean"]) / sampling_rate
@@ -529,13 +534,13 @@ for vp in vps:
                                    'HRV (HF_nu)': [hrv_freq["HRV_HF_nu"][0]],
                                    'Proportion Usable Data': [round(duration_post / duration_pre, 2)],
                                    'Duration': [duration_post]})
-        df_hr_temp.to_csv(os.path.join(dir_path, 'Data-Wave1', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
-                          header=not (os.path.exists(os.path.join(dir_path, 'Data-Wave1', 'hr.csv'))))
+        df_hr_temp.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
+                          header=not (os.path.exists(os.path.join(dir_path, f'Data-Wave{wave}', 'hr.csv'))))
 
         plt.close()
 
 # Add Subject Data
-df_hr = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'hr.csv'), decimal='.', sep=';')
+df_hr = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'hr.csv'), decimal='.', sep=';')
 df_hr = df_hr.iloc[:, 0:11]
 df_hr = df_hr.dropna(subset=['HR (Mean)'])
 
@@ -555,15 +560,15 @@ for vp in vps:
     df_hr_vp = df_hr.loc[df_hr["VP"] == int(vp)]
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -583,17 +588,17 @@ for vp in vps:
 
 df_hr = pd.concat(dfs_hr)
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'scores_summary.csv'), decimal=',', sep=';')
 df_hr = df_hr.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_hr = df_hr.drop(columns=['ID'])
-df_hr.to_csv(os.path.join(dir_path, 'Data-Wave1', 'hr.csv'), decimal='.', sep=';', index=False)
+df_hr.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'hr.csv'), decimal='.', sep=';', index=False)
 
 # Add Subject Data
-df_hr = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'hr_interaction.csv'), decimal='.', sep=';')
+df_hr = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'hr_interaction.csv'), decimal='.', sep=';')
 df_hr = df_hr.iloc[:, 0:4]
 
 # Get conditions
@@ -606,15 +611,15 @@ for vp in vps:
     df_hr_vp = df_hr.loc[df_hr["VP"] == int(vp)]
 
     try:
-        df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
         df_cond = df_cond[["VP", "Roles", "Rooms"]]
         df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-        df_roles = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Roles")
         df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
         df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
 
-        df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
         df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
         df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
 
@@ -633,11 +638,11 @@ for vp in vps:
 
 df_hr = pd.concat(dfs_hr)
 
-df_scores = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'scores_summary.csv'), decimal=',', sep=';')
+df_scores = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'scores_summary.csv'), decimal=',', sep=';')
 df_hr = df_hr.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                      'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D', 'SSQ-diff',
                                      'IPQ', 'IPQ-SP', 'IPQ-ER', 'IPQ-INV', 'MPS-PP', 'MPS-SocP', 'MPS-SelfP',
                                      'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                      'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
 df_hr = df_hr.drop(columns=['ID'])
-df_hr.to_csv(os.path.join(dir_path, 'Data-Wave1', 'hr_interaction.csv'), decimal='.', sep=';', index=False)
+df_hr.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'hr_interaction.csv'), decimal='.', sep=';', index=False)

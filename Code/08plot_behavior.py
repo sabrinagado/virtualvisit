@@ -19,8 +19,15 @@ import pymer4
 
 from Code.toolbox import utils
 
+
+wave = 2
+if wave == 1:
+    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
+elif wave == 2:
+    problematic_subjects = []
+
 dir_path = os.getcwd()
-save_path = os.path.join(dir_path, 'Plots-Wave1', 'Behavior')
+save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Behavior')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
@@ -30,7 +37,7 @@ green = '#B1C800'
 colors = [green, red]
 SA_score = "SPAI"
 
-df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'events.csv'), decimal='.', sep=';')
 
 # Time spent in Rooms
 df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
@@ -518,18 +525,18 @@ df_diff = df_diff[["VP", "difference"]]
 df_diff = df_diff.rename(columns={"difference": "time_diff"})
 df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
 try:
-    df_aa = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';')
+    df_aa = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';')
     if "time_diff" in df_aa.columns:
         df_aa.update(df_diff)
     else:
         df_aa = df_aa.merge(df_diff, on="VP")
-    df_aa.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+    df_aa.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 except:
-    df_diff.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+    df_diff.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 
 
 # Interpersonal Distance
-df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'distance_vh.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'distance_vh.csv'), decimal='.', sep=';')
 for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     # dist, title = "avg", "Average"
     # dist, title = "min", "Minimum"
@@ -946,182 +953,183 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     df_diff = df_diff.rename(columns={"difference": "distance_diff"})
     df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
     try:
-        df_aa = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';')
+        df_aa = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';')
         if "distance_diff" in df_aa.columns:
             df_aa.update(df_diff)
         else:
             df_aa = df_aa.merge(df_diff, on="VP")
-        df_aa.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+        df_aa.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
     except:
-        df_diff.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+        df_diff.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 
 
 # Clicks
-df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'events.csv'), decimal='.', sep=';')
-df_subset = df.loc[df["event"].str.contains("Clicked")]
-df_subset = df_subset.groupby(["VP", "Condition"])["event"].count().reset_index()
-df_subset = df_subset.rename(columns={"event": "click_count"})
+if wave == 1:
+    df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'events.csv'), decimal='.', sep=';')
+    df_subset = df.loc[df["event"].str.contains("Clicked")]
+    df_subset = df_subset.groupby(["VP", "Condition"])["event"].count().reset_index()
+    df_subset = df_subset.rename(columns={"event": "click_count"})
 
-df_vp1 = df[["VP", SA_score]].drop_duplicates(subset="VP")
-df_vp1["Condition"] = "friendly"
-df_vp2 = df_vp1.copy()
-df_vp2["Condition"] = "unfriendly"
-df_vp = pd.concat([df_vp1, df_vp2])
+    df_vp1 = df[["VP", SA_score]].drop_duplicates(subset="VP")
+    df_vp1["Condition"] = "friendly"
+    df_vp2 = df_vp1.copy()
+    df_vp2["Condition"] = "unfriendly"
+    df_vp = pd.concat([df_vp1, df_vp2])
 
-df_subset = df_vp.merge(df_subset, on=["VP", "Condition"], how="outer")
-df_subset = df_subset.fillna(0)
+    df_subset = df_vp.merge(df_subset, on=["VP", "Condition"], how="outer")
+    df_subset = df_subset.fillna(0)
 
-conditions = ["friendly", "unfriendly"]
-df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
-titles = ["Friendly Person", "Unfriendly Person"]
-colors = [green, red]
+    conditions = ["friendly", "unfriendly"]
+    df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
+    titles = ["Friendly Person", "Unfriendly Person"]
+    colors = [green, red]
 
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-boxWidth = 1 / (len(conditions) + 1)
-pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    boxWidth = 1 / (len(conditions) + 1)
+    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
-for idx_condition, condition in enumerate(conditions):
-    # idx_condition = 1
-    # condition = conditions[idx_condition]
-    df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
-    df_cond = df_cond.dropna(subset="click_count")
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 1
+        # condition = conditions[idx_condition]
+        df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
+        df_cond = df_cond.dropna(subset="click_count")
 
-    # Plot raw data points
-    for i in range(len(df_cond)):
-        # i = 0
-        x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
-        y = df_cond.reset_index().loc[i, "click_count"].item()
-        y_jittered = random.uniform(y - 0.1, y + 0.1)
-        ax.plot(x, y_jittered, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+        # Plot raw data points
+        for i in range(len(df_cond)):
+            # i = 0
+            x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
+            y = df_cond.reset_index().loc[i, "click_count"].item()
+            y_jittered = random.uniform(y - 0.1, y + 0.1)
+            ax.plot(x, y_jittered, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
-    # Plot boxplots
-    meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-    medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-    fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
+        # Plot boxplots
+        meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
+        fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
 
-    whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
-    capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
-    boxprops = dict(color=colors[idx_condition])
+        whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+        capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+        boxprops = dict(color=colors[idx_condition])
 
-    fwr_correction = True
-    alpha = (1 - (0.05))
-    bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "click_count"].values,
-                                       numb_iterations=5000,
-                                       alpha=alpha,
-                                       as_dict=True,
-                                       func='mean')
+        fwr_correction = True
+        alpha = (1 - (0.05))
+        bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "click_count"].values,
+                                           numb_iterations=5000,
+                                           alpha=alpha,
+                                           as_dict=True,
+                                           func='mean')
 
-    ax.boxplot([df_cond.loc[:, "click_count"].values],
-                            notch=True,  # bootstrap=5000,
-                            medianprops=medianlineprops,
-                            meanline=True,
-                            showmeans=True,
-                            meanprops=meanlineprops,
-                            showfliers=False, flierprops=fliermarkerprops,
-                            whiskerprops=whiskerprops,
-                            capprops=capprops,
-                            boxprops=boxprops,
-                            conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                            whis=[2.5, 97.5],
-                            positions=[pos[idx_condition]],
-                            widths=0.8 * boxWidth)
+        ax.boxplot([df_cond.loc[:, "click_count"].values],
+                                notch=True,  # bootstrap=5000,
+                                medianprops=medianlineprops,
+                                meanline=True,
+                                showmeans=True,
+                                meanprops=meanlineprops,
+                                showfliers=False, flierprops=fliermarkerprops,
+                                whiskerprops=whiskerprops,
+                                capprops=capprops,
+                                boxprops=boxprops,
+                                conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                whis=[2.5, 97.5],
+                                positions=[pos[idx_condition]],
+                                widths=0.8 * boxWidth)
 
-df_crit = df_subset.copy()
-df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+    df_crit = df_subset.copy()
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
 
-formula = f"click_count ~ Condition + {SA_score} + Condition:{SA_score} + (1 | VP)"
+    formula = f"click_count ~ Condition + {SA_score} + Condition:{SA_score} + (1 | VP)"
 
-max = df_subset["click_count"].max()
-model = pymer4.models.Lmer(formula, data=df_crit)
-model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
-anova = model.anova(force_orthogonal=True)
-sum_sq_error = (sum(i * i for i in model.residuals))
-anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+    max = df_subset["click_count"].max()
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-p = anova.loc["Condition", "P-val"].item()
-if p < 0.05:
-    ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
-    ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-    ax.vlines(x=pos[1], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-    p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
-    ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
+    p = anova.loc["Condition", "P-val"].item()
+    if p < 0.05:
+        ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+        ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        ax.vlines(x=pos[1], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+        ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
-ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
-ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Number of Clicks on the Virtual Humans")
-ax.set_title("Additional Interaction Attempts", fontweight='bold')
-ax.legend(
-    [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
-     Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7)],
-    ["Friendly", "Unfriendly"], loc="upper right")
-plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"clicks_test.png"), dpi=300)
-plt.close()
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Number of Clicks on the Virtual Humans")
+    ax.set_title("Additional Interaction Attempts", fontweight='bold')
+    ax.legend(
+        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
+         Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7)],
+        ["Friendly", "Unfriendly"], loc="upper right")
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"clicks_test.png"), dpi=300)
+    plt.close()
 
-# Clicks: Correlation with SPAI
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-boxWidth = 1
-pos = [1]
-conditions = ["friendly", "unfriendly"]
-titles = ["Friendly Person", "Unfriendly Person"]
-df_subset = df_subset.sort_values(by=SA_score)
+    # Clicks: Correlation with SPAI
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    boxWidth = 1
+    pos = [1]
+    conditions = ["friendly", "unfriendly"]
+    titles = ["Friendly Person", "Unfriendly Person"]
+    df_subset = df_subset.sort_values(by=SA_score)
 
-for idx_condition, condition in enumerate(conditions):
-    # idx_condition = 0
-    # condition = conditions[idx_condition]
-    df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
-    df_cond = df_cond.dropna(subset="click_count")
-    df_cond = df_cond.sort_values(by=SA_score)
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
+        df_cond = df_cond.dropna(subset="click_count")
+        df_cond = df_cond.sort_values(by=SA_score)
 
-    x = df_cond[SA_score].to_numpy()
-    y = df_cond["click_count"].to_numpy()
-    linreg = linregress(x, y)
-    all_x = df_subset[SA_score].to_numpy()
-    all_y = df_cond["click_count"].to_numpy()
-    all_y_est = linreg.slope * all_x + linreg.intercept
-    all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
-        1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+        x = df_cond[SA_score].to_numpy()
+        y = df_cond["click_count"].to_numpy()
+        linreg = linregress(x, y)
+        all_x = df_subset[SA_score].to_numpy()
+        all_y = df_cond["click_count"].to_numpy()
+        all_y_est = linreg.slope * all_x + linreg.intercept
+        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
 
-    # Plot regression line
-    ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
-    ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+        # Plot regression line
+        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-    p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-    if idx_condition == 0:
-        ax.text(df_subset[SA_score].min() + 0.01 * np.max(x), 0.95 * df_subset["click_count"].max(),
-                r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                color=colors[idx_condition])
-    else:
-        ax.text(df_subset[SA_score].min() + 0.01 * np.max(x), 0.91 * df_subset["click_count"].max(),
-                r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                color=colors[idx_condition])
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_subset[SA_score].min() + 0.01 * np.max(x), 0.95 * df_subset["click_count"].max(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
+        else:
+            ax.text(df_subset[SA_score].min() + 0.01 * np.max(x), 0.91 * df_subset["click_count"].max(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
 
-    # Plot raw data points
-    y_jittered = [random.uniform(value - 0.1, value + 0.1) for value in y]
-    ax.plot(x, y_jittered, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+        # Plot raw data points
+        y_jittered = [random.uniform(value - 0.1, value + 0.1) for value in y]
+        ax.plot(x, y_jittered, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
 
-ax.set_xlabel(SA_score)
-if "SPAI" in SA_score:
-    ax.set_xticks(range(0, 6))
-elif "SIAS" in SA_score:
-    ax.set_xticks(range(5, 65, 5))
-ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Number of Clicks on the Virtual Humans (Test-Phase)")
-ax.set_title(f"Additional Interaction Attempts", fontweight="bold")
-ax.legend()
-plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"clicks_test_{SA_score}.png"), dpi=300)
-plt.close()
+    ax.set_xlabel(SA_score)
+    if "SPAI" in SA_score:
+        ax.set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        ax.set_xticks(range(5, 65, 5))
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Number of Clicks on the Virtual Humans (Test-Phase)")
+    ax.set_title(f"Additional Interaction Attempts", fontweight="bold")
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"clicks_test_{SA_score}.png"), dpi=300)
+    plt.close()
 
 
 # Movement
-df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
-df_dist = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'walking_distance.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
+# df_dist = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'walking_distance.csv'), decimal='.', sep=';')
 
 vps = df["VP"].unique()
 vps.sort()
-vps = np.reshape(vps, (-1, 6))
+vps = np.reshape(vps, (-1, 3))
 
 df_spai = df[SA_score].unique()
 df_spai.sort()
@@ -1136,7 +1144,7 @@ for vp_block in vps:
     for idx_vp, vp in enumerate(vp_block):
         # idx_vp, vp = 0, vp_block[0]
         df_vp = df.loc[df["VP"] == vp]
-        df_vp_dist = df_dist.loc[df_dist["VP"] == vp]
+        # df_vp_dist = df_dist.loc[df_dist["VP"] == vp]
         df_vp = df_vp.dropna(subset="phase")
         index = df_vp.first_valid_index()
         spai = df_vp.loc[index, SA_score]
@@ -1147,9 +1155,9 @@ for vp_block in vps:
             # idx_phase, phase = 0, "Habituation"
             df_phase = df_vp.loc[df_vp["phase"].str.contains(phase)]
             df_phase = df_phase.sort_values(by="time")
-            df_phase_dist = df_vp_dist.loc[df_vp_dist["phase"].str.contains(phase)]
+            # df_phase_dist = df_vp_dist.loc[df_vp_dist["phase"].str.contains(phase)]
 
-            walking_distance = df_phase_dist["walking_distance"].item()
+            # walking_distance = df_phase_dist["walking_distance"].item()
 
             axes[idx_vp, idx_phase].hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
             axes[idx_vp, idx_phase].hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
@@ -1162,7 +1170,7 @@ for vp_block in vps:
 
             axes[idx_vp, idx_phase].text(np.mean((-1291, 438)), -870, phase, color="k", horizontalalignment='center', fontsize="small")
 
-            axes[idx_vp, idx_phase].text(-1251, -870, f"{round(walking_distance, 2)} m", color="lightgrey", horizontalalignment='right', fontsize="small", fontstyle="italic")
+            # axes[idx_vp, idx_phase].text(-1251, -870, f"{round(walking_distance, 2)} m", color="lightgrey", horizontalalignment='right', fontsize="small", fontstyle="italic")
 
             x = df_phase["y"].to_list()
             y = df_phase["x"].to_list()
@@ -1172,10 +1180,10 @@ for vp_block in vps:
 
             if phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
                     df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
                     df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
                 except:
@@ -1205,7 +1213,7 @@ for vp_block in vps:
     plt.close()
 
 # Movement per SA-Group
-df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
 df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
 df_spai.sort()
 cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.4 * np.max(df_spai), vmax=np.max(df_spai) + 0.2 * np.max(df_spai))
@@ -1256,10 +1264,10 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
 
             if phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
                     df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
                     df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
                 except:
@@ -1306,7 +1314,7 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
     plt.close()
 
 
-df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
 df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
 df_spai.sort()
 cutoff_sa = 2.79 if SA_score == "SPAI" else 30
@@ -1376,9 +1384,9 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
 
             elif phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_phase = df_phase.merge(df_cond, on="VP")
                     df_phase["Option"] = 1
                     df_phase.loc[df_phase["Rooms"] == 1, "Option"] = 2
@@ -1622,7 +1630,7 @@ def draw_heatmap(gazepoints, dispsize, imagefile=None, alpha=0.5, gaussianwh=200
     return fig
 
 
-df = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'movement.csv'), decimal='.', sep=';')
+df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
 df["y_hm"] = df["x"] + 950  # abs(df["x"].min())
 df["x_hm"] = df["y"] + 1300  # abs(df["y"].min())
 
@@ -1657,9 +1665,9 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
                 plt.close()
             elif phase == "Test":
                 try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Conditions3")
+                    df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
                     df_cond = df_cond[["VP", "Roles", "Rooms"]]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, 'Data-Wave1', 'Conditions.xlsx'), sheet_name="Rooms3")
+                    df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
                     df_phase = df_phase.merge(df_cond, on="VP")
                     df_phase["Option"] = 1
                     df_phase.loc[df_phase["Rooms"] == 1, "Option"] = 2
@@ -1679,7 +1687,7 @@ for cutoff, text, title in zip([cutoff_sa, np.median(df_spai)], [f"Cutoff ({roun
 
 
 # Walking Distance
-df_dist = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'walking_distance.csv'), decimal='.', sep=';')
+df_dist = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'walking_distance.csv'), decimal='.', sep=';')
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 6))
 boxWidth = 1
@@ -1745,7 +1753,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"walking_distance_grouped_{SA_score}.png"), dpi=300)
 plt.close()
 
-df_hr = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', f'hr.csv'), decimal='.', sep=';')
+df_hr = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'hr.csv'), decimal='.', sep=';')
 df_hr = df_hr.loc[(df_hr["Phase"].str.contains("Habituation")) | (df_hr["Phase"].str.contains("Test"))]
 df_hr.loc[df_hr["Phase"].str.contains("Habituation"), "phase"] = "Habituation"
 df_hr.loc[df_hr["Phase"].str.contains("Test"), "phase"] = "Test"

@@ -17,9 +17,14 @@ import pymer4
 
 from Code.toolbox import utils
 
+wave = 2
+if wave == 1:
+    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
+elif wave == 2:
+    problematic_subjects = []
 
 dir_path = os.getcwd()
-save_path = os.path.join(dir_path, 'Plots-Wave1', 'Gaze')
+save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Gaze')
 if not os.path.exists(save_path):
     print('creating path for saving')
     os.makedirs(save_path)
@@ -32,7 +37,7 @@ vps = np.arange(start, end + 1)
 problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
 vps = [vp for vp in vps if not vp in problematic_subjects]
 
-df_gaze = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'gaze.csv'), decimal='.', sep=';')
+df_gaze = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'gaze.csv'), decimal='.', sep=';')
 SA_score = "SPAI"
 dvs = ["Gaze Proportion", "Switches"]
 dv = dvs[0]
@@ -52,9 +57,9 @@ for vp in vps:
     print(f"VP: {vp}")
 
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if (item.endswith(".csv"))]
         file = [file for file in files if "etcalibration" in file][0]
-        df_cal = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, file), sep=';', decimal='.')
+        df_cal = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, file), sep=';', decimal='.')
     except:
         print("no gaze file")
         continue
@@ -77,9 +82,9 @@ for vp in vps:
     print(f"VP: {vp}")
 
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp)) if (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if (item.endswith(".csv"))]
         file = [file for file in files if "etcalibration" in file][0]
-        df_cal = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'VP_' + vp, file), sep=';', decimal='.')
+        df_cal = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, file), sep=';', decimal='.')
     except:
         print("no gaze file")
         continue
@@ -513,14 +518,14 @@ df_diff = df_diff[["VP", "difference"]]
 df_diff = df_diff.rename(columns={"difference": "gaze_diff"})
 df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
 try:
-    df_aa = pd.read_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';')
+    df_aa = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';')
     if "gaze_diff" in df_aa.columns:
         df_aa.update(df_diff)
     else:
         df_aa = df_aa.merge(df_diff, on="VP")
-    df_aa.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+    df_aa.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 except:
-    df_diff.to_csv(os.path.join(dir_path, 'Data-Wave1', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+    df_diff.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 
 x = df_aa["distance_diff"].to_numpy()
 y = df_aa["time_diff"].to_numpy()
