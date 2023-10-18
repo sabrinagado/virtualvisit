@@ -70,7 +70,7 @@ for vp in vps:
     behav_friendly = df_ratings.loc[(df_ratings["condition"] == "friendly") & (df_ratings["criterion"].str.contains("Behavior")), "value"].item()
     behav_unfriendly = df_ratings.loc[(df_ratings["condition"] == "unfriendly") & (df_ratings["criterion"].str.contains("Behavior")), "value"].item()
 
-    if behav_friendly-behav_unfriendly < 10:
+    if behav_friendly-behav_unfriendly <= 10:
         problematic_subjects.append(int(vp))
         print(f"Rating Friendly: {behav_friendly}; Rating Unfriendly: {behav_unfriendly}")
         continue

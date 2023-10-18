@@ -18,6 +18,12 @@ from tqdm import tqdm
 from Code.toolbox import utils
 
 
+wave = 1
+if wave == 1:
+    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
+elif wave == 2:
+    problematic_subjects = []
+
 dir_path = os.getcwd()
 save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Physiology')
 if not os.path.exists(save_path):
@@ -30,7 +36,7 @@ blue = '#1F82C0'
 SA_score = "SPAI"
 
 # Acquisition
-ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
+ylabels = ["Heart Rate [BPM]", "Skin Conductance Response [µS]", "Pupil Diameter [mm]"]
 colors = [green, red, blue]
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
@@ -171,7 +177,7 @@ for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(["hr", "eda",
     # Style Plot
     axes[physio_idx].set_xlim([0, 5])
     axes[physio_idx].set_ylabel(ylabel)
-    axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')} (N = {len(df['VP'].unique())})", fontweight='bold')
+    axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}", fontweight='bold')  #  (N = {len(df['VP'].unique())})
     axes[physio_idx].set_xlabel("Seconds after Interaction Onset")
     axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
@@ -282,11 +288,14 @@ plt.close()
 red = '#E2001A'
 green = '#B1C800'
 colors = [green, red]
-ylabels = ["Pupil Diameter [mm]", "Skin Conductance Level [µS]", "Heart Rate [BPM]", "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
-dvs = ["Pupil Dilation (Mean)", "SCL (Mean)", "HR (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
-for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"], ylabels, dvs):
-    # physiology = "hrv_hf"
-    # ylabel, dv = ylabels[3], dvs[3]
+ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]", "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
+dvs = ["HR (Mean)", "SCL (Mean)", "Pupil Dilation (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
+
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
+for physio_idx, (physiology, ylabel, dv) in enumerate(zip(["hr", "eda", "pupil"], ylabels[0:3], dvs[0:3])):  # , "hrv_hf", "hrv_rmssd"
+    # physio_idx = 2
+    # physiology = "pupil"
+    # ylabel, dv = ylabels[physio_idx], dvs[physio_idx]
     if "hrv" in physiology:
         df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'hr.csv'), decimal='.', sep=';')
     else:
@@ -304,8 +313,8 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
 
     conditions = ["friendly", "unfriendly"]
     phases = ['Habituation', 'Test']
-    titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
+    # fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -332,7 +341,7 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
                 # i = 0
                 x = random.uniform(pos[idx_phase] - (0.25 * boxWidth), pos[idx_phase] + (0.25 * boxWidth))
                 y = df_phase.reset_index().loc[i, dv].item()
-                ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+                axes[physio_idx].plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
             # Plot boxplots
             meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -351,7 +360,7 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
                                                as_dict=True,
                                                func='mean')
 
-            ax.boxplot([df_phase.loc[:, dv].values],
+            axes[physio_idx].boxplot([df_phase.loc[:, dv].values],
                        notch=True,  # bootstrap=5000,
                        medianprops=medianlineprops,
                        meanline=True,
@@ -377,11 +386,11 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
         p = anova.loc["phase", "P-val"].item()
         max = df_subset[dv].max()
         if p < 0.05:
-            ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
-            ax.vlines(x=pos[0], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
-            ax.vlines(x=pos[1], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+            axes[physio_idx].hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+            axes[physio_idx].vlines(x=pos[0], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+            axes[physio_idx].vlines(x=pos[1], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
             p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-            ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
+            axes[physio_idx].text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
 
     df_crit = df_subset.copy()
     df_crit = df_crit.loc[df_crit["Condition"].isin(conditions)]
@@ -402,33 +411,48 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
     p = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
     max = df_subset[dv].max()
     if p < 0.05:
-        ax.hlines(y=max * 1.10, xmin=2 * boxWidth, xmax=1 + 2 * boxWidth, linewidth=0.7, color='k')
-        ax.vlines(x=2 * boxWidth, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
-        ax.vlines(x=1 + 2 * boxWidth, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+        axes[physio_idx].hlines(y=max * 1.10, xmin=2 * boxWidth, xmax=1 + 2 * boxWidth, linewidth=0.7, color='k')
+        axes[physio_idx].vlines(x=2 * boxWidth, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+        axes[physio_idx].vlines(x=1 + 2 * boxWidth, ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-        ax.text(np.mean([2 * boxWidth, 1 + 2 * boxWidth]), max * 1.105, p_sign, color='k', horizontalalignment='center')
+        axes[physio_idx].text(np.mean([2 * boxWidth, 1 + 2 * boxWidth]), max * 1.105, p_sign, color='k', horizontalalignment='center')
 
-    ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-    ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(ylabel)
-    ax.set_title(ylabel.split("[")[0], fontweight='bold')
+    axes[physio_idx].set_xticks([x + 1 / 2 for x in range(len(conditions))])
+    axes[physio_idx].set_xticklabels([title.replace("with", "with\n") for title in titles])
+    axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    axes[physio_idx].set_ylabel(ylabel)
+    axes[physio_idx].set_title(f"{ylabel.split('[')[0]}", fontweight='bold')  #  (N = {len(df_subset['VP'].unique())})
 
-    fig.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    fig.subplots_adjust(right=0.7)
-    plt.savefig(os.path.join(save_path, f"{physiology}_hab-test.png"), dpi=300, bbox_inches="tight")
-    plt.close()
+fig.legend(
+    [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+    ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
+# fig.subplots_adjust(right=0.7)
+plt.savefig(os.path.join(save_path, f"physiology_hab-test.png"), dpi=300, bbox_inches="tight")
+plt.close()
 
-    # Correlation with SPAI
+# Correlation with SPAI
+for physiology, ylabel, dv in zip(["hr", "eda", "pupil", "hrv_hf", "hrv_rmssd"], ylabels, dvs):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     boxWidth = 1
     pos = [1]
-
     titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
+    if "hrv" in physiology:
+        df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'hr.csv'), decimal='.', sep=';')
+    else:
+        df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'{physiology}.csv'), decimal='.', sep=';')
+
+    df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+    df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
+    df_subset.loc[df_subset['Phase'].str.contains("Habituation"), "phase"] = "Habituation"
+    df_subset.loc[df_subset['Phase'].str.contains("Office"), "room"] = "Office"
+    df_subset.loc[df_subset['Phase'].str.contains("Living"), "room"] = "Living"
+    df_subset.loc[df_subset['Phase'].str.contains("Dining"), "room"] = "Dining"
+
+    df_subset = df_subset.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
+    df_subset = df_subset.dropna(subset=dv)
+
     df_test = df_subset.loc[df_subset['phase'] == "Test"]
     df_test = df_test.sort_values(by=SA_score)
     for idx_condition, condition in enumerate(conditions):
@@ -471,9 +495,26 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
     plt.savefig(os.path.join(save_path, f"{physiology}_test_{SA_score}.png"), dpi=300)
     plt.close()
 
-    # Correlation with SPAI (Test-Habituation)
+# Correlation with SPAI (Test-Habituation)
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
+for physio_idx, (physiology, ylabel, dv) in enumerate(zip(["hr", "eda", "pupil"], ylabels[0:3], dvs[0:3])):  # , "hrv_hf", "hrv_rmssd"
     df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
     df_spai = df_spai.sort_values(by=SA_score)
+
+    if "hrv" in physiology:
+        df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'hr.csv'), decimal='.', sep=';')
+    else:
+        df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'{physiology}.csv'), decimal='.', sep=';')
+
+    df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+    df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
+    df_subset.loc[df_subset['Phase'].str.contains("Habituation"), "phase"] = "Habituation"
+    df_subset.loc[df_subset['Phase'].str.contains("Office"), "room"] = "Office"
+    df_subset.loc[df_subset['Phase'].str.contains("Living"), "room"] = "Living"
+    df_subset.loc[df_subset['Phase'].str.contains("Dining"), "room"] = "Dining"
+
+    df_subset = df_subset.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
+    df_subset = df_subset.dropna(subset=dv)
     df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values=dv).reset_index()
     df_diff = df_diff.dropna()
     df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
@@ -484,7 +525,7 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
     df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
     df_diff = df_diff.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    # fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     boxWidth = 1
     pos = [1]
     conditions = ["friendly", "unfriendly"]
@@ -507,36 +548,36 @@ for physiology, ylabel, dv in zip(["pupil", "eda", "hr", "hrv_hf", "hrv_rmssd"],
             1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
 
         # Plot regression line
-        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
-        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+        axes[physio_idx].plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        axes[physio_idx].fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
         p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
         if idx_condition == 0:
-            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+            axes[physio_idx].text(df_diff[SA_score].min() + 0.01 * np.max(x),
                     0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_condition])
         else:
-            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+            axes[physio_idx].text(df_diff[SA_score].min() + 0.01 * np.max(x),
                     0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                     color=colors[idx_condition])
 
         # Plot raw data points
-        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+        axes[physio_idx].plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    axes[physio_idx].set_xlabel(SA_score)
     if "SPAI" in SA_score:
-        ax.set_xticks(range(0, 6))
+        axes[physio_idx].set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Difference (Test - Habituation) in {ylabel}")
-    ax.set_title(ylabel.split("[")[0], fontweight='bold')
-    ax.legend(loc="upper right")
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_path, f"{physiology}_diff_{SA_score}.png"), dpi=300)
-    plt.close()
+        axes[physio_idx].set_xticks(range(5, 65, 5))
+    axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    axes[physio_idx].set_ylabel(f"Difference (Test - Habituation) in {ylabel}")
+    axes[physio_idx].set_title(ylabel.split("[")[0], fontweight='bold')
+    axes[physio_idx].legend(loc="upper right")
+plt.tight_layout()
+plt.savefig(os.path.join(save_path, f"{physiology}_diff_{SA_score}.png"), dpi=300)
+plt.close()
 
 
 for physiology in ["pupil", "eda", "hr"]:
@@ -560,13 +601,13 @@ for physiology in ["pupil", "eda", "hr"]:
     df_subset[SA_score] = (df_subset[SA_score] - df_subset[SA_score].mean()) / df_subset[SA_score].std()
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
-    formula = f"{physiology} ~ Phase + Condition + {SA_score} + " \
-              f"Phase:Condition + Phase:{SA_score} + Condition:{SA_score} +" \
-              f"Phase:Condition:{SA_score} +" \
+    formula = f"{physiology} ~ phase + Condition + {SA_score} + " \
+              f"phase:Condition + phase:{SA_score} + Condition:{SA_score} +" \
+              f"phase:Condition:{SA_score} +" \
               f"(1 | VP)"
 
     model = pymer4.models.Lmer(formula, data=df_subset)
     model.fit(factors={"Condition": ['friendly', 'unfriendly'],
-                       "Phase": ['Habituation_DiningRoom', 'Test_DiningRoom', 'Habituation_LivingRoom', 'Test_LivingRoom']}, summarize=False)
+                       "phase": ['Habituation', 'Test']}, summarize=False)
     anova = model.anova(force_orthogonal=True)
     estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="Phase", p_adjust="holm")

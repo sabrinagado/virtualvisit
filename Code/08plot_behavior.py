@@ -20,7 +20,7 @@ import pymer4
 from Code.toolbox import utils
 
 
-wave = 2
+wave = 1
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -184,7 +184,7 @@ plt.savefig(os.path.join(save_path, f"duration_rooms.png"), dpi=300, bbox_inches
 plt.close()
 
 
-# Time spent in the different rooms of the virtual humans
+# Time spent in the different rooms of the virtual agents
 df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
 df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
 df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
@@ -196,9 +196,9 @@ df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), o
 conditions = ["friendly", "unfriendly"]
 df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 phases = ['Habituation', 'Test']
-titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
+titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
 boxWidth = 1 / (len(conditions) + 1)
 pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -313,20 +313,20 @@ ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
 ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Total Duration in the Rooms [s]")
-ax.set_title("Time Spent Close to Virtual Humans", fontweight='bold')
-ax.legend(
-    [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-     Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-     Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-    ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='upper left')
-
-# fig.legend(
+# ax.set_title("Time Spent Close to Virtual Agents", fontweight='bold')
+# ax.legend(
 #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
 #      Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
 #      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-#     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-# fig.subplots_adjust(right=0.76)
-plt.savefig(os.path.join(save_path, f"duration_test.png"), dpi=300, bbox_inches="tight")
+#     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='upper left')
+
+fig.legend(
+    [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+     Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+    ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
+fig.subplots_adjust(right=0.7)
+plt.savefig(os.path.join(save_path, f"duration_hab-test.png"), dpi=300, bbox_inches="tight")
 plt.close()
 
 
@@ -335,7 +335,7 @@ fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1
 pos = [1]
 
-titles = ["Room with Friendly Person", "Room with Unfriendly Person"]
+titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 df_test = df_subset.loc[df_subset['phase'] == "Test"]
 df_test = df_test.sort_values(by=SA_score)
 for idx_condition, condition in enumerate(conditions):
@@ -367,7 +367,7 @@ for idx_condition, condition in enumerate(conditions):
                              color=colors[idx_condition])
 
     # Plot raw data points
-    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
 ax.set_xlabel(SA_score)
 if "SPAI" in SA_score:
@@ -376,7 +376,7 @@ elif "SIAS" in SA_score:
     ax.set_xticks(range(5, 65, 5))
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(f"Total Duration [s] in Test Phase")
-ax.set_title(f"Time Spent Close to Virtual Humans", fontweight='bold')
+# ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
 ax.legend()
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"duration_test_{SA_score}.png"), dpi=300)
@@ -419,7 +419,7 @@ fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1
 pos = [1]
 conditions = ["friendly", "unfriendly"]
-titles = ["Friendly", "Unfriendly"]
+titles = ["Friendly Agent", "Unfriendly Agent"]
 
 for idx_condition, condition in enumerate(conditions):
     # idx_condition = 0
@@ -454,7 +454,7 @@ for idx_condition, condition in enumerate(conditions):
                 color=colors[idx_condition])
 
     # Plot raw data points
-    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6,
+    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
             label=titles[idx_condition])
 
 ax.set_xlabel(SA_score)
@@ -463,8 +463,8 @@ if "SPAI" in SA_score:
 elif "SIAS" in SA_score:
     ax.set_xticks(range(5, 65, 5))
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Difference (Test - Habituation) Between\nTime Spent Close to the Position of the Virtual Humans [s]")
-ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Humans", fontweight='bold')
+ax.set_ylabel(f"Difference (Test - Habituation) Between\nTime Spent Close to the Position of the Virtual Agents [s]")
+# ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Agents", fontweight='bold')
 ax.legend(loc="upper right")
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"duration_diff_{SA_score}.png"), dpi=300)
@@ -497,7 +497,7 @@ ax.fill_between(x, y_est + y_err, y_est - y_err, alpha=0.2, color="lightgrey")
 
 # Plot raw data points
 c = np.where(y < 0, 'teal', 'gold')
-ax.scatter(x, y, s=30, c=c, alpha=0.6)
+ax.scatter(x, y, s=30, c=c, alpha=0.3)
 
 p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
 ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
@@ -543,7 +543,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     conditions = ["friendly", "unfriendly"]
     df_test = df.loc[df["phase"].str.contains("Test")]
     df_test = df_test.loc[df_test["Condition"].isin(conditions)]
-    titles = ["Friendly Person", "Unfriendly Person"]
+    titles = ["Friendly Agent", "Unfriendly Agent"]
     if dist == "avg":
         df_grouped = df_test.groupby(["VP", "Condition"]).mean(numeric_only=True).reset_index()
     elif dist == "min":
@@ -626,8 +626,8 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
 
     ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{title} Distance to the Virtual Humans [m]")
-    ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
+    ax.set_ylabel(f"{title} Distance to the Virtual Agents [m]")
+    # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, f"distance_{dist}_test.png"), dpi=300)
     plt.close()
@@ -637,7 +637,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     boxWidth = 1
     pos = [1]
     conditions = ["friendly", "unfriendly"]
-    titles = ["Friendly Person", "Unfriendly Person"]
+    titles = ["Friendly Agent", "Unfriendly Agent"]
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
@@ -670,7 +670,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
                     color=colors[idx_condition])
 
         # Plot raw data points
-        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6,
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
                 label=titles[idx_condition])
 
     ax.set_xlabel(SA_score)
@@ -679,14 +679,14 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     elif "SIAS" in SA_score:
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{title} Distance to the Virtual Humans [m]")
-    ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
+    ax.set_ylabel(f"{title} Distance to the Virtual Agents [m]")
+    # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
     ax.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, f"distance_{dist}_test_{SA_score}.png"), dpi=300)
     plt.close()
 
-    # Distance to virtual humans (Comparison to Habituation)
+    # Distance to virtual agents (Comparison to Habituation)
     if dist == "avg":
         df_subset = df.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
     elif dist == "min":
@@ -696,7 +696,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
 
     conditions = ["friendly", "unfriendly"]
     phases = ['Habituation', 'Test']
-    titles = ["Position of\nFriendly Person", "Position of\nUnfriendly Person"]
+    titles = ["Position of\nFriendly Agent", "Position of\nUnfriendly Agent"]
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
@@ -813,8 +813,8 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
     ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{title} Distance to Position of Virtual Human [m]")
-    ax.set_title("Interpersonal Distance to Virtual Humans", fontweight='bold')
+    ax.set_ylabel(f"{title} Distance to Position of Virtual Agents [m]")
+    # ax.set_title("Interpersonal Distance to Virtual Agents", fontweight='bold')
     # ax.legend(
     #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
     #      Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
@@ -846,7 +846,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     boxWidth = 1
     pos = [1]
     conditions = ["friendly", "unfriendly"]
-    titles = ["Friendly", "Unfriendly"]
+    titles = ["Friendly Agent", "Unfriendly Agent"]
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
@@ -881,7 +881,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
                     color=colors[idx_condition])
 
         # Plot raw data points
-        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6,
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
                 label=titles[idx_condition])
 
     ax.set_xlabel(SA_score)
@@ -890,8 +890,8 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     elif "SIAS" in SA_score:
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Difference (Test - Habituation) Between\n{title} Distance to the Position of Virtual Humans [m]")
-    ax.set_title(f"Interpersonal Distance", fontweight='bold')
+    ax.set_ylabel(f"Difference (Test - Habituation) Between\n{title} Distance to the Position of Virtual Agents [m]")
+    # ax.set_title(f"Interpersonal Distance", fontweight='bold')
     ax.legend(loc="upper right")
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, f"distance_{dist}_diff_{SA_score}.png"), dpi=300)
@@ -924,7 +924,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
 
     # Plot raw data points
     c = np.where(y > 0, 'teal', 'gold')
-    ax.scatter(x, y, s=30, c=c, alpha=0.6)
+    ax.scatter(x, y, s=30, c=c, alpha=0.3)
 
     p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
     ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
@@ -981,7 +981,7 @@ if wave == 1:
 
     conditions = ["friendly", "unfriendly"]
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
-    titles = ["Friendly Person", "Unfriendly Person"]
+    titles = ["Friendly Agent", "Unfriendly Agent"]
     colors = [green, red]
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
@@ -1057,12 +1057,12 @@ if wave == 1:
 
     ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Number of Clicks on the Virtual Humans")
-    ax.set_title("Additional Interaction Attempts", fontweight='bold')
+    ax.set_ylabel(f"Number of Clicks on the Virtual Agents")
+    # ax.set_title("Additional Interaction Attempts", fontweight='bold')
     ax.legend(
         [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7)],
-        ["Friendly", "Unfriendly"], loc="upper right")
+        ["Friendly\nAgent", "Unfriendly\nAgent"], loc="upper right")
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, f"clicks_test.png"), dpi=300)
     plt.close()
@@ -1072,7 +1072,7 @@ if wave == 1:
     boxWidth = 1
     pos = [1]
     conditions = ["friendly", "unfriendly"]
-    titles = ["Friendly Person", "Unfriendly Person"]
+    titles = ["Friendly Agent", "Unfriendly Agent"]
     df_subset = df_subset.sort_values(by=SA_score)
 
     for idx_condition, condition in enumerate(conditions):
@@ -1107,7 +1107,7 @@ if wave == 1:
 
         # Plot raw data points
         y_jittered = [random.uniform(value - 0.1, value + 0.1) for value in y]
-        ax.plot(x, y_jittered, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6, label=titles[idx_condition])
+        ax.plot(x, y_jittered, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
     ax.set_xlabel(SA_score)
     if "SPAI" in SA_score:
@@ -1115,8 +1115,8 @@ if wave == 1:
     elif "SIAS" in SA_score:
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Number of Clicks on the Virtual Humans (Test-Phase)")
-    ax.set_title(f"Additional Interaction Attempts", fontweight="bold")
+    ax.set_ylabel(f"Number of Clicks on the Virtual Agents (Test-Phase)")
+    # ax.set_title(f"Additional Interaction Attempts", fontweight="bold")
     ax.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, f"clicks_test_{SA_score}.png"), dpi=300)
@@ -1738,7 +1738,7 @@ for idx_dv, dv in enumerate(['walking_distance', 'average_distance_to_start', 'm
                     color=colors[idx_phase])
 
         # Plot raw data points
-        axes[idx_dv].plot(x, y, 'o', ms=5, mfc=colors[idx_phase], mec=colors[idx_phase], alpha=0.6, label=titles[idx_phase])
+        axes[idx_dv].plot(x, y, 'o', ms=5, mfc=colors[idx_phase], mec=colors[idx_phase], alpha=0.3, label=titles[idx_phase])
 
     axes[idx_dv].set_xlabel(SA_score)
     if "SPAI" in SA_score:

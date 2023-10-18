@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from scipy import signal
 from Code.toolbox import utils
 
-wave = 2
+wave = 1
 dir_path = os.getcwd()
 start = 1
 end = 64
@@ -33,7 +33,7 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 
 for vp in vps:
-    # vp = vps[6]
+    # vp = vps[0]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
@@ -107,8 +107,7 @@ for vp in vps:
     df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
     df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
     df_test = df_test.sort_values(by="timestamp")
-    df_test = df_test.loc[
-        (df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))].reset_index(drop=True)
+    df_test = df_test.loc[(df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))].reset_index(drop=True)
     room = ""
     for idx_row, row in df_test.iterrows():
         # idx_row = 0
@@ -116,8 +115,8 @@ for vp in vps:
         if "Enter" in row["event"]:
             room = row["event"]
         elif "Clicked" in row["event"]:
-            df_test = pd.concat(
-                [df_test, pd.DataFrame({"timestamp": [row["timestamp"] + timedelta(seconds=3)], "event": [room]})])
+            df_test.loc[idx_row, "timestamp"] = row["timestamp"] - timedelta(seconds=1)
+            df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [row["timestamp"] + timedelta(seconds=3)], "event": [room]})])
     df_test = df_test.sort_values(by="timestamp").reset_index(drop=True)
     df_test = drop_consecutive_duplicates(df_test, subset="event", keep="first", times="timestamp", tolerance=0.1)
     df_test = df_test.reset_index(drop=True)

@@ -16,7 +16,7 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 2
+wave = 1
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -29,16 +29,16 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 
 df_rating = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'), decimal='.', sep=';')
-colors = ['#B1C800', '#1F82C0', '#E2001A', '#179C7D', '#F29400']
 SA_score = "SPAI"
 
 # Ratings Virtual Humans
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
 labels = ["Sympathy", "Fear", "Anger", "Attractiveness", "Behavior"]
-conditions = ['Friendly', 'Neutral', 'Unfriendly', 'Unknown']
+conditions = ['Friendly', 'Unfriendly', 'Neutral', 'Unknown']
+colors = ['#B1C800', '#E2001A', '#1F82C0',  'lightgrey']
 
 for idx_label, label in enumerate(labels):
-    # idx_label = 1
+    # idx_label = 4
     # label = labels[idx_label]
 
     boxWidth = 1 / (len(conditions) + 2)
@@ -146,13 +146,13 @@ plt.close()
 
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
-fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
-labels = ["Sympathy", "Fear", "Anger"]
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 5))
+labels = ["Sympathy", "Fear", "Anger"]  # , "Attractiveness", "Behavior"]
 conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
 colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
 
 for idx_label, label in enumerate(labels):
-    # idx_label = 1
+    # idx_label = 4
     # label = labels[idx_label]
     print(label)
     df_crit = df_rating.loc[df_rating["Criterion"] == label]
@@ -170,12 +170,12 @@ for idx_label, label in enumerate(labels):
     anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
     estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-    if anova.loc[SA_score, "P-val"].item() < 0.05:
-        print(f"{SA_score} Main Effect ({label}), p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={anova.loc[SA_score, 'p_eta_2'].item()}")
-    if anova.loc["Condition", "P-val"].item() < 0.05:
-        print(f"Condition Main Effect ({label}), p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc['Condition', 'p_eta_2'].item()}")
-    if anova.loc[f'{SA_score}:Condition', 'P-val'].item() < 0.05:
-        print(f"Significant Interaction, p={round(anova.loc[f'{SA_score}:Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc[f'{SA_score}:Condition', 'p_eta_2'].item()}")
+    # if anova.loc[SA_score, "P-val"].item() < 0.05:
+    #     print(f"{SA_score} Main Effect ({label}), p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={anova.loc[SA_score, 'p_eta_2'].item()}")
+    # if anova.loc["Condition", "P-val"].item() < 0.05:
+    #     print(f"Condition Main Effect ({label}), p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc['Condition', 'p_eta_2'].item()}")
+    # if anova.loc[f'{SA_score}:Condition', 'P-val'].item() < 0.05:
+    #     print(f"Significant Interaction, p={round(anova.loc[f'{SA_score}:Condition', 'P-val'].item(), 3)}, p_eta_2={anova.loc[f'{SA_score}:Condition', 'p_eta_2'].item()}")
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
@@ -220,12 +220,12 @@ for idx_label, label in enumerate(labels):
                     color=colors[idx_condition])
 
         # Plot raw data points
-        axes[idx_label].plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.6,
+        axes[idx_label].plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
                 label=conditions[idx_condition])
 
     # Style Plot
     axes[idx_label].set_ylim([-2, df_crit["Value"].max()+2])
-    axes[idx_label].set_title(f"{label} (N = {len(df_cond['VP'].unique())})", fontweight='bold')
+    axes[idx_label].set_title(f"{label}", fontweight='bold')  # (N = {len(df_cond['VP'].unique())})
     axes[idx_label].set_ylabel(label)
     if "SPAI" in SA_score:
         axes[idx_label].set_xticks(range(0, 6))

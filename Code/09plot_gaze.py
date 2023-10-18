@@ -17,7 +17,7 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 2
+wave = 1
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -41,7 +41,7 @@ df_gaze = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'gaze.csv'), de
 SA_score = "SPAI"
 dvs = ["Gaze Proportion", "Switches"]
 dv = dvs[0]
-y_labels = ["Gaze Proportion on Person", "Fixation Switches Towards Virtual Human"]
+y_labels = ["Proportional Dwell Time on Agent", "Fixation Switches Towards Virtual Agent"]
 y_label = y_labels[0]
 
 red = '#E2001A'
@@ -207,11 +207,11 @@ for idx_phase, phase in enumerate(phases):
                     color=colors[idx_roi])
 
         # Plot raw data points
-        axes[idx_phase].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.6,
+        axes[idx_phase].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.3,
                 label=roi.capitalize())
 
     axes[idx_phase].legend(loc="upper right")
-    axes[idx_phase].set_title(f"{titles[idx_phase]} (N = {len(df_phase['VP'].unique())})", fontweight='bold')
+    axes[idx_phase].set_title(f"{titles[idx_phase]}", fontweight='bold')  # (N = {len(df_phase['VP'].unique())})
     axes[idx_phase].set_ylim([0, max])
     axes[idx_phase].set_xlabel(SA_score)
     axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -248,7 +248,7 @@ df_grouped = df_click.groupby(["VP", "Phase", "Person", "Condition", "ROI"]).mea
 max = round(df_grouped[dv].max(), 2) * 1.1
 
 fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(8, 6))
-titles = ["Fixations after Click on\nFriendly Person", "Fixations after Click on\nUnfriendly Person"]
+titles = ["Fixations after Click on\nFriendly Agent", "Fixations after Click on\nUnfriendly Agent"]
 df_grouped = df_grouped.sort_values(by=SA_score)
 for idx_phase, phase in enumerate(phases):
     # idx_phase = 0
@@ -291,11 +291,11 @@ for idx_phase, phase in enumerate(phases):
                                  color=colors[idx_roi])
 
         # Plot raw data points
-        axes[idx_phase].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.6,
+        axes[idx_phase].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.3,
                              label=roi.capitalize())
 
     axes[idx_phase].legend(loc="upper right")
-    axes[idx_phase].set_title(f"{titles[idx_phase]} (N = {len(df_phase['VP'].unique())})", fontweight='bold')
+    axes[idx_phase].set_title(f"{titles[idx_phase]}", fontweight='bold')  # (N = {len(df_phase['VP'].unique())})
     axes[idx_phase].set_ylim([0, max])
     axes[idx_phase].set_xlabel(SA_score)
     axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -319,24 +319,27 @@ sum_sq_error = (sum(i * i for i in model.residuals))
 anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
 estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
 
-# Test: Rooms
+# Test-Phase
 meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
 medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
 fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
 
 df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
+df_test = df_test.loc[df_test['ROI'] != "other"].reset_index(drop=True)
+df_test = df_test.groupby(["VP", "Condition"])[dv].sum().reset_index()
+df_test = df_test.merge(df_gaze[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+
 max = round(df_test[dv].max(), 2) * 1.1
 conditions = ["friendly", "unfriendly"]
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+labels = ["Friendly\nAgent", "Unfriendly\nAgent"]
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
 boxWidth = 1 / (len(conditions) + 1)
 pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
 for idx_condition, condition in enumerate(conditions):
-    # idx_condition = 0
+    # idx_condition = 1
     # condition = conditions[idx_condition]
-    labels = ["Friendly", "Unfriendly"]
     df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
-    df_cond = df_cond.loc[df_cond['ROI'] != "other"].reset_index(drop=True)
 
     colors = [green, red]
 
@@ -375,8 +378,31 @@ for idx_condition, condition in enumerate(conditions):
                 positions=[pos[idx_condition]],
                 widths=0.8 * boxWidth)
 
+df_crit = df_test.copy()
+df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+df_crit = df_crit.rename(columns={dv: "gaze"})
+
+formula = f"gaze ~ Condition + {SA_score} + Condition:{SA_score} + (1 | VP)"
+
+max = df_crit["gaze"].max()
+model = pymer4.models.Lmer(formula, data=df_crit)
+model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+anova = model.anova(force_orthogonal=True)
+sum_sq_error = (sum(i * i for i in model.residuals))
+anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+p = anova.loc["Condition", "P-val"].item()
+if p < 0.05:
+    ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+    ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+    ax.vlines(x=pos[1], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+    p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+    ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
+
 ax.set_xticklabels(labels)
-ax.set_title(f"Spontaneous Fixations (N = {len(df_cond['VP'].unique())})", fontweight='bold')
+# ax.set_title(f"Spontaneous Fixations", fontweight='bold')  # (N = {len(df_cond['VP'].unique())})
+max = round(df_crit["gaze"].max(), 2) * 1.17
 ax.set_ylim([0, max])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 ax.set_ylabel(y_label)
@@ -390,7 +416,8 @@ df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"]
 max = round(df_test[dv].max(), 2) * 1.1
 
 conditions = ["friendly", "unfriendly"]
-titles = ["Spontaneous Fixations on\nFriendly Person", "Spontaneous Fixations on\nUnfriendly Person"]
+titles = ["Spontaneous Fixations on\nFriendly Agent", "Spontaneous Fixations on\nUnfriendly Agent"]
+ylabels = ["Gaze Proportion (Friendly Agent)", "Gaze Proportion (Unfriendly Agent)"]
 fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(8, 6))
 df_test = df_test.sort_values(by=SA_score)
 for idx_condition, condition in enumerate(conditions):
@@ -434,15 +461,15 @@ for idx_condition, condition in enumerate(conditions):
                                  color=colors[idx_roi])
 
         # Plot raw data points
-        axes[idx_condition].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.6,
+        axes[idx_condition].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.3,
                              label=roi.capitalize())
 
     axes[idx_condition].legend(loc="upper right")
-    axes[idx_condition].set_title(f"{titles[idx_condition]} (N = {len(df_condition['VP'].unique())})", fontweight='bold')
+    # axes[idx_condition].set_title(f"{titles[idx_condition]}", fontweight='bold')  # (N = {len(df_condition['VP'].unique())})
     axes[idx_condition].set_ylim([0, max])
     axes[idx_condition].set_xlabel(SA_score)
     axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-axes[0].set_ylabel(y_label)
+    axes[idx_condition].set_ylabel(ylabels[idx_condition])
 
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"gaze_test-{dv}_{SA_score}.png"), dpi=300)
@@ -489,7 +516,7 @@ ax.fill_between(x, y_est + y_err, y_est - y_err, alpha=0.2, color="lightgrey")
 
 # Plot raw data points
 c = np.where(y < 0, 'teal', 'gold')
-ax.scatter(x, y, s=30, c=c, alpha=0.6)
+ax.scatter(x, y, s=30, c=c, alpha=0.3)
 
 p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
 ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
