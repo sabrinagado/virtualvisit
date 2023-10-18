@@ -40,9 +40,9 @@ vps = [vp for vp in vps if not vp in problematic_subjects]
 df_gaze = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'gaze.csv'), decimal='.', sep=';')
 SA_score = "SPAI"
 dvs = ["Gaze Proportion", "Switches"]
-dv = dvs[0]
-y_labels = ["Proportional Dwell Time on Agent", "Fixation Switches Towards Virtual Agent"]
-y_label = y_labels[0]
+dv = dvs[1]
+y_labels = ["Proportional Dwell Time on Virtual Agent", "Shifts of Visual Attention Towards Virtual Agent"]
+y_label = y_labels[1]
 
 red = '#E2001A'
 green = '#B1C800'
@@ -221,6 +221,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"gaze_acq-{dv}_{SA_score}.png"), dpi=300)
 plt.close()
 
+df_acq = df_acq.loc[~(df_acq["Condition"] == "neutral")]
 df_acq = df_acq.rename(columns={dv: "gaze"})
 df_acq[SA_score] = (df_acq[SA_score] - df_acq[SA_score].mean()) / df_acq[SA_score].std()
 
@@ -230,12 +231,11 @@ formula = f"gaze ~ Condition + {SA_score} + ROI +" \
           f"Condition:{SA_score}:ROI + (1 | VP)"
 
 model = pymer4.models.Lmer(formula, data=df_acq)
-model.fit(factors={"Condition": ["friendly", "unfriendly", "neutral"], "ROI": ["body", "head"]}, summarize=False)
+model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["body", "head"]}, summarize=False)
 anova = model.anova(force_orthogonal=True)
 sum_sq_error = (sum(i * i for i in model.residuals))
 anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
 estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
-
 
 # Clicks, Relationship SPAI
 phases = ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]
@@ -405,7 +405,7 @@ ax.set_xticklabels(labels)
 max = round(df_crit["gaze"].max(), 2) * 1.17
 ax.set_ylim([0, max])
 ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(y_label)
+ax.set_ylabel(f"{y_label}s")
 
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"gaze_test-{dv}.png"), dpi=300)
@@ -416,8 +416,8 @@ df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"]
 max = round(df_test[dv].max(), 2) * 1.1
 
 conditions = ["friendly", "unfriendly"]
-titles = ["Spontaneous Fixations on\nFriendly Agent", "Spontaneous Fixations on\nUnfriendly Agent"]
-ylabels = ["Gaze Proportion (Friendly Agent)", "Gaze Proportion (Unfriendly Agent)"]
+# titles = ["Spontaneous Fixations on\nFriendly Agent", "Spontaneous Fixations on\nUnfriendly Agent"]
+ylabels = [f"{y_label} (Friendly Agent)", f"{y_label} (Unfriendly Agent)"]
 fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(8, 6))
 df_test = df_test.sort_values(by=SA_score)
 for idx_condition, condition in enumerate(conditions):
@@ -465,7 +465,7 @@ for idx_condition, condition in enumerate(conditions):
                              label=roi.capitalize())
 
     axes[idx_condition].legend(loc="upper right")
-    # axes[idx_condition].set_title(f"{titles[idx_condition]}", fontweight='bold')  # (N = {len(df_condition['VP'].unique())})
+    # axes[idx_condition].set_title(f"{titles[idx_condition]} (N = {len(df_condition['VP'].unique())})", fontweight='bold')  # (N = {len(df_condition['VP'].unique())})
     axes[idx_condition].set_ylim([0, max])
     axes[idx_condition].set_xlabel(SA_score)
     axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)

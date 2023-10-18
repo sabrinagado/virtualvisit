@@ -267,9 +267,8 @@ for vp in vps:
                 switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}Head") & (
                     ~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
             elif roi == "body":
-                switches_towards_roi = ((df_gaze_test["actor"].str.contains(f"{character}Head") | df_gaze_test[ "actor"].str.contains(f"{character}_Char")) & ~(
-                    (df_gaze_test["actor"].shift().str.contains(f"{character}Head") | df_gaze_test["actor"].shift().str.contains(f"{character}_Char")))).sum(axis=0)
-
+                switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}_Char") & (
+                    ~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}_Char")))).sum(axis=0)
             # Save as dataframe
             df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
                                          'Phase': ["Test"],
