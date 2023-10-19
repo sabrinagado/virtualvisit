@@ -16,7 +16,7 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 1
+wave = 2
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:

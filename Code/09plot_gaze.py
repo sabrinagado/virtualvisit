@@ -17,9 +17,9 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 1
+wave = 2
 if wave == 1:
-    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
+    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
 elif wave == 2:
     problematic_subjects = []
 
@@ -31,18 +31,17 @@ if not os.path.exists(save_path):
 
 dir_path = os.getcwd()
 start = 1
-end = 64
+vp_folder = [int(item.split("_")[1]) for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}')) if ("VP" in item)]
+end = np.max(vp_folder)
 vps = np.arange(start, end + 1)
-
-problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
 vps = [vp for vp in vps if not vp in problematic_subjects]
 
 df_gaze = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'gaze.csv'), decimal='.', sep=';')
 SA_score = "SPAI"
 dvs = ["Gaze Proportion", "Switches"]
-dv = dvs[1]
+dv = dvs[0]
 y_labels = ["Proportional Dwell Time on Virtual Agent", "Shifts of Visual Attention Towards Virtual Agent"]
-y_label = y_labels[1]
+y_label = y_labels[0]
 
 red = '#E2001A'
 green = '#B1C800'
@@ -238,86 +237,87 @@ anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
 estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
 
 # Clicks, Relationship SPAI
-phases = ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]
-df_click = df_gaze.loc[df_gaze["Phase"].isin(phases)]
-df_click["Phase_corr"] = [string[0].split("Test_")[1].lower() for string in df_click["Phase"].str.split("WasClicked")]
-df_click = df_click.loc[df_click["Phase_corr"] == df_click["Condition"]]
-df_click = df_click.drop(columns="Phase_corr")
-df_spai = df_click[["VP", SA_score]].drop_duplicates(subset="VP")
-df_grouped = df_click.groupby(["VP", "Phase", "Person", "Condition", "ROI"]).mean(numeric_only=True).reset_index()
-max = round(df_grouped[dv].max(), 2) * 1.1
+if wave == 1:
+    phases = ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]
+    df_click = df_gaze.loc[df_gaze["Phase"].isin(phases)]
+    df_click["Phase_corr"] = [string[0].split("Test_")[1].lower() for string in df_click["Phase"].str.split("WasClicked")]
+    df_click = df_click.loc[df_click["Phase_corr"] == df_click["Condition"]]
+    df_click = df_click.drop(columns="Phase_corr")
+    df_spai = df_click[["VP", SA_score]].drop_duplicates(subset="VP")
+    df_grouped = df_click.groupby(["VP", "Phase", "Person", "Condition", "ROI"]).mean(numeric_only=True).reset_index()
+    max = round(df_grouped[dv].max(), 2) * 1.1
 
-fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(8, 6))
-titles = ["Fixations after Click on\nFriendly Agent", "Fixations after Click on\nUnfriendly Agent"]
-df_grouped = df_grouped.sort_values(by=SA_score)
-for idx_phase, phase in enumerate(phases):
-    # idx_phase = 0
-    # phase = "Test_FriendlyWasClicked"
-    rois = ["body", "head"]
-    labels = ["Body", "Head"]
-    df_phase = df_grouped.loc[df_grouped['Phase'] == phase]
-    df_phase = df_phase.loc[df_phase['ROI'] != "other"].reset_index(drop=True)
+    fig, axes = plt.subplots(nrows=1, ncols=len(phases), figsize=(8, 6))
+    titles = ["Fixations after Click on\nFriendly Agent", "Fixations after Click on\nUnfriendly Agent"]
+    df_grouped = df_grouped.sort_values(by=SA_score)
+    for idx_phase, phase in enumerate(phases):
+        # idx_phase = 0
+        # phase = "Test_FriendlyWasClicked"
+        rois = ["body", "head"]
+        labels = ["Body", "Head"]
+        df_phase = df_grouped.loc[df_grouped['Phase'] == phase]
+        df_phase = df_phase.loc[df_phase['ROI'] != "other"].reset_index(drop=True)
 
-    colors = ['#183DB2', '#7FCEBC']
+        colors = ['#183DB2', '#7FCEBC']
 
-    for idx_roi, roi in enumerate(rois):
-        # idx_roi = 0
-        # roi = rois[idx_roi]
+        for idx_roi, roi in enumerate(rois):
+            # idx_roi = 0
+            # roi = rois[idx_roi]
 
-        df_roi = df_phase.loc[df_phase['ROI'] == roi].dropna(subset=dv).reset_index(drop=True)
+            df_roi = df_phase.loc[df_phase['ROI'] == roi].dropna(subset=dv).reset_index(drop=True)
 
-        x = df_roi[SA_score].to_numpy()
-        y = df_roi[dv].to_numpy()
-        linreg = linregress(x, y)
-        all_x = df_grouped[SA_score].to_numpy()
-        all_y = df_grouped[dv].to_numpy()
-        all_y_est = linreg.slope * all_x + linreg.intercept
-        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
-            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+            x = df_roi[SA_score].to_numpy()
+            y = df_roi[dv].to_numpy()
+            linreg = linregress(x, y)
+            all_x = df_grouped[SA_score].to_numpy()
+            all_y = df_grouped[dv].to_numpy()
+            all_y_est = linreg.slope * all_x + linreg.intercept
+            all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+                1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
 
-        # Plot regression line
-        axes[idx_phase].plot(all_x, all_y_est, '-', color=colors[idx_roi])
-        axes[idx_phase].fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2,
+            # Plot regression line
+            axes[idx_phase].plot(all_x, all_y_est, '-', color=colors[idx_roi])
+            axes[idx_phase].fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2,
+                                         color=colors[idx_roi])
+
+            p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+            if idx_roi == 0:
+                axes[idx_phase].text(df_click[SA_score].min() + 0.01 * np.max(x), 0.95 * max,
+                                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                     color=colors[idx_roi])
+            else:
+                axes[idx_phase].text(df_click[SA_score].min() + 0.01 * np.max(x), 0.91 * max,
+                                     r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                                      color=colors[idx_roi])
 
-        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        if idx_roi == 0:
-            axes[idx_phase].text(df_click[SA_score].min() + 0.01 * np.max(x), 0.95 * max,
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_roi])
-        else:
-            axes[idx_phase].text(df_click[SA_score].min() + 0.01 * np.max(x), 0.91 * max,
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_roi])
+            # Plot raw data points
+            axes[idx_phase].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.3,
+                                 label=roi.capitalize())
 
-        # Plot raw data points
-        axes[idx_phase].plot(x, y, 'o', ms=5, mfc=colors[idx_roi], mec=colors[idx_roi], alpha=0.3,
-                             label=roi.capitalize())
+        axes[idx_phase].legend(loc="upper right")
+        axes[idx_phase].set_title(f"{titles[idx_phase]}", fontweight='bold')  # (N = {len(df_phase['VP'].unique())})
+        axes[idx_phase].set_ylim([0, max])
+        axes[idx_phase].set_xlabel(SA_score)
+        axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    axes[0].set_ylabel(y_label)
 
-    axes[idx_phase].legend(loc="upper right")
-    axes[idx_phase].set_title(f"{titles[idx_phase]}", fontweight='bold')  # (N = {len(df_phase['VP'].unique())})
-    axes[idx_phase].set_ylim([0, max])
-    axes[idx_phase].set_xlabel(SA_score)
-    axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-axes[0].set_ylabel(y_label)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"gaze_click-{dv}_{SA_score}.png"), dpi=300)
+    plt.close()
 
-plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"gaze_click-{dv}_{SA_score}.png"), dpi=300)
-plt.close()
+    df_click = df_click.rename(columns={dv: "gaze"})
+    df_click[SA_score] = (df_click[SA_score] - df_click[SA_score].mean()) / df_click[SA_score].std()
 
-df_click = df_click.rename(columns={dv: "gaze"})
-df_click[SA_score] = (df_click[SA_score] - df_click[SA_score].mean()) / df_click[SA_score].std()
+    formula = f"gaze ~ Condition + {SA_score} + ROI +" \
+              f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI +" \
+              f"Condition:{SA_score}:ROI + (1 | VP)"
 
-formula = f"gaze ~ Condition + {SA_score} + ROI +" \
-          f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI +" \
-          f"Condition:{SA_score}:ROI + (1 | VP)"
-
-model = pymer4.models.Lmer(formula, data=df_click)
-model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["body", "head"]}, summarize=False)
-anova = model.anova(force_orthogonal=True)
-sum_sq_error = (sum(i * i for i in model.residuals))
-anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
+    model = pymer4.models.Lmer(formula, data=df_click)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["body", "head"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
 
 # Test-Phase
 meanlineprops = dict(linestyle='solid', linewidth=1, color='black')

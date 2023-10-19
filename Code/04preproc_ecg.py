@@ -27,7 +27,8 @@ plt.ion()
 wave = 2
 dir_path = os.getcwd()
 start = 1
-end = 64
+vp_folder = [int(item.split("_")[1]) for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}')) if ("VP" in item)]
+end = np.max(vp_folder)
 vps = np.arange(start, end + 1)
 
 if wave == 1:
@@ -221,16 +222,53 @@ for vp in vps:
     df_ecg["timestamp"] = df_ecg["time"].apply(lambda t: t.replace(tzinfo=None))
     df_ecg = df_ecg.drop(columns=["time"])
 
-    # Get Events
-    files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if (item.endswith(".csv"))]
-    event_file = [file for file in files if "event" in file][0]
-    df_event = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, event_file), sep=';', decimal='.')
+    # Get Condition
+    try:
+        df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
+        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
 
-    if pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26"):
-        df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
-    else:
-        df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
-    df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+        df_roles = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Roles")
+        df_roles = df_roles[["Character", int(df_cond["Roles"].item())]]
+        df_roles = df_roles.rename(columns={int(df_cond["Roles"].item()): "Role"})
+
+        df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
+        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+
+        df_roles = df_roles.merge(df_rooms, on="Role")
+    except:
+        print("no conditions file")
+
+    # Get Events
+    try:
+        files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if (item.endswith(".csv"))]
+        event_file = [file for file in files if "event" in file][0]
+        df_event = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, event_file), sep=';', decimal='.')
+
+        if (pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26")) & (pd.to_datetime(df_event.loc[0, "timestamp"][0:10]) < pd.Timestamp("2023-10-29")):
+            df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=2)
+        else:
+            df_event["timestamp"] = pd.to_datetime(df_event["timestamp"]) + timedelta(hours=1)
+
+        df_event["timestamp"] = df_event["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+
+        if wave == 2:
+            vis_file = [file for file in files if "visibility" in file][0]
+            df_vis = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, vis_file), sep=';', decimal='.')
+
+            if (pd.to_datetime(df_vis.loc[0, "timestamp"][0:10]) > pd.Timestamp("2023-03-26")) & (pd.to_datetime(df_vis.loc[0, "timestamp"][0:10]) < pd.Timestamp("2023-10-29")):
+                df_vis["timestamp"] = pd.to_datetime(df_vis["timestamp"]) + timedelta(hours=2)
+            else:
+                df_vis["timestamp"] = pd.to_datetime(df_vis["timestamp"]) + timedelta(hours=1)
+
+            df_vis["timestamp"] = df_vis["timestamp"].apply(lambda t: t.replace(tzinfo=None))
+
+        df_event = drop_consecutive_duplicates(df_event, subset="event", keep="first", times="timestamp", tolerance=0.1)
+        df_event = df_event.reset_index(drop=True)
+    except:
+        print("no events file")
+        continue
 
     dfs = []
 
@@ -288,18 +326,21 @@ for vp in vps:
         start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
         start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
         start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
-        start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
         start_roomrating2 = df_event.loc[df_event["event"] == "EndExploringRooms2", "timestamp"].item()
-        start_test = start_roomrating2 - timedelta(seconds=180)
-        end_acq = df_event.loc[(df_event["event"] == "EnterOffice") & (df_event["timestamp"] > start_conditioning) & (
-                    df_event["timestamp"] < start_test), "timestamp"].reset_index(drop=True)[0]
+        if wave == 1:
+            start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
+            start_test = start_roomrating2 - timedelta(seconds=180)
+            end_acq = df_event.loc[(df_event["event"] == "EnterOffice") & (df_event["timestamp"] > start_conditioning) & (df_event["timestamp"] < start_test), "timestamp"].reset_index(drop=True)[0]
+        elif wave == 2:
+            start_conditioning = df_event.loc[df_event["event"] == "Player_EnterTerrace", "timestamp"].reset_index(drop=True)[0]
+            start_test = start_roomrating2 - timedelta(seconds=180)
+            end_acq = df_event.loc[(df_event["event"] == "Player_EnterOffice") & (df_event["timestamp"] > start_conditioning) & (df_event["timestamp"] < start_test), "timestamp"].reset_index(drop=True)[0]
         start_personrating = df_event.loc[df_event["event"] == "TeleportToStartingRoom", "timestamp"].item()
         end = df_event.loc[df_event["event"] == "End", "timestamp"].item()
     except:
         print("not enough events")
         continue
 
-    dfs = []
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
     df_hab["duration"] = (df_hab["timestamp"].shift(-1) - df_hab["timestamp"]).dt.total_seconds()
     df_hab["event"] = df_hab["event"].replace("StartExploringRooms", "EnterOffice")
@@ -314,42 +355,127 @@ for vp in vps:
     df_acq = df_acq.drop_duplicates(subset="event")
     dfs.append(df_acq)
 
-    df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
-    df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
-    df_test = df_test.sort_values(by="timestamp")
-    df_test = df_test.loc[
-        (df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))].reset_index(drop=True)
-    room = ""
-    for idx_row, row in df_test.iterrows():
-        # idx_row = 0
-        # row = df_test.iloc[idx_row, :]
-        if "Enter" in row["event"]:
-            room = row["event"]
-        elif "Clicked" in row["event"]:
-            df_test = pd.concat(
-                [df_test, pd.DataFrame({"timestamp": [row["timestamp"] + timedelta(seconds=3)], "event": [room]})])
-    df_test = df_test.sort_values(by="timestamp").reset_index(drop=True)
-    df_test = drop_consecutive_duplicates(df_test, subset="event", keep="first", times="timestamp", tolerance=0.1)
-    df_test = df_test.reset_index(drop=True)
-    df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
-    df_test.loc[len(df_test) - 1, "duration"] = (
-                start_roomrating2 - df_test.loc[len(df_test) - 1, "timestamp"]).total_seconds()
-    df_test = df_test.loc[df_test["event"].str.contains("Enter")]
-    df_test["event"] = ["Test_" + name[1] for name in df_test["event"].str.split("Enter")]
-    dfs.append(df_test)
+    if wave == 1:
+        df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
+        df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
+        df_test = df_test.sort_values(by="timestamp")
+        df_test = df_test.loc[
+            (df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))].reset_index(
+            drop=True)
+        room = ""
+        for idx_row, row in df_test.iterrows():
+            # idx_row = 0
+            # row = df_test.iloc[idx_row, :]
+            if "Enter" in row["event"]:
+                room = row["event"]
+            elif "Clicked" in row["event"]:
+                df_test = pd.concat(
+                    [df_test, pd.DataFrame({"timestamp": [row["timestamp"] + timedelta(seconds=3)], "event": [room]})])
+        df_test = df_test.sort_values(by="timestamp").reset_index(drop=True)
+        df_test = drop_consecutive_duplicates(df_test, subset="event", keep="first", times="timestamp", tolerance=0.1)
+        df_test = df_test.reset_index(drop=True)
+        df_test["duration"] = (df_test["timestamp"].shift(-1) - df_test["timestamp"]).dt.total_seconds()
+        df_test.loc[len(df_test) - 1, "duration"] = (
+                    start_roomrating2 - df_test.loc[len(df_test) - 1, "timestamp"]).total_seconds()
+        df_test = df_test.loc[df_test["event"].str.contains("Enter")]
+        df_test["event"] = ["Test_" + name[1] for name in df_test["event"].str.split("Enter")]
+        dfs.append(df_test)
 
-    df_test_person = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
-    df_test_person = pd.concat([df_test_person, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
-    df_test_person = df_test_person.sort_values(by="timestamp").reset_index(drop=True)
-    df_test_person = df_test_person.loc[(df_test_person["event"].str.contains("Clicked"))]
-    if len(df_test_person) > 0:
-        df_test_person["duration"] = 3
-        df_test_person["event"] = ["Test_" + name for name in df_test_person["event"]]
-        for person in list(df_test_person["event"].unique()):
-            # person = list(df_test_person["event"].unique())[1]
-            df_test_person_unique = df_test_person.loc[df_test_person["event"] == person].reset_index(drop=True)
-            df_test_person_unique = drop_consecutive_duplicates(df_test_person_unique, subset="event", tolerance=2.1)
-            dfs.append(df_test_person_unique)
+        df_test_person = df_event.loc[
+            (start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
+        df_test_person = pd.concat([df_test_person, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
+        df_test_person = df_test_person.sort_values(by="timestamp").reset_index(drop=True)
+        df_test_person = df_test_person.loc[(df_test_person["event"].str.contains("Clicked"))]
+        if len(df_test_person) > 0:
+            df_test_person["duration"] = 3
+            df_test_person["event"] = ["Test_" + name for name in df_test_person["event"]]
+            for person in list(df_test_person["event"].unique()):
+                # person = list(df_test_person["event"].unique())[1]
+                df_test_person_unique = df_test_person.loc[df_test_person["event"] == person].reset_index(drop=True)
+                df_test_person_unique = drop_consecutive_duplicates(df_test_person_unique, subset="event",
+                                                                    tolerance=2.1)
+                dfs.append(df_test_person_unique)
+
+    elif wave == 2:
+        df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
+        df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [start_test], "event": "Player_EnterOffice"})])
+        df_test = df_test.sort_values(by="timestamp")
+
+        df_test_rooms = df_test.loc[df_test["event"].str.contains("Player")]
+        df_test_rooms = df_test_rooms.reset_index(drop=True)
+        df_test_rooms["duration"] = (
+                    df_test_rooms["timestamp"].shift(-1) - df_test_rooms["timestamp"]).dt.total_seconds()
+        df_test_rooms.loc[len(df_test_rooms) - 1, "duration"] = (
+                    start_roomrating2 - df_test_rooms.loc[len(df_test_rooms) - 1, "timestamp"]).total_seconds()
+        df_test_rooms = df_test_rooms.loc[df_test_rooms["event"].str.contains("Enter")]
+        df_test_rooms["event"] = ["Test_" + name[1] for name in df_test_rooms["event"].str.split("Enter")]
+
+        df_test = df_test.loc[(df_test["event"].str.contains("Enter"))].reset_index(drop=True)
+        df_test_vis = df_vis.loc[(start_test <= df_vis["timestamp"]) & (df_vis["timestamp"] <= start_roomrating2)]
+
+        df_test_agents = df_test.copy()
+        df_test_agents["Player"] = "Office"
+        df_test_agents["Emanuel"] = df_roles.loc[(df_roles["Character"] == "Emanuel"), "Rooms"].item()
+        df_test_agents["Ettore"] = df_roles.loc[(df_roles["Character"] == "Ettore"), "Rooms"].item()
+        df_test_agents["Bryan"] = df_roles.loc[(df_roles["Character"] == "Bryan"), "Rooms"].item()
+        df_test_agents["Oskar"] = df_roles.loc[(df_roles["Character"] == "Oskar"), "Rooms"].item()
+
+        for idx_row, row in df_test.iterrows():
+            # idx_row = 9
+            # row = df_test.iloc[idx_row, :]
+            for actor in ["Player", "Emanuel", "Ettore", "Bryan", "Oskar"]:
+                if actor in row["event"]:
+                    df_test_agents.loc[idx_row:len(df_test_agents), actor] = \
+                    row["event"].split("Enter")[1].split("Room")[0]
+
+        for room in ["Office", "Dining", "Living"]:
+            # room = "Office"
+            for actor in ["Emanuel", "Ettore", "Bryan", "Oskar"]:
+                # actor = "Bryan"
+                df_test_agents["tog"] = 0
+                for idx_row, row in df_test_agents.iterrows():
+                    # idx_row = 1
+                    # row = df_test_agents.iloc[idx_row, :]
+                    if (row["Player"] == room) & (row["Player"] == row[actor]):
+                        df_test_agents.loc[idx_row, "tog"] = 1
+
+                together = False
+                start = None
+                end = None
+                duration = 0
+                for idx_row, row in df_test_agents.iterrows():
+                    # idx_row = 2
+                    # row = df_test_agents.iloc[idx_row, :]
+                    if row["tog"] and not together:
+                        start = row["timestamp"]
+                        together = True
+                    elif together and not row["tog"]:
+                        end = row["timestamp"]
+                        duration = (end - start).total_seconds()
+                        df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame(
+                            {"timestamp": [start], "event": [f"Test_With{actor}In{room}"], "duration": [duration]})])
+                        together = False
+
+        for actor in ["Emanuel", "Ettore", "Bryan", "Oskar"]:
+            # actor = "Bryan"
+            visible = False
+            start = None
+            end = None
+            duration = 0
+            df_test_vis_actor = df_test_vis.loc[df_test_vis["actor"].str.contains(actor)]
+            for idx_row, row in df_test_vis_actor.iterrows():
+                # idx_row = 0
+                # row = df_test_vis_actor.iloc[idx_row, :]
+                if row["sight"]:
+                    start = row["timestamp"]
+                elif not row["sight"]:
+                    end = row["timestamp"]
+                    duration = (end - start).total_seconds()
+                    df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame(
+                        {"timestamp": [start], "event": [f"Test_{actor}WasVisible"], "duration": [duration]})])
+
+        df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
+        dfs.append(df_test_rooms)
 
     df_event = pd.concat(dfs)
     df_event = df_event.sort_values(by=["timestamp"]).reset_index(drop=True)

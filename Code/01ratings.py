@@ -10,13 +10,14 @@ import numpy as np
 wave = 2
 dir_path = os.getcwd()
 start = 1
-end = 64
+vp_folder = [int(item.split("_")[1]) for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}')) if ("VP" in item)]
+end = np.max(vp_folder)
 vps = np.arange(start, end + 1)
 
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
-    problematic_subjects = []
+    problematic_subjects = []  # [1, 2, 3, 4]
 
 vps = [vp for vp in vps if not vp in problematic_subjects]
 

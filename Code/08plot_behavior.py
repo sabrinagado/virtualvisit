@@ -20,7 +20,7 @@ import pymer4
 from Code.toolbox import utils
 
 
-wave = 1
+wave = 2
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -43,9 +43,9 @@ df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'events.csv'), decim
 df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
 df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
 df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
-df_subset.loc[df_subset['event'].str.contains("Office"), "room"] = "Office"
-df_subset.loc[df_subset['event'].str.contains("Living"), "room"] = "Living"
-df_subset.loc[df_subset['event'].str.contains("Dining"), "room"] = "Dining"
+df_subset.loc[(df_subset['event'].str.contains("Office")) & ~(df_subset['event'].str.contains("With")), "room"] = "Office"
+df_subset.loc[(df_subset['event'].str.contains("Living")) & ~(df_subset['event'].str.contains("With")), "room"] = "Living"
+df_subset.loc[(df_subset['event'].str.contains("Dining")) & ~(df_subset['event'].str.contains("With")), "room"] = "Dining"
 df_subset = df_subset.dropna(subset="duration")
 df_subset = df_subset.groupby(["VP", "phase", "room"]).sum(numeric_only=True).reset_index()
 df_subset = df_subset.drop(columns=SA_score)
@@ -185,48 +185,320 @@ plt.close()
 
 
 # Time spent in the different rooms of the virtual agents
-df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
-df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
-df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
-df_subset = df_subset.dropna(subset="duration")
-df_subset = df_subset.groupby(["VP", "phase", "Condition"]).sum(numeric_only=True).reset_index()
-df_subset = df_subset.drop(columns=SA_score)
-df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+if wave == 1:
+    df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
+    df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
+    df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
+    df_subset = df_subset.dropna(subset="duration")
+    df_subset = df_subset.groupby(["VP", "phase", "Condition"]).sum(numeric_only=True).reset_index()
+    df_subset = df_subset.drop(columns=SA_score)
+    df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
 
-conditions = ["friendly", "unfriendly"]
-df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
-phases = ['Habituation', 'Test']
-titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
+    conditions = ["friendly", "unfriendly"]
+    df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
+    phases = ['Habituation', 'Test']
+    titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
-boxWidth = 1 / (len(conditions) + 1)
-pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    boxWidth = 1 / (len(conditions) + 1)
+    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
-for idx_condition, condition in enumerate(conditions):
-    # idx_condition = 0
-    # condition = conditions[idx_condition]
-    df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
 
-    boxWidth = 1 / (len(phases) + 1)
-    pos = [idx_condition + x * boxWidth for x in np.arange(1, len(phases) + 1)]
+        boxWidth = 1 / (len(phases) + 1)
+        pos = [idx_condition + x * boxWidth for x in np.arange(1, len(phases) + 1)]
 
-    for idx_phase, phase in enumerate(phases):
-        # idx_phase = 0
-        # phase = phases[idx_phase]
-        df_phase = df_cond.loc[df_cond['phase'] == phase].reset_index(drop=True)
-        df_phase = df_phase.dropna(subset="duration")
+        for idx_phase, phase in enumerate(phases):
+            # idx_phase = 0
+            # phase = phases[idx_phase]
+            df_phase = df_cond.loc[df_cond['phase'] == phase].reset_index(drop=True)
+            df_phase = df_phase.dropna(subset="duration")
 
-        if phase == "Habituation":
-            colors = ['#1F82C0', '#1F82C0']
+            if phase == "Habituation":
+                colors = ['#1F82C0', '#1F82C0']
+            else:
+                colors = [green, red]
+
+            # Plot raw data points
+            for i in range(len(df_phase)):
+                # i = 0
+                x = random.uniform(pos[idx_phase] - (0.25 * boxWidth), pos[idx_phase] + (0.25 * boxWidth))
+                y = df_phase.reset_index().loc[i, "duration"].item()
+                ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+
+            # Plot boxplots
+            meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
+            fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
+
+            whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+            capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+            boxprops = dict(color=colors[idx_condition])
+
+            fwr_correction = True
+            alpha = (1 - (0.05))
+            bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "duration"].values,
+                                               numb_iterations=5000,
+                                               alpha=alpha,
+                                               as_dict=True,
+                                               func='mean')
+
+            ax.boxplot([df_phase.loc[:, "duration"].values],
+                                    notch=True,  # bootstrap=5000,
+                                    medianprops=medianlineprops,
+                                    meanline=True,
+                                    showmeans=True,
+                                    meanprops=meanlineprops,
+                                    showfliers=False, flierprops=fliermarkerprops,
+                                    whiskerprops=whiskerprops,
+                                    capprops=capprops,
+                                    boxprops=boxprops,
+                                    conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                    whis=[2.5, 97.5],
+                                    positions=[pos[idx_phase]],
+                                    widths=0.8 * boxWidth)
+
+        formula = f"duration ~ phase + (1 | VP)"
+        model = pymer4.models.Lmer(formula, data=df_cond)
+        model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
+        anova = model.anova(force_orthogonal=True)
+        sum_sq_error = (sum(i * i for i in model.residuals))
+        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
+        p = anova.loc["phase", "P-val"].item()
+
+        max = df_subset["duration"].max()
+        if p < 0.05:
+            ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+            ax.vlines(x=pos[0], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+            ax.vlines(x=pos[1], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+            p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p_con < 0.05 else "." if p_con < 0.1 else ""
+            ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
+
+    df_crit = df_subset.copy()
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+    formula = f"duration ~ phase + Condition + {SA_score} + " \
+              f"phase:Condition + phase:{SA_score} + Condition:{SA_score} +" \
+              f"phase:Condition:{SA_score} + (1 | VP)"
+
+    max = df_subset["duration"].max()
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="phase", p_adjust="holm")
+
+    p = anova.loc["Condition", "P-val"].item()
+    if p < 0.05:
+        ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
+        ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        ax.vlines(x=1.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "." if p < 0.1 else ""
+        ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
+
+    p_test = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
+    max = df_subset["duration"].max()
+    if p_test < 0.05:
+        ax.hlines(y=max*1.10, xmin=2*boxWidth, xmax=1+2*boxWidth, linewidth=0.7, color='k')
+        ax.vlines(x=2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        ax.vlines(x=1+2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        p_sign = "***" if p_test < 0.001 else "**" if p_test < 0.01 else "*" if p_test < 0.05 else "." if p_test < 0.1 else ""
+        ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
+
+    ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
+    ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Total Duration in the Rooms [s]")
+    # ax.set_title("Time Spent Close to Virtual Agents", fontweight='bold')
+    # ax.legend(
+    #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+    #      Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+    #      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+    #     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='upper left')
+
+    fig.legend(
+        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
+    fig.subplots_adjust(right=0.7)
+    plt.savefig(os.path.join(save_path, f"duration_hab-test.png"), dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+    # Time spent in the different rooms: Correlation with SPAI
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    boxWidth = 1
+    pos = [1]
+
+    titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
+    df_test = df_subset.loc[df_subset['phase'] == "Test"]
+    df_test = df_test.sort_values(by=SA_score)
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
+
+        x = df_cond[SA_score].to_numpy()
+        y = df_cond["duration"].to_numpy()
+        linreg = linregress(x, y)
+        all_x = df_test[SA_score].to_numpy()
+        all_y = df_cond["duration"].to_numpy()
+        all_y_est = linreg.slope * all_x + linreg.intercept
+        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+        # Plot regression line
+        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
         else:
-            colors = [green, red]
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
 
         # Plot raw data points
-        for i in range(len(df_phase)):
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
+
+    ax.set_xlabel(SA_score)
+    if "SPAI" in SA_score:
+        ax.set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        ax.set_xticks(range(5, 65, 5))
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"duration_test_{SA_score}.png"), dpi=300)
+    plt.close()
+
+    df_crit = df_test.copy()
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+    formula = f"duration ~ Condition + {SA_score} + " \
+              f"Condition:{SA_score} + (1 | VP)"
+
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+
+    # Time spent in the different rooms: Correlation with SPAI (Test-Habituation)
+    df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
+    df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
+    df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
+    df_subset = df_subset.dropna(subset="duration")
+    df_subset = df_subset.groupby(["VP", "phase", "Condition"]).sum(numeric_only=True).reset_index()
+    df_subset = df_subset.drop(columns=SA_score)
+    df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+
+    df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
+    df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values='duration').reset_index()
+    df_diff = df_diff.fillna(0)
+    df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
+    df_diff["unfriendly"] = df_diff[("Test"), ("unfriendly")] - df_diff[("Habituation"), ("unfriendly")]
+    df_diff = df_diff.iloc[:, [0, 7, 8]]
+    df_diff.columns = df_diff.columns.droplevel(level=1)
+    df_diff = df_diff.merge(df_spai, on="VP")
+    df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition",
+                      value_name="difference")
+    df_diff = df_diff.sort_values(by=SA_score)
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    boxWidth = 1
+    pos = [1]
+    conditions = ["friendly", "unfriendly"]
+    titles = ["Friendly Agent", "Unfriendly Agent"]
+
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_diff.loc[df_diff['Condition'] == condition].reset_index(drop=True)
+        df_cond = df_cond.dropna(subset="difference")
+        df_cond = df_cond.sort_values(by=SA_score)
+
+        x = df_cond[SA_score].to_numpy()
+        y = df_cond["difference"].to_numpy()
+        linreg = linregress(x, y)
+        all_x = df_diff[SA_score].to_numpy()
+        all_y = df_cond["difference"].to_numpy()
+        all_y_est = linreg.slope * all_x + linreg.intercept
+        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+        # Plot regression line
+        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                    0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
+        else:
+            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                    0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
+
+        # Plot raw data points
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
+                label=titles[idx_condition])
+
+    ax.set_xlabel(SA_score)
+    if "SPAI" in SA_score:
+        ax.set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        ax.set_xticks(range(5, 65, 5))
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(
+        f"Difference (Test - Habituation) Between\nTime Spent Close to the Position of the Virtual Agents [s]")
+    # ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Agents", fontweight='bold')
+    ax.legend(loc="upper right")
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"duration_diff_{SA_score}.png"), dpi=300)
+    plt.close()
+
+if wave == 2:
+    df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("With")]
+    df_test = df_test.dropna(subset="duration")
+    df_test = df_test.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
+    df_test = df_test.drop(columns=SA_score)
+    df_test = df_test.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+    df_test = df_test.sort_values(by=SA_score)
+
+    # Time spent in the different rooms
+    conditions = ["friendly", "unfriendly"]
+    titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    boxWidth = 1 / (len(conditions) + 1)
+    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 1
+        # condition = conditions[idx_condition]
+        df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
+        df_cond = df_cond.dropna(subset="duration")
+
+        # Plot raw data points
+        for i in range(len(df_cond)):
             # i = 0
-            x = random.uniform(pos[idx_phase] - (0.25 * boxWidth), pos[idx_phase] + (0.25 * boxWidth))
-            y = df_phase.reset_index().loc[i, "duration"].item()
-            ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+            x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
+            y = df_cond.reset_index().loc[i, "duration"].item()
+            y_jittered = random.uniform(y - 0.1, y + 0.1)
+            ax.plot(x, y_jittered, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
         # Plot boxplots
         meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -239,13 +511,13 @@ for idx_condition, condition in enumerate(conditions):
 
         fwr_correction = True
         alpha = (1 - (0.05))
-        bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "duration"].values,
+        bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "duration"].values,
                                            numb_iterations=5000,
                                            alpha=alpha,
                                            as_dict=True,
                                            func='mean')
 
-        ax.boxplot([df_phase.loc[:, "duration"].values],
+        ax.boxplot([df_cond.loc[:, "duration"].values],
                                 notch=True,  # bootstrap=5000,
                                 medianprops=medianlineprops,
                                 meanline=True,
@@ -257,218 +529,98 @@ for idx_condition, condition in enumerate(conditions):
                                 boxprops=boxprops,
                                 conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                                 whis=[2.5, 97.5],
-                                positions=[pos[idx_phase]],
+                                positions=[pos[idx_condition]],
                                 widths=0.8 * boxWidth)
 
-    formula = f"duration ~ phase + (1 | VP)"
-    model = pymer4.models.Lmer(formula, data=df_cond)
-    model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
+    df_crit = df_test.copy()
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+    formula = f"duration ~ Condition + {SA_score} + Condition:{SA_score} + (1 | VP)"
+
+    max = df_subset["duration"].max()
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
     sum_sq_error = (sum(i * i for i in model.residuals))
     anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-    estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
-    p = anova.loc["phase", "P-val"].item()
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-    max = df_subset["duration"].max()
+    p = anova.loc["Condition", "P-val"].item()
     if p < 0.05:
-        ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
-        ax.vlines(x=pos[0], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
-        ax.vlines(x=pos[1], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
-        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p_con < 0.05 else "." if p_con < 0.1 else ""
-        ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
+        ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+        ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        ax.vlines(x=pos[1], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+        ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
-df_crit = df_subset.copy()
-df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"duration_test.png"), dpi=300)
+    plt.close()
 
-formula = f"duration ~ phase + Condition + {SA_score} + " \
-          f"phase:Condition + phase:{SA_score} + Condition:{SA_score} +" \
-          f"phase:Condition:{SA_score} + (1 | VP)"
+    # Time spent in the different rooms: Correlation with SPAI
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    boxWidth = 1
+    pos = [1]
+    conditions = ["friendly", "unfriendly"]
+    titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
 
-max = df_subset["duration"].max()
-model = pymer4.models.Lmer(formula, data=df_crit)
-model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
-anova = model.anova(force_orthogonal=True)
-sum_sq_error = (sum(i * i for i in model.residuals))
-anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="phase", p_adjust="holm")
+        x = df_cond[SA_score].to_numpy()
+        y = df_cond["duration"].to_numpy()
+        linreg = linregress(x, y)
+        all_x = df_test[SA_score].to_numpy()
+        all_y = df_cond["duration"].to_numpy()
+        all_y_est = linreg.slope * all_x + linreg.intercept
+        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
 
-p = anova.loc["Condition", "P-val"].item()
-if p < 0.05:
-    ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
-    ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-    ax.vlines(x=1.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-    p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "." if p < 0.1 else ""
-    ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
+        # Plot regression line
+        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-p_test = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
-max = df_subset["duration"].max()
-if p_test < 0.05:
-    ax.hlines(y=max*1.10, xmin=2*boxWidth, xmax=1+2*boxWidth, linewidth=0.7, color='k')
-    ax.vlines(x=2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-    ax.vlines(x=1+2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-    p_sign = "***" if p_test < 0.001 else "**" if p_test < 0.01 else "*" if p_test < 0.05 else "." if p_test < 0.1 else ""
-    ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
+        else:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
 
-ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
-ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Total Duration in the Rooms [s]")
-# ax.set_title("Time Spent Close to Virtual Agents", fontweight='bold')
-# ax.legend(
-#     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-#      Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-#      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-#     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='upper left')
+        # Plot raw data points
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-fig.legend(
-    [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-     Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-     Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-    ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-fig.subplots_adjust(right=0.7)
-plt.savefig(os.path.join(save_path, f"duration_hab-test.png"), dpi=300, bbox_inches="tight")
-plt.close()
+    ax.set_xlabel(SA_score)
+    if "SPAI" in SA_score:
+        ax.set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        ax.set_xticks(range(5, 65, 5))
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"duration_test_{SA_score}.png"), dpi=300)
+    plt.close()
 
+    df_crit = df_test.copy()
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
 
-# Time spent in the different rooms: Correlation with SPAI
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-boxWidth = 1
-pos = [1]
+    formula = f"duration ~ Condition + {SA_score} + " \
+              f"Condition:{SA_score} + (1 | VP)"
 
-titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-df_test = df_subset.loc[df_subset['phase'] == "Test"]
-df_test = df_test.sort_values(by=SA_score)
-for idx_condition, condition in enumerate(conditions):
-    # idx_condition = 0
-    # condition = conditions[idx_condition]
-    df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
-
-    x = df_cond[SA_score].to_numpy()
-    y = df_cond["duration"].to_numpy()
-    linreg = linregress(x, y)
-    all_x = df_test[SA_score].to_numpy()
-    all_y = df_cond["duration"].to_numpy()
-    all_y_est = linreg.slope * all_x + linreg.intercept
-    all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
-        1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
-
-    # Plot regression line
-    ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
-    ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
-
-    p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-    if idx_condition == 0:
-        ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
-                             r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                             color=colors[idx_condition])
-    else:
-        ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
-                             r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                             color=colors[idx_condition])
-
-    # Plot raw data points
-    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
-
-ax.set_xlabel(SA_score)
-if "SPAI" in SA_score:
-    ax.set_xticks(range(0, 6))
-elif "SIAS" in SA_score:
-    ax.set_xticks(range(5, 65, 5))
-ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Total Duration [s] in Test Phase")
-# ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
-ax.legend()
-plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"duration_test_{SA_score}.png"), dpi=300)
-plt.close()
-
-df_crit = df_test.copy()
-df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
-
-formula = f"duration ~ Condition + {SA_score} + " \
-          f"Condition:{SA_score} + (1 | VP)"
-
-model = pymer4.models.Lmer(formula, data=df_crit)
-model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
-anova = model.anova(force_orthogonal=True)
-sum_sq_error = (sum(i * i for i in model.residuals))
-anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-
-
-# Time spent in the different rooms: Correlation with SPAI (Test-Habituation)
-df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
-df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
-df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
-df_subset = df_subset.dropna(subset="duration")
-df_subset = df_subset.groupby(["VP", "phase", "Condition"]).sum(numeric_only=True).reset_index()
-df_subset = df_subset.drop(columns=SA_score)
-df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
-
-df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
-df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values='duration').reset_index()
-df_diff = df_diff.fillna(0)
-df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
-df_diff["unfriendly"] = df_diff[("Test"), ("unfriendly")] - df_diff[("Habituation"), ("unfriendly")]
-df_diff = df_diff.iloc[:, [0, 7, 8]]
-df_diff.columns = df_diff.columns.droplevel(level=1)
-df_diff = df_diff.merge(df_spai, on="VP")
-df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
-df_diff = df_diff.sort_values(by=SA_score)
-
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-boxWidth = 1
-pos = [1]
-conditions = ["friendly", "unfriendly"]
-titles = ["Friendly Agent", "Unfriendly Agent"]
-
-for idx_condition, condition in enumerate(conditions):
-    # idx_condition = 0
-    # condition = conditions[idx_condition]
-    df_cond = df_diff.loc[df_diff['Condition'] == condition].reset_index(drop=True)
-    df_cond = df_cond.dropna(subset="difference")
-    df_cond = df_cond.sort_values(by=SA_score)
-
-    x = df_cond[SA_score].to_numpy()
-    y = df_cond["difference"].to_numpy()
-    linreg = linregress(x, y)
-    all_x = df_diff[SA_score].to_numpy()
-    all_y = df_cond["difference"].to_numpy()
-    all_y_est = linreg.slope * all_x + linreg.intercept
-    all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
-        1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
-
-    # Plot regression line
-    ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
-    ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
-
-    p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-    if idx_condition == 0:
-        ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
-                0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
-                r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                color=colors[idx_condition])
-    else:
-        ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
-                0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
-                r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                color=colors[idx_condition])
-
-    # Plot raw data points
-    ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
-            label=titles[idx_condition])
-
-ax.set_xlabel(SA_score)
-if "SPAI" in SA_score:
-    ax.set_xticks(range(0, 6))
-elif "SIAS" in SA_score:
-    ax.set_xticks(range(5, 65, 5))
-ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-ax.set_ylabel(f"Difference (Test - Habituation) Between\nTime Spent Close to the Position of the Virtual Agents [s]")
-# ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Agents", fontweight='bold')
-ax.legend(loc="upper right")
-plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"duration_diff_{SA_score}.png"), dpi=300)
-plt.close()
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
 
 
 # Difference
@@ -686,282 +838,283 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
     plt.savefig(os.path.join(save_path, f"distance_{dist}_test_{SA_score}.png"), dpi=300)
     plt.close()
 
-    # Distance to virtual agents (Comparison to Habituation)
-    if dist == "avg":
-        df_subset = df.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
-    elif dist == "min":
-        df_subset = df.groupby(["VP", "phase", "Condition"]).min(numeric_only=True).reset_index()
-    df_subset = df_subset.drop(columns=SA_score)
-    df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+    if wave == 1:
+        # Distance to virtual agents (Comparison to Habituation)
+        if dist == "avg":
+            df_subset = df.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
+        elif dist == "min":
+            df_subset = df.groupby(["VP", "phase", "Condition"]).min(numeric_only=True).reset_index()
+        df_subset = df_subset.drop(columns=SA_score)
+        df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
 
-    conditions = ["friendly", "unfriendly"]
-    phases = ['Habituation', 'Test']
-    titles = ["Position of\nFriendly Agent", "Position of\nUnfriendly Agent"]
-    df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
+        conditions = ["friendly", "unfriendly"]
+        phases = ['Habituation', 'Test']
+        titles = ["Position of\nFriendly Agent", "Position of\nUnfriendly Agent"]
+        df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
-    boxWidth = 1 / (len(conditions) + 1)
-    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+        boxWidth = 1 / (len(conditions) + 1)
+        pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
-    for idx_condition, condition in enumerate(conditions):
-        # idx_condition = 0
-        # condition = conditions[idx_condition]
-        df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
+        for idx_condition, condition in enumerate(conditions):
+            # idx_condition = 0
+            # condition = conditions[idx_condition]
+            df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
 
-        boxWidth = 1 / (len(phases) + 1)
-        pos = [idx_condition + x * boxWidth for x in np.arange(1, len(phases) + 1)]
+            boxWidth = 1 / (len(phases) + 1)
+            pos = [idx_condition + x * boxWidth for x in np.arange(1, len(phases) + 1)]
 
-        for idx_phase, phase in enumerate(phases):
-            # idx_phase = 0
-            # phase = phases[idx_phase]
-            df_phase = df_cond.loc[df_cond['phase'] == phase].reset_index(drop=True)
-            df_phase = df_phase.dropna(subset="distance")
+            for idx_phase, phase in enumerate(phases):
+                # idx_phase = 0
+                # phase = phases[idx_phase]
+                df_phase = df_cond.loc[df_cond['phase'] == phase].reset_index(drop=True)
+                df_phase = df_phase.dropna(subset="distance")
 
-            if phase == "Habituation":
-                colors = ['#1F82C0', '#1F82C0']
-            else:
-                colors = [green, red]
+                if phase == "Habituation":
+                    colors = ['#1F82C0', '#1F82C0']
+                else:
+                    colors = [green, red]
 
-            # Plot raw data points
-            for i in range(len(df_phase)):
-                # i = 0
-                x = random.uniform(pos[idx_phase] - (0.25 * boxWidth), pos[idx_phase] + (0.25 * boxWidth))
-                y = df_phase.reset_index().loc[i, "distance"].item()
-                ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+                # Plot raw data points
+                for i in range(len(df_phase)):
+                    # i = 0
+                    x = random.uniform(pos[idx_phase] - (0.25 * boxWidth), pos[idx_phase] + (0.25 * boxWidth))
+                    y = df_phase.reset_index().loc[i, "distance"].item()
+                    ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
-            # Plot boxplots
-            meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-            medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-            fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
+                # Plot boxplots
+                meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+                medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
+                fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
 
-            whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
-            capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
-            boxprops = dict(color=colors[idx_condition])
+                whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+                capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+                boxprops = dict(color=colors[idx_condition])
 
-            fwr_correction = True
-            alpha = (1 - (0.05))
-            bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "distance"].values,
-                                               numb_iterations=5000,
-                                               alpha=alpha,
-                                               as_dict=True,
-                                               func='mean')
+                fwr_correction = True
+                alpha = (1 - (0.05))
+                bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "distance"].values,
+                                                   numb_iterations=5000,
+                                                   alpha=alpha,
+                                                   as_dict=True,
+                                                   func='mean')
 
-            ax.boxplot([df_phase.loc[:, "distance"].values],
-                                    notch=True,  # bootstrap=5000,
-                                    medianprops=medianlineprops,
-                                    meanline=True,
-                                    showmeans=True,
-                                    meanprops=meanlineprops,
-                                    showfliers=False, flierprops=fliermarkerprops,
-                                    whiskerprops=whiskerprops,
-                                    capprops=capprops,
-                                    boxprops=boxprops,
-                                    conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                                    whis=[2.5, 97.5],
-                                    positions=[pos[idx_phase]],
-                                    widths=0.8 * boxWidth)
+                ax.boxplot([df_phase.loc[:, "distance"].values],
+                                        notch=True,  # bootstrap=5000,
+                                        medianprops=medianlineprops,
+                                        meanline=True,
+                                        showmeans=True,
+                                        meanprops=meanlineprops,
+                                        showfliers=False, flierprops=fliermarkerprops,
+                                        whiskerprops=whiskerprops,
+                                        capprops=capprops,
+                                        boxprops=boxprops,
+                                        conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                        whis=[2.5, 97.5],
+                                        positions=[pos[idx_phase]],
+                                        widths=0.8 * boxWidth)
 
-        formula = f"distance ~ phase + (1 | VP)"
-        model = pymer4.models.Lmer(formula, data=df_cond)
-        model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
+            formula = f"distance ~ phase + (1 | VP)"
+            model = pymer4.models.Lmer(formula, data=df_cond)
+            model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
+            anova = model.anova(force_orthogonal=True)
+            sum_sq_error = (sum(i * i for i in model.residuals))
+            anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+            estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
+            p = anova.loc["phase", "P-val"].item()
+
+            max = df_subset["distance"].max()
+            if p < 0.05:
+                ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+                ax.vlines(x=pos[0], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+                ax.vlines(x=pos[1], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+                p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+                ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
+
+        df_crit = df_subset.copy()
+        df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+        formula = f"distance ~ phase + Condition + {SA_score} + " \
+                  f"phase:Condition + phase:{SA_score} + Condition:{SA_score} +" \
+                  f"phase:Condition:{SA_score} + (1 | VP)"
+
+        max = df_subset["distance"].max()
+        model = pymer4.models.Lmer(formula, data=df_crit)
+        model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
         sum_sq_error = (sum(i * i for i in model.residuals))
         anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-        estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
-        p = anova.loc["phase", "P-val"].item()
+        estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="phase", p_adjust="holm")
 
-        max = df_subset["distance"].max()
+        p = anova.loc["Condition", "P-val"].item()
         if p < 0.05:
-            ax.hlines(y=max * 1.05, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
-            ax.vlines(x=pos[0], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
-            ax.vlines(x=pos[1], ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+            ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
+            ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+            ax.vlines(x=1.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
             p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
-            ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
+            ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
 
-    df_crit = df_subset.copy()
-    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+        p_test = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
+        max = df_subset["distance"].max()
+        if p_test < 0.05:
+            ax.hlines(y=max*1.10, xmin=2*boxWidth, xmax=1+2*boxWidth, linewidth=0.7, color='k')
+            ax.vlines(x=2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+            ax.vlines(x=1+2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+            p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+            ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
-    formula = f"distance ~ phase + Condition + {SA_score} + " \
-              f"phase:Condition + phase:{SA_score} + Condition:{SA_score} +" \
-              f"phase:Condition:{SA_score} + (1 | VP)"
+        ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
+        ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
+        ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+        ax.set_ylabel(f"{title} Distance to Position of Virtual Agents [m]")
+        # ax.set_title("Interpersonal Distance to Virtual Agents", fontweight='bold')
+        # ax.legend(
+        #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+        #      Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+        #      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+        #     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='best')
 
-    max = df_subset["distance"].max()
-    model = pymer4.models.Lmer(formula, data=df_crit)
-    model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
-    anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-    estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="phase", p_adjust="holm")
+        fig.legend(
+            [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+             Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+             Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+            ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
+        fig.subplots_adjust(right=0.7)
+        plt.savefig(os.path.join(save_path, f"distance_{dist}_hab-test.png"), dpi=300, bbox_inches="tight")
+        plt.close()
 
-    p = anova.loc["Condition", "P-val"].item()
-    if p < 0.05:
-        ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
-        ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        ax.vlines(x=1.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
-        ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
+        # Interpersonal Distance: Correlation with SPAI
+        df_spai = df_subset[["VP", SA_score]].drop_duplicates(subset="VP")
+        df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values='distance').reset_index()
+        df_diff = df_diff.fillna(0)
+        df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
+        df_diff["unfriendly"] = df_diff[("Test"), ("unfriendly")] - df_diff[("Habituation"), ("unfriendly")]
+        df_diff = df_diff.iloc[:, [0, 5, 6]]
+        df_diff.columns = df_diff.columns.droplevel(level=1)
+        df_diff = df_diff.merge(df_spai, on="VP")
+        df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
+        df_diff = df_diff.sort_values(by=SA_score)
 
-    p_test = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
-    max = df_subset["distance"].max()
-    if p_test < 0.05:
-        ax.hlines(y=max*1.10, xmin=2*boxWidth, xmax=1+2*boxWidth, linewidth=0.7, color='k')
-        ax.vlines(x=2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        ax.vlines(x=1+2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
-        ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+        boxWidth = 1
+        pos = [1]
+        conditions = ["friendly", "unfriendly"]
+        titles = ["Friendly Agent", "Unfriendly Agent"]
 
-    ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-    ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{title} Distance to Position of Virtual Agents [m]")
-    # ax.set_title("Interpersonal Distance to Virtual Agents", fontweight='bold')
-    # ax.legend(
-    #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-    #      Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-    #      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-    #     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='best')
+        for idx_condition, condition in enumerate(conditions):
+            # idx_condition = 0
+            # condition = conditions[idx_condition]
+            df_cond = df_diff.loc[df_diff['Condition'] == condition].reset_index(drop=True)
+            df_cond = df_cond.dropna(subset="difference")
+            df_cond = df_cond.sort_values(by=SA_score)
 
-    fig.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    fig.subplots_adjust(right=0.7)
-    plt.savefig(os.path.join(save_path, f"distance_{dist}_hab-test.png"), dpi=300, bbox_inches="tight")
-    plt.close()
+            x = df_cond[SA_score].to_numpy()
+            y = df_cond["difference"].to_numpy()
+            linreg = linregress(x, y)
+            all_x = df_diff[SA_score].to_numpy()
+            all_y = df_cond["difference"].to_numpy()
+            all_y_est = linreg.slope * all_x + linreg.intercept
+            all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+                1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
 
-    # Interpersonal Distance: Correlation with SPAI
-    df_spai = df_subset[["VP", SA_score]].drop_duplicates(subset="VP")
-    df_diff = df_subset.pivot(index='VP', columns=['phase', "Condition"], values='distance').reset_index()
-    df_diff = df_diff.fillna(0)
-    df_diff["friendly"] = df_diff[("Test"), ("friendly")] - df_diff[("Habituation"), ("friendly")]
-    df_diff["unfriendly"] = df_diff[("Test"), ("unfriendly")] - df_diff[("Habituation"), ("unfriendly")]
-    df_diff = df_diff.iloc[:, [0, 5, 6]]
-    df_diff.columns = df_diff.columns.droplevel(level=1)
-    df_diff = df_diff.merge(df_spai, on="VP")
-    df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
-    df_diff = df_diff.sort_values(by=SA_score)
+            # Plot regression line
+            ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+            ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-    boxWidth = 1
-    pos = [1]
-    conditions = ["friendly", "unfriendly"]
-    titles = ["Friendly Agent", "Unfriendly Agent"]
+            p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+            if idx_condition == 0:
+                ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                        0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                        r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                        color=colors[idx_condition])
+            else:
+                ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
+                        0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
+                        r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                        color=colors[idx_condition])
 
-    for idx_condition, condition in enumerate(conditions):
-        # idx_condition = 0
-        # condition = conditions[idx_condition]
-        df_cond = df_diff.loc[df_diff['Condition'] == condition].reset_index(drop=True)
-        df_cond = df_cond.dropna(subset="difference")
-        df_cond = df_cond.sort_values(by=SA_score)
+            # Plot raw data points
+            ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
+                    label=titles[idx_condition])
 
-        x = df_cond[SA_score].to_numpy()
-        y = df_cond["difference"].to_numpy()
+        ax.set_xlabel(SA_score)
+        if "SPAI" in SA_score:
+            ax.set_xticks(range(0, 6))
+        elif "SIAS" in SA_score:
+            ax.set_xticks(range(5, 65, 5))
+        ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+        ax.set_ylabel(f"Difference (Test - Habituation) Between\n{title} Distance to the Position of Virtual Agents [m]")
+        # ax.set_title(f"Interpersonal Distance", fontweight='bold')
+        ax.legend(loc="upper right")
+        plt.tight_layout()
+        plt.savefig(os.path.join(save_path, f"distance_{dist}_diff_{SA_score}.png"), dpi=300)
+        plt.close()
+
+        if dist != "avg":
+            continue
+
+        # Difference
+        df_test = df_grouped.copy()
+        df_spai = df_test[["VP", SA_score]].drop_duplicates(subset="VP")
+        df_diff = df_test.groupby(["VP", "Condition"]).sum().reset_index()
+        df_diff = df_diff.pivot(index='VP', columns='Condition', values='distance').reset_index()
+        df_diff = df_diff.fillna(0)
+        df_diff["difference"] = df_diff["unfriendly"] - df_diff["friendly"]
+        df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+        df_diff = df_diff.sort_values(by=SA_score)
+        colors = ['teal']
+        x = df_diff[SA_score].to_numpy()
+        y = df_diff["difference"].to_numpy()
         linreg = linregress(x, y)
-        all_x = df_diff[SA_score].to_numpy()
-        all_y = df_cond["difference"].to_numpy()
-        all_y_est = linreg.slope * all_x + linreg.intercept
-        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
-            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+        y_est = linreg.slope * x + linreg.intercept
+        y_err = np.sqrt(np.sum((y - np.mean(y)) ** 2) / (len(y) - 2)) * np.sqrt(
+            1 / len(x) + (x - np.mean(x)) ** 2 / np.sum((x - np.mean(x)) ** 2))
 
         # Plot regression line
-        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
-        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
-
-        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        if idx_condition == 0:
-            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
-                    0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
-                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                    color=colors[idx_condition])
-        else:
-            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x),
-                    0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(),
-                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                    color=colors[idx_condition])
+        ax.plot(x, y_est, '-', color="lightgrey")
+        ax.fill_between(x, y_est + y_err, y_est - y_err, alpha=0.2, color="lightgrey")
 
         # Plot raw data points
-        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
-                label=titles[idx_condition])
+        c = np.where(y > 0, 'teal', 'gold')
+        ax.scatter(x, y, s=30, c=c, alpha=0.3)
 
-    ax.set_xlabel(SA_score)
-    if "SPAI" in SA_score:
-        ax.set_xticks(range(0, 6))
-    elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Difference (Test - Habituation) Between\n{title} Distance to the Position of Virtual Agents [m]")
-    # ax.set_title(f"Interpersonal Distance", fontweight='bold')
-    ax.legend(loc="upper right")
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_path, f"distance_{dist}_diff_{SA_score}.png"), dpi=300)
-    plt.close()
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
+                r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color="grey")
 
-    if dist != "avg":
-        continue
-    # Difference
-    df_test = df_grouped.copy()
-    df_spai = df_test[["VP", SA_score]].drop_duplicates(subset="VP")
-    df_diff = df_test.groupby(["VP", "Condition"]).sum().reset_index()
-    df_diff = df_diff.pivot(index='VP', columns='Condition', values='distance').reset_index()
-    df_diff = df_diff.fillna(0)
-    df_diff["difference"] = df_diff["unfriendly"] - df_diff["friendly"]
-    df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
+        ax.set_title(f"Avoidance vs. Hypervigilance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
+        # ax.set_ylim([0, max])
+        ax.set_xlabel(SA_score)
+        if "SPAI" in SA_score:
+            ax.set_xticks(range(0, 6))
+        elif "SIAS" in SA_score:
+            ax.set_xticks(range(5, 65, 5))
+        ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+        ax.axhline(0, linewidth=0.8, color="k", linestyle="dashed")
+        ax.set_ylabel("Difference Average Interpersonal Distance: Unfriendly-Friendly")
+        ax.legend(
+            [Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7),
+             Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7)],
+            ["Hypervigilance", "Avoidance"], loc="upper right")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-    df_diff = df_diff.sort_values(by=SA_score)
-    colors = ['teal']
-    x = df_diff[SA_score].to_numpy()
-    y = df_diff["difference"].to_numpy()
-    linreg = linregress(x, y)
-    y_est = linreg.slope * x + linreg.intercept
-    y_err = np.sqrt(np.sum((y - np.mean(y)) ** 2) / (len(y) - 2)) * np.sqrt(
-        1 / len(x) + (x - np.mean(x)) ** 2 / np.sum((x - np.mean(x)) ** 2))
+        plt.tight_layout()
+        plt.savefig(os.path.join(save_path, f"distance_test-diff_{SA_score}.png"), dpi=300)
+        plt.close()
 
-    # Plot regression line
-    ax.plot(x, y_est, '-', color="lightgrey")
-    ax.fill_between(x, y_est + y_err, y_est - y_err, alpha=0.2, color="lightgrey")
-
-    # Plot raw data points
-    c = np.where(y > 0, 'teal', 'gold')
-    ax.scatter(x, y, s=30, c=c, alpha=0.3)
-
-    p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-    ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
-            r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color="grey")
-
-    ax.set_title(f"Avoidance vs. Hypervigilance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
-    # ax.set_ylim([0, max])
-    ax.set_xlabel(SA_score)
-    if "SPAI" in SA_score:
-        ax.set_xticks(range(0, 6))
-    elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.axhline(0, linewidth=0.8, color="k", linestyle="dashed")
-    ax.set_ylabel("Difference Average Interpersonal Distance: Unfriendly-Friendly")
-    ax.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7)],
-        ["Hypervigilance", "Avoidance"], loc="upper right")
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_path, f"distance_test-diff_{SA_score}.png"), dpi=300)
-    plt.close()
-
-    df_diff = df_diff[["VP", "difference"]]
-    df_diff = df_diff.rename(columns={"difference": "distance_diff"})
-    df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
-    try:
-        df_aa = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';')
-        if "distance_diff" in df_aa.columns:
-            df_aa.update(df_diff)
-        else:
-            df_aa = df_aa.merge(df_diff, on="VP")
-        df_aa.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
-    except:
-        df_diff.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
-
+        df_diff = df_diff[["VP", "difference"]]
+        df_diff = df_diff.rename(columns={"difference": "distance_diff"})
+        df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
+        try:
+            df_aa = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';')
+            if "distance_diff" in df_aa.columns:
+                df_aa.update(df_diff)
+            else:
+                df_aa = df_aa.merge(df_diff, on="VP")
+            df_aa.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
+        except:
+            df_diff.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'aa_tendency.csv'), decimal='.', sep=';', index=False)
 
 # Clicks
 if wave == 1:
@@ -1125,11 +1278,13 @@ if wave == 1:
 
 # Movement
 df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
+df["x"] = df["x_player"]
+df["y"] = df["y_player"]
 # df_dist = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'walking_distance.csv'), decimal='.', sep=';')
 
 vps = df["VP"].unique()
 vps.sort()
-vps = np.reshape(vps, (-1, 3))
+vps = np.reshape(vps, (-1, 4))
 
 df_spai = df[SA_score].unique()
 df_spai.sort()
@@ -1152,11 +1307,10 @@ for vp_block in vps:
         axes[idx_vp, 0].text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
 
         for idx_phase, phase in enumerate(["Habituation", "Test"]):
-            # idx_phase, phase = 0, "Habituation"
+            # idx_phase, phase = 1, "Test"
             df_phase = df_vp.loc[df_vp["phase"].str.contains(phase)]
             df_phase = df_phase.sort_values(by="time")
             # df_phase_dist = df_vp_dist.loc[df_vp_dist["phase"].str.contains(phase)]
-
             # walking_distance = df_phase_dist["walking_distance"].item()
 
             axes[idx_vp, idx_phase].hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
@@ -1172,35 +1326,45 @@ for vp_block in vps:
 
             # axes[idx_vp, idx_phase].text(-1251, -870, f"{round(walking_distance, 2)} m", color="lightgrey", horizontalalignment='right', fontsize="small", fontstyle="italic")
 
+            if phase == "Test":
+                if wave == 1:
+                    try:
+                        df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
+                        df_cond = df_cond[["VP", "Roles", "Rooms"]]
+                        df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
+                        df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
+                        df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
+                        df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
+                    except:
+                        print("no conditions file")
+
+                    for room in ["Dining", "Living"]:
+                        # room = "Dining"
+                        role = df_rooms.loc[df_rooms["Rooms"] == room, "Role"].item()
+
+                        if room == "Dining":
+                            position_x = -490
+                            position_y = -1034
+                        else:
+                            position_x = -870
+                            position_y = 262
+                        circle = patches.Circle((position_y, position_x), radius=30, color=color, alpha=0.5)
+                        axes[idx_vp, idx_phase].add_patch(circle)
+                elif wave == 2:
+                    for condition in ["friendly", "unfriendly"]:
+                        color = green if condition == "friendly" else red
+                        x = df_phase[f"y_{condition}"].to_list()
+                        y = df_phase[f"x_{condition}"].to_list()
+                        lw = [item * 5 for item in df_phase[f"distance_to_previous_{condition}_scaled"].to_list()]
+                        for i in np.arange(len(df_phase) - 1):
+                            axes[idx_vp, idx_phase].plot([x[i], x[i + 1]], [y[i], y[i + 1]], lw=lw[i], label=phase, c=color, alpha=0.7)
+
             x = df_phase["y"].to_list()
             y = df_phase["x"].to_list()
-            lw = [item * 5 for item in df_phase["distance_to_previous_scaled"].to_list()]
+            lw = [item * 5 for item in df_phase["distance_to_previous_player_scaled"].to_list()]
             for i in np.arange(len(df_phase) - 1):
-                axes[idx_vp, idx_phase].plot([x[i], x[i + 1]], [y[i], y[i + 1]], lw=lw[i], label=phase, c=scalarMap.to_rgba(spai))
+                axes[idx_vp, idx_phase].plot([x[i], x[i + 1]], [y[i], y[i + 1]], lw=lw[i], label=phase, c=scalarMap.to_rgba(spai), alpha=0.8)
 
-            if phase == "Test":
-                try:
-                    df_cond = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Conditions3")
-                    df_cond = df_cond[["VP", "Roles", "Rooms"]]
-                    df_cond = df_cond.loc[df_cond["VP"] == int(vp)]
-                    df_rooms = pd.read_excel(os.path.join(dir_path, f'Data-Wave{wave}', 'Conditions.xlsx'), sheet_name="Rooms3")
-                    df_rooms = df_rooms[["Role", int(df_cond["Rooms"].item())]]
-                    df_rooms = df_rooms.rename(columns={int(df_cond["Rooms"].item()): "Rooms"})
-                except:
-                    print("no conditions file")
-
-                for room in ["Dining", "Living"]:
-                    # room = "Dining"
-                    role = df_rooms.loc[df_rooms["Rooms"] == room, "Role"].item()
-                    color = green if role == "friendly" else red
-                    if room == "Dining":
-                        position_x = -490
-                        position_y = -1034
-                    else:
-                        position_x = -870
-                        position_y = 262
-                    circle = patches.Circle((position_y, position_x), radius=30, color=color, alpha=0.5)
-                    axes[idx_vp, idx_phase].add_patch(circle)
             axes[idx_vp, idx_phase].axis('scaled')
             axes[idx_vp, idx_phase].invert_xaxis()
             axes[idx_vp, idx_phase].invert_yaxis()
