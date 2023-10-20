@@ -1376,6 +1376,101 @@ for vp_block in vps:
     plt.savefig(os.path.join(save_path, f"movement_{vp_block[0]}-{vp_block[-1]}_{SA_score}.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
+# Get gifs:
+vps = df["VP"].unique()
+vps.sort()
+import matplotlib.animation as animation
+
+def update(num, data_hab, hab, data_test, test, data_friendly, friendly, data_unfriendly, unfriendly):
+    hab.set_data(data_hab[..., :num])
+    test.set_data(data_test[..., :num])
+    friendly.set_data(data_friendly[..., :num])
+    unfriendly.set_data(data_unfriendly[..., :num])
+
+    return hab, test, friendly, unfriendly
+
+if wave == 2:
+    for idx_vp, vp in enumerate(vps):
+        # idx_vp, vp = 0, vps[0]
+        df_vp = df.loc[df["VP"] == vp]
+        # df_vp_dist = df_dist.loc[df_dist["VP"] == vp]
+        df_vp = df_vp.dropna(subset="phase")
+        index = df_vp.first_valid_index()
+        spai = df_vp.loc[index, SA_score]
+
+        Writer = animation.writers['ffmpeg']
+        Writer = Writer(fps=30, metadata=dict(title=f"Visualization of VP {vp}"), bitrate=-1)
+
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(9, 1.5))
+        hab, = ax1.plot([], [], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.8)
+        test, = ax2.plot([], [], label="Test", c=scalarMap.to_rgba(spai), alpha=0.8)
+        friendly, = ax2.plot([], [], label="Friendly", c=green, alpha=0.8)
+        unfriendly, = ax2.plot([], [], label="Unfriendly", c=red, alpha=0.8)
+
+        ax1.text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
+        ax1.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        ax1.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        ax1.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax1.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax1.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax1.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax1.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
+        ax1.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
+        ax1.text(np.mean((-1291, 438)), -870, "Habituation", color="k", horizontalalignment='center', fontsize="small")
+        
+        ax2.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        ax2.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        ax2.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax2.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax2.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax2.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        ax2.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
+        ax2.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
+        ax2.text(np.mean((-1291, 438)), -870, "Test", color="k", horizontalalignment='center', fontsize="small")
+        
+        # Habituation:
+        df_hab = df_vp.loc[df_vp["phase"].str.contains("Habituation")]
+        df_hab = df_hab.sort_values(by="time")
+
+        x = df_hab["y"].to_list()
+        y = df_hab["x"].to_list()
+        data_hab = np.array([x, y])
+
+        ax1.axis('scaled')
+        ax1.invert_xaxis()
+        ax1.invert_yaxis()
+        ax1.axis('off')
+        
+        # Test
+        df_test = df_vp.loc[df_vp["phase"].str.contains("Test")]
+        df_test = df_test.sort_values(by="time")
+
+        x = df_test["y"].to_list()
+        y = df_test["x"].to_list()
+        data_test = np.array([x, y])
+
+        x = df_test["y_friendly"].to_list()
+        y = df_test["x_friendly"].to_list()
+        data_friendly = np.array([x, y])
+
+        x = df_test["y_unfriendly"].to_list()
+        y = df_test["x_unfriendly"].to_list()
+        data_unfriendly = np.array([x, y])
+
+        ax2.axis('scaled')
+        ax2.invert_xaxis()
+        ax2.invert_yaxis()
+        ax2.axis('off')
+
+        ax2.axis('off')
+
+        plt.tight_layout()
+
+        line_animation = animation.FuncAnimation(fig, update, frames=900, fargs=(data_hab, hab, data_test, test, data_friendly, friendly, data_unfriendly, unfriendly))
+        line_animation.save(os.path.join(save_path, f"movement_{vp}.mp4"), writer=Writer, dpi=300)
+
+        plt.close()
+
 # Movement per SA-Group
 df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
 df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
