@@ -34,7 +34,7 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 
 for vp in vps:
-    # vp = vps[3]
+    # vp = vps[4]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
@@ -254,6 +254,19 @@ for vp in vps:
                     duration = (end - start).total_seconds()
                     df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [start], "event": [f"Test_{actor}WasVisible"], "duration": [duration]})])
 
+        df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
+        for idx_row, row in df_test_rooms.iterrows():
+            # idx_row = 0
+            # row = df_test_rooms.loc[idx_row, :]
+            if "WasVisible" in row["event"]:
+                actor = row["event"].split("Test_")[1].split("WasVisible")[0]
+                start_notvisible = row["timestamp"] + timedelta(seconds=row["duration"])
+                if idx_row == len(df_test_rooms) - 2:
+                    start_next_event = start_roomrating2
+                else:
+                    start_next_event = df_test_rooms.loc[idx_row + 1, "timestamp"]
+                duration = (start_next_event-start_notvisible).total_seconds()
+                df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [start_notvisible], "event": [f"Test_{actor}NotVisible"], "duration": [duration]})])
         df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
         dfs.append(df_test_rooms)
 

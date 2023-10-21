@@ -1381,13 +1381,23 @@ vps = df["VP"].unique()
 vps.sort()
 import matplotlib.animation as animation
 
-def update(num, data_hab, hab, data_test, test, data_friendly, friendly, data_unfriendly, unfriendly):
+def update(num, data_hab, hab, data_test, test, test_dot, data_friendly, friendly, friendly_dot, data_unfriendly, unfriendly, unfriendly_dot):
     hab.set_data(data_hab[..., :num])
     test.set_data(data_test[..., :num])
     friendly.set_data(data_friendly[..., :num])
     unfriendly.set_data(data_unfriendly[..., :num])
+    test_dot.set_data(data_test[..., :num])
+    friendly_dot.set_data(data_friendly[..., :num])
+    unfriendly_dot.set_data(data_unfriendly[..., :num])
+    return hab, test, friendly, unfriendly, test_dot, friendly_dot, unfriendly_dot
 
-    return hab, test, friendly, unfriendly
+def update(num, data_hab, hab, data_test, data_friendly, data_unfriendly):
+    ax2.clear()
+    # ax2.scatter(x=coords[i][0], y=coords[i][1], c='red', marker='o', s=10)
+    ax2.scatter(data_test[i][0], data_test[i][1], label="Test", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=10)
+    ax2.scatter([], [], label="Friendly", c=green, alpha=0.8, marker="o", s=10)
+    ax2.scatter([], [], label="Unfriendly", c=red, alpha=0.8, marker="o", s=10)
+
 
 if wave == 2:
     for idx_vp, vp in enumerate(vps):
@@ -1402,10 +1412,10 @@ if wave == 2:
         Writer = Writer(fps=30, metadata=dict(title=f"Visualization of VP {vp}"), bitrate=-1)
 
         fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(9, 1.5))
-        hab, = ax1.plot([], [], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.8)
-        test, = ax2.plot([], [], label="Test", c=scalarMap.to_rgba(spai), alpha=0.8)
-        friendly, = ax2.plot([], [], label="Friendly", c=green, alpha=0.8)
-        unfriendly, = ax2.plot([], [], label="Unfriendly", c=red, alpha=0.8)
+        hab, = ax1.plot([], [], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.5)
+        test, = ax2.plot([], [], label="Test", c=scalarMap.to_rgba(spai), alpha=0.5)
+        friendly, = ax2.plot([], [], label="Friendly", c=green, alpha=0.5)
+        unfriendly, = ax2.plot([], [], label="Unfriendly", c=red, alpha=0.5)
 
         ax1.text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
         ax1.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
