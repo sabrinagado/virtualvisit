@@ -1381,6 +1381,7 @@ vps = df["VP"].unique()
 vps.sort()
 import matplotlib.animation as animation
 
+
 def update(num, data_hab, hab, data_test, test, test_dot, data_friendly, friendly, friendly_dot, data_unfriendly, unfriendly, unfriendly_dot):
     hab.set_data(data_hab[..., :num])
     test.set_data(data_test[..., :num])
@@ -1391,12 +1392,46 @@ def update(num, data_hab, hab, data_test, test, test_dot, data_friendly, friendl
     unfriendly_dot.set_data(data_unfriendly[..., :num])
     return hab, test, friendly, unfriendly, test_dot, friendly_dot, unfriendly_dot
 
-def update(num, data_hab, hab, data_test, data_friendly, data_unfriendly):
+
+def update(num, data_hab, data_test, data_friendly, data_unfriendly, ax1, ax2):
+    ax1.clear()
+    ax1.text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
+    ax1.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+    ax1.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+    ax1.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax1.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax1.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax1.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax1.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
+    ax1.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
+    ax1.text(np.mean((-1291, 438)), -870, "Habituation", color="k", horizontalalignment='center', fontsize="small")
+
     ax2.clear()
-    # ax2.scatter(x=coords[i][0], y=coords[i][1], c='red', marker='o', s=10)
-    ax2.scatter(data_test[i][0], data_test[i][1], label="Test", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=10)
-    ax2.scatter([], [], label="Friendly", c=green, alpha=0.8, marker="o", s=10)
-    ax2.scatter([], [], label="Unfriendly", c=red, alpha=0.8, marker="o", s=10)
+    ax2.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+    ax2.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+    ax2.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax2.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax2.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax2.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+    ax2.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
+    ax2.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
+    ax2.text(np.mean((-1291, 438)), -870, "Test", color="k", horizontalalignment='center', fontsize="small")
+
+    ax1.scatter(data_hab[0][num], data_hab[1][num], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=20)
+    ax1.axis('scaled')
+    ax1.invert_xaxis()
+    ax1.invert_yaxis()
+    ax1.axis('off')
+
+    ax2.scatter(data_test[0][num], data_test[1][num], label="Test", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=20)
+    ax2.scatter(data_friendly[0][num], data_friendly[1][num], label="Friendly", c=green, alpha=0.8, marker="o", s=20)
+    ax2.scatter(data_unfriendly[0][num], data_unfriendly[1][num], label="Unfriendly", c=red, alpha=0.8, marker="o", s=20)
+    ax2.axis('scaled')
+    ax2.invert_xaxis()
+    ax2.invert_yaxis()
+    ax2.axis('off')
+
+    ax2.axis('off')
 
 
 if wave == 2:
@@ -1412,10 +1447,10 @@ if wave == 2:
         Writer = Writer(fps=30, metadata=dict(title=f"Visualization of VP {vp}"), bitrate=-1)
 
         fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(9, 1.5))
-        hab, = ax1.plot([], [], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.5)
-        test, = ax2.plot([], [], label="Test", c=scalarMap.to_rgba(spai), alpha=0.5)
-        friendly, = ax2.plot([], [], label="Friendly", c=green, alpha=0.5)
-        unfriendly, = ax2.plot([], [], label="Unfriendly", c=red, alpha=0.5)
+        # hab, = ax1.plot([], [], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.5)
+        # test, = ax2.plot([], [], label="Test", c=scalarMap.to_rgba(spai), alpha=0.5)
+        # friendly, = ax2.plot([], [], label="Friendly", c=green, alpha=0.5)
+        # unfriendly, = ax2.plot([], [], label="Unfriendly", c=red, alpha=0.5)
 
         ax1.text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
         ax1.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
@@ -1476,7 +1511,8 @@ if wave == 2:
 
         plt.tight_layout()
 
-        line_animation = animation.FuncAnimation(fig, update, frames=900, fargs=(data_hab, hab, data_test, test, data_friendly, friendly, data_unfriendly, unfriendly))
+        # line_animation = animation.FuncAnimation(fig, update, frames=900, fargs=(data_hab, hab, data_test, test, data_friendly, friendly, data_unfriendly, unfriendly))
+        line_animation = animation.FuncAnimation(fig, update, frames=900, fargs=(data_hab, data_test, data_friendly, data_unfriendly, ax1, ax2))
         line_animation.save(os.path.join(save_path, f"movement_{vp}.mp4"), writer=Writer, dpi=300)
 
         plt.close()
