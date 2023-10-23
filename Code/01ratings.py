@@ -59,6 +59,7 @@ for vp in vps:
 
     df_ratings.loc[df_ratings["phase"].str.contains("Rating"), "phase"] = "Test"
     df_ratings["criterion"] = df_ratings["criterion"].str.replace("Rating", "")
+    df_ratings["criterion"] = df_ratings["criterion"].str.replace("Sympathy", "Likeability")
     df_ratings.loc[(df_ratings["criterion"].str.contains("Orientation")) | (df_ratings["criterion"].str.contains("Test")) | (df_ratings["criterion"].str.contains("Habituation")), "criterion"] = ""
     df_ratings = df_ratings.merge(df_roles, left_on="rating", right_on="Rooms", how="left")
     df_ratings["Character"] = pd.concat([df_ratings.loc[df_ratings["criterion"] == "", "Character"], df_ratings.loc[~(df_ratings["criterion"] == ""), "rating"]])
@@ -67,6 +68,7 @@ for vp in vps:
     df_ratings = df_ratings.drop(columns=["Rooms"])
     df_ratings = df_ratings.rename(columns={"Role": "condition"})
     df_ratings.loc[df_ratings['criterion'] == "", "criterion"] = "wellbeing"
+
 
     behav_friendly = df_ratings.loc[(df_ratings["condition"] == "friendly") & (df_ratings["criterion"].str.contains("Behavior")), "value"].item()
     behav_unfriendly = df_ratings.loc[(df_ratings["condition"] == "unfriendly") & (df_ratings["criterion"].str.contains("Behavior")), "value"].item()

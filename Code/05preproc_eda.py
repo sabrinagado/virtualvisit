@@ -677,23 +677,19 @@ for vp in vps:
                                                                     tolerance=2.1)
                 dfs.append(df_test_person_unique)
 
+
     elif wave == 2:
         df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
         df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [start_test], "event": "Player_EnterOffice"})])
         df_test = df_test.sort_values(by="timestamp")
-
         df_test_rooms = df_test.loc[df_test["event"].str.contains("Player")]
         df_test_rooms = df_test_rooms.reset_index(drop=True)
-        df_test_rooms["duration"] = (
-                    df_test_rooms["timestamp"].shift(-1) - df_test_rooms["timestamp"]).dt.total_seconds()
-        df_test_rooms.loc[len(df_test_rooms) - 1, "duration"] = (
-                    start_roomrating2 - df_test_rooms.loc[len(df_test_rooms) - 1, "timestamp"]).total_seconds()
+        df_test_rooms["duration"] = (df_test_rooms["timestamp"].shift(-1) - df_test_rooms["timestamp"]).dt.total_seconds()
+        df_test_rooms.loc[len(df_test_rooms) - 1, "duration"] = (start_roomrating2 - df_test_rooms.loc[len(df_test_rooms) - 1, "timestamp"]).total_seconds()
         df_test_rooms = df_test_rooms.loc[df_test_rooms["event"].str.contains("Enter")]
         df_test_rooms["event"] = ["Test_" + name[1] for name in df_test_rooms["event"].str.split("Enter")]
-
         df_test = df_test.loc[(df_test["event"].str.contains("Enter"))].reset_index(drop=True)
         df_test_vis = df_vis.loc[(start_test <= df_vis["timestamp"]) & (df_vis["timestamp"] <= start_roomrating2)]
-
         df_test_agents = df_test.copy()
         df_test_agents["Player"] = "Office"
         df_test_agents["Emanuel"] = df_roles.loc[(df_roles["Character"] == "Emanuel"), "Rooms"].item()
@@ -706,9 +702,7 @@ for vp in vps:
             # row = df_test.iloc[idx_row, :]
             for actor in ["Player", "Emanuel", "Ettore", "Bryan", "Oskar"]:
                 if actor in row["event"]:
-                    df_test_agents.loc[idx_row:len(df_test_agents), actor] = \
-                    row["event"].split("Enter")[1].split("Room")[0]
-
+                    df_test_agents.loc[idx_row:len(df_test_agents), actor] = row["event"].split("Enter")[1].split("Room")[0]
         for room in ["Office", "Dining", "Living"]:
             # room = "Office"
             for actor in ["Emanuel", "Ettore", "Bryan", "Oskar"]:
@@ -719,7 +713,6 @@ for vp in vps:
                     # row = df_test_agents.iloc[idx_row, :]
                     if (row["Player"] == room) & (row["Player"] == row[actor]):
                         df_test_agents.loc[idx_row, "tog"] = 1
-
                 together = False
                 start = None
                 end = None
@@ -733,10 +726,8 @@ for vp in vps:
                     elif together and not row["tog"]:
                         end = row["timestamp"]
                         duration = (end - start).total_seconds()
-                        df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame(
-                            {"timestamp": [start], "event": [f"Test_With{actor}In{room}"], "duration": [duration]})])
+                        df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [start], "event": [f"Test_With{actor}In{room}"], "duration": [duration]})])
                         together = False
-
         for actor in ["Emanuel", "Ettore", "Bryan", "Oskar"]:
             # actor = "Bryan"
             visible = False
@@ -752,10 +743,41 @@ for vp in vps:
                 elif not row["sight"]:
                     end = row["timestamp"]
                     duration = (end - start).total_seconds()
-                    df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame(
-                        {"timestamp": [start], "event": [f"Test_{actor}WasVisible"], "duration": [duration]})])
+                    df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [start], "event": [f"Test_{actor}WasVisible"], "duration": [duration]})])
 
         df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
+        for actor in ["Emanuel", "Ettore", "Bryan", "Oskar"]:
+            # actor = "Emanuel"
+            df_test_agent_visible = df_test_rooms.loc[(df_test_rooms["event"].str.contains("WasVisible")) & (df_test_rooms["event"].str.contains(actor))].reset_index(drop=True)
+            for idx_row, row in df_test_agent_visible.iterrows():
+                # idx_row = 0
+                # row = df_test_agent_visible.loc[idx_row, :]
+                start_notvisible = row["timestamp"] + timedelta(seconds=row["duration"])
+                if idx_row == len(df_test_agent_visible) - 1:
+                    start_next_event = start_roomrating2
+                else:
+                    start_next_event = df_test_agent_visible.loc[idx_row + 1, "timestamp"]
+                duration = (start_next_event - start_notvisible).total_seconds()
+                df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [start_notvisible], "event": [f"Test_{actor}NotVisible"], "duration": [duration]})])
+        df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
+        df_test_rooms = df_test_rooms.loc[(df_test_rooms["event"].str.contains("Test")) & (df_test_rooms["event"].str.contains("Visible"))].reset_index(drop=True)
+        visible = []
+        for idx_row, row in df_test_rooms.iterrows():
+            # idx_row = 1
+            # row = df_test_rooms.loc[idx_row, :]
+            if "WasVisible" in row["event"]:
+                visible.append(row["event"].split("Test_")[1].split("WasVisible")[0])
+            elif "NotVisible" in row["event"]:
+                visible.remove(row["event"].split("Test_")[1].split("NotVisible")[0])
+            if len(visible) == 0:
+                df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [row["timestamp"]], "event": [f"Test_NoActorVisible"], "duration": [np.nan]})])
+            else:
+                df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [row["timestamp"]], "event": [f"Test_{''.join(visible)}Visible"], "duration": [np.nan]})])
+
+        df_test_rooms = df_test_rooms.loc[~((df_test_rooms["event"].str.contains("NotVisible")) | (df_test_rooms["event"].str.contains("WasVisible")))]
+        df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
+        df_test_rooms["duration"] = (df_test_rooms["timestamp"].shift(-1) - df_test_rooms["timestamp"]).dt.total_seconds()
+        df_test_rooms.loc[len(df_test_rooms) - 1, "duration"] = (start_roomrating2 - df_test_rooms.loc[len(df_test_rooms) - 1, "timestamp"]).total_seconds()
         dfs.append(df_test_rooms)
 
     df_event = pd.concat(dfs)

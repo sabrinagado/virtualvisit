@@ -255,19 +255,41 @@ for vp in vps:
                     df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [start], "event": [f"Test_{actor}WasVisible"], "duration": [duration]})])
 
         df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
-        for idx_row, row in df_test_rooms.iterrows():
-            # idx_row = 0
-            # row = df_test_rooms.loc[idx_row, :]
-            if "WasVisible" in row["event"]:
-                actor = row["event"].split("Test_")[1].split("WasVisible")[0]
+        for actor in ["Emanuel", "Ettore", "Bryan", "Oskar"]:
+            # actor = "Emanuel"
+            df_test_agent_visible = df_test_rooms.loc[(df_test_rooms["event"].str.contains("WasVisible")) & (df_test_rooms["event"].str.contains(actor))].reset_index(drop=True)
+            for idx_row, row in df_test_agent_visible.iterrows():
+                # idx_row = 0
+                # row = df_test_agent_visible.loc[idx_row, :]
                 start_notvisible = row["timestamp"] + timedelta(seconds=row["duration"])
-                if idx_row == len(df_test_rooms) - 2:
+                if idx_row == len(df_test_agent_visible) - 1:
                     start_next_event = start_roomrating2
                 else:
-                    start_next_event = df_test_rooms.loc[idx_row + 1, "timestamp"]
+                    start_next_event = df_test_agent_visible.loc[idx_row + 1, "timestamp"]
                 duration = (start_next_event-start_notvisible).total_seconds()
                 df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [start_notvisible], "event": [f"Test_{actor}NotVisible"], "duration": [duration]})])
         df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
+        df_test_rooms = df_test_rooms.loc[(df_test_rooms["event"].str.contains("Test")) & (df_test_rooms["event"].str.contains("Visible"))].reset_index(drop=True)
+
+        visible = []
+        for idx_row, row in df_test_rooms.iterrows():
+            # idx_row = 1
+            # row = df_test_rooms.loc[idx_row, :]
+            if "WasVisible" in row["event"]:
+                visible.append(row["event"].split("Test_")[1].split("WasVisible")[0])
+            elif "NotVisible" in row["event"]:
+                visible.remove(row["event"].split("Test_")[1].split("NotVisible")[0])
+
+            if len(visible) == 0:
+                df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [row["timestamp"]], "event": [f"Test_NoActorVisible"], "duration": [np.nan]})])
+            else:
+                df_test_rooms = pd.concat([df_test_rooms, pd.DataFrame({"timestamp": [row["timestamp"]], "event": [f"Test_{''.join(visible)}Visible"], "duration": [np.nan]})])
+
+        df_test_rooms = df_test_rooms.loc[~((df_test_rooms["event"].str.contains("NotVisible")) | (df_test_rooms["event"].str.contains("WasVisible")))]
+        df_test_rooms = df_test_rooms.sort_values(by="timestamp").reset_index(drop=True)
+        df_test_rooms["duration"] = (df_test_rooms["timestamp"].shift(-1) - df_test_rooms["timestamp"]).dt.total_seconds()
+        df_test_rooms.loc[len(df_test_rooms) - 1, "duration"] = (start_roomrating2 - df_test_rooms.loc[len(df_test_rooms) - 1, "timestamp"]).total_seconds()
+
         dfs.append(df_test_rooms)
 
     df_event = pd.concat(dfs)
@@ -283,7 +305,7 @@ for vp in vps:
 
     # Iterate through interaction phases
     for idx_row, row in df_event.iterrows():
-        # idx_row = 8
+        # idx_row = 7
         # row = df_event.iloc[idx_row]
         phase = row['event']
         print(f"Phase: {phase}")
@@ -379,26 +401,25 @@ for vp in vps:
 
     df_gaze = df_gaze.dropna(subset="event")
     df_gaze = df_gaze.dropna(subset="actor")
+    end_test = df_event.loc[len(df_event) - 1, "timestamp"] + pd.to_timedelta(df_event.loc[len(df_event) - 1, "duration"])
 
-    df_gaze_test = df_gaze.loc[(df_gaze["event"].str.contains("Test")) & ~(df_gaze["event"].str.contains("Clicked"))]
-    end_test = df_event.loc[len(df_event)-1, "timestamp"] + pd.to_timedelta(df_event.loc[len(df_event)-1, "duration"])
-    df_gaze_test = df_gaze_test.loc[df_gaze_test["timestamp"] < end_test]
     for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
         # character = "Ettore"
+        df_gaze_test = df_gaze.loc[(df_gaze["event"].str.contains("Test")) & ~(df_gaze["event"].str.contains("Clicked"))]
+        df_gaze_test = df_gaze_test.loc[df_gaze_test["timestamp"] < end_test]
+        if wave == 2:
+            df_gaze_test = df_gaze_test.loc[df_gaze_test["event"].str.contains(character)]
+
         for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
             # roi = "head"
             # searchstring = "Head"
             number = len(df_gaze_test.loc[df_gaze_test['actor'].str.contains(f"{character}{searchstring}")])
-            if number == 0:
-                proportion = 0
-            proportion = number / len(df_gaze_test)
+            proportion = 0 if number == 0 else number / len(df_gaze_test)
 
             if roi == "head":
-                switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}Head") & (
-                    ~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
+                switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}Head") & (~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
             elif roi == "body":
-                switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}_Char") & (
-                    ~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}_Char")))).sum(axis=0)
+                switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}_Char") & (~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}_Char")))).sum(axis=0)
             # Save as dataframe
             df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
                                          'Phase': ["Test"],

@@ -16,7 +16,7 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 2
+wave = 1
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -33,7 +33,7 @@ SA_score = "SPAI"
 
 # Ratings Virtual Humans
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
-labels = ["Sympathy", "Fear", "Anger", "Attractiveness", "Behavior"]
+labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
 conditions = ['Friendly', 'Unfriendly', 'Neutral', 'Unknown']
 colors = ['#B1C800', '#E2001A', '#1F82C0',  'lightgrey']
 
@@ -147,7 +147,7 @@ plt.close()
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 5))
-labels = ["Sympathy", "Fear", "Anger"]  # , "Attractiveness", "Behavior"]
+labels = ["Likeability", "Fear", "Anger"]  # , "Attractiveness", "Behavior"]
 conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
 colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
 

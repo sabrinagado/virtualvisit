@@ -1452,26 +1452,26 @@ if wave == 2:
         # friendly, = ax2.plot([], [], label="Friendly", c=green, alpha=0.5)
         # unfriendly, = ax2.plot([], [], label="Unfriendly", c=red, alpha=0.5)
 
-        ax1.text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
-        ax1.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
-        ax1.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
-        ax1.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax1.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax1.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax1.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax1.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
-        ax1.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
-        ax1.text(np.mean((-1291, 438)), -870, "Habituation", color="k", horizontalalignment='center', fontsize="small")
-        
-        ax2.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
-        ax2.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
-        ax2.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax2.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax2.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax2.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
-        ax2.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
-        ax2.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
-        ax2.text(np.mean((-1291, 438)), -870, "Test", color="k", horizontalalignment='center', fontsize="small")
+        # ax1.text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
+        # ax1.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        # ax1.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        # ax1.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax1.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax1.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax1.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax1.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
+        # ax1.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
+        # ax1.text(np.mean((-1291, 438)), -870, "Habituation", color="k", horizontalalignment='center', fontsize="small")
+        #
+        # ax2.hlines(y=-954, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        # ax2.hlines(y=-409, xmin=-1285, xmax=435, linewidth=2, color='lightgrey')
+        # ax2.vlines(x=430, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax2.vlines(x=-101, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax2.vlines(x=-661, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax2.vlines(x=-1280, ymin=-954, ymax=-409, linewidth=2, color='lightgrey')
+        # ax2.vlines(x=-661, ymin=-739, ymax=-614, linewidth=5, color='white')
+        # ax2.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
+        # ax2.text(np.mean((-1291, 438)), -870, "Test", color="k", horizontalalignment='center', fontsize="small")
         
         # Habituation:
         df_hab = df_vp.loc[df_vp["phase"].str.contains("Habituation")]
@@ -1481,10 +1481,10 @@ if wave == 2:
         y = df_hab["x"].to_list()
         data_hab = np.array([x, y])
 
-        ax1.axis('scaled')
-        ax1.invert_xaxis()
-        ax1.invert_yaxis()
-        ax1.axis('off')
+        # ax1.axis('scaled')
+        # ax1.invert_xaxis()
+        # ax1.invert_yaxis()
+        # ax1.axis('off')
         
         # Test
         df_test = df_vp.loc[df_vp["phase"].str.contains("Test")]
@@ -1502,12 +1502,12 @@ if wave == 2:
         y = df_test["x_unfriendly"].to_list()
         data_unfriendly = np.array([x, y])
 
-        ax2.axis('scaled')
-        ax2.invert_xaxis()
-        ax2.invert_yaxis()
-        ax2.axis('off')
-
-        ax2.axis('off')
+        # ax2.axis('scaled')
+        # ax2.invert_xaxis()
+        # ax2.invert_yaxis()
+        # ax2.axis('off')
+        #
+        # ax2.axis('off')
 
         plt.tight_layout()
 
