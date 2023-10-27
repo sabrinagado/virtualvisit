@@ -81,7 +81,7 @@ if not os.path.exists(save_path):
 if wave == 1:
     problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
 elif wave == 2:
-    problematic_subjects = []  # [1, 2, 3, 4]
+    problematic_subjects = [1, 2, 3, 4]
 
 
 df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')

@@ -624,8 +624,10 @@ if wave == 2:
 
 
 # Difference
-df_test = df_subset.loc[df_subset['phase'] == "Test"]
+df_test = df.loc[df["event"].str.contains("Test")]
+df_test = df_test.dropna(subset="duration")
 df_spai = df_test[["VP", SA_score]].drop_duplicates(subset="VP")
+df_test = df_test.loc[df_test["Condition"].isin(["friendly", "unfriendly"])]
 df_diff = df_test.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
 df_diff = df_diff.pivot(index='VP', columns='Condition', values='duration').reset_index()
 df_diff = df_diff.fillna(0)
@@ -649,13 +651,13 @@ ax.fill_between(x, y_est + y_err, y_est - y_err, alpha=0.2, color="lightgrey")
 
 # Plot raw data points
 c = np.where(y < 0, 'teal', 'gold')
-ax.scatter(x, y, s=30, c=c, alpha=0.3)
+ax.scatter(x, y, s=30, c=c, alpha=0.6)
 
 p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
 ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
         r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color="grey")
 
-ax.set_title(f"Avoidance vs. Hypervigilance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
+ax.set_title(f"Approach vs. Avoidance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
 if "SPAI" in SA_score:
     ax.set_xticks(range(0, 6))
 elif "SIAS" in SA_score:
@@ -667,7 +669,7 @@ ax.set_ylabel("Difference Duration in Proximity: Unfriendly-Friendly")
 ax.legend(
     [Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7),
      Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7)],
-    ["Hypervigilance", "Avoidance"], loc="upper right")
+    ["Approach", "Avoidance"], loc="upper right")
 
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"duration_test-diff_{SA_score}.png"), dpi=300)
@@ -1078,13 +1080,13 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
 
         # Plot raw data points
         c = np.where(y > 0, 'teal', 'gold')
-        ax.scatter(x, y, s=30, c=c, alpha=0.3)
+        ax.scatter(x, y, s=30, c=c, alpha=0.6)
 
         p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
         ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),
                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color="grey")
 
-        ax.set_title(f"Avoidance vs. Hypervigilance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
+        ax.set_title(f"Approach vs. Avoidance (N = {len(df_diff['VP'].unique())})", fontweight='bold')
         # ax.set_ylim([0, max])
         ax.set_xlabel(SA_score)
         if "SPAI" in SA_score:
@@ -1097,7 +1099,7 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
         ax.legend(
             [Line2D([0], [0], color="white", marker='o', markeredgecolor="gold", markeredgewidth=1, markerfacecolor="gold", alpha=.7),
              Line2D([0], [0], color="white", marker='o', markeredgecolor="teal", markeredgewidth=1, markerfacecolor="teal", alpha=.7)],
-            ["Hypervigilance", "Avoidance"], loc="upper right")
+            ["Approach", "Avoidance"], loc="upper right")
 
         plt.tight_layout()
         plt.savefig(os.path.join(save_path, f"distance_test-diff_{SA_score}.png"), dpi=300)
@@ -1282,15 +1284,16 @@ df["x"] = df["x_player"]
 df["y"] = df["y_player"]
 # df_dist = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'walking_distance.csv'), decimal='.', sep=';')
 
-vps = df["VP"].unique()
-vps.sort()
-vps = np.reshape(vps, (-1, 4))
-
 df_spai = df[SA_score].unique()
 df_spai.sort()
+df_spai = df_spai[~np.isnan(df_spai)]
 cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.4 * np.max(df_spai), vmax=np.max(df_spai) + 0.2 * np.max(df_spai))
 scalarMap = matplotlib.cm.ScalarMappable(norm=cNorm, cmap=plt.get_cmap('Blues'))
 scalarMap.set_array([])
+
+vps = df["VP"].unique()
+vps.sort()
+vps = np.reshape(vps, (-1, 4))
 
 for vp_block in vps:
     # vp_block = vps[0]
@@ -1303,6 +1306,9 @@ for vp_block in vps:
         df_vp = df_vp.dropna(subset="phase")
         index = df_vp.first_valid_index()
         spai = df_vp.loc[index, SA_score]
+
+        if idx_vp == 0:
+            spai = 2
 
         axes[idx_vp, 0].text(400, -870, f"VP {vp}", color="lightgrey", fontweight="bold", horizontalalignment='left')
 
@@ -1417,15 +1423,15 @@ def update(num, data_hab, data_test, data_friendly, data_unfriendly, ax1, ax2):
     ax2.vlines(x=-101, ymin=-554, ymax=-434, linewidth=5, color='white')
     ax2.text(np.mean((-1291, 438)), -870, "Test", color="k", horizontalalignment='center', fontsize="small")
 
-    ax1.scatter(data_hab[0][num], data_hab[1][num], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=20)
+    ax1.scatter(data_hab[0][num], data_hab[1][num], label="Habituation", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=20, zorder=5)
     ax1.axis('scaled')
     ax1.invert_xaxis()
     ax1.invert_yaxis()
     ax1.axis('off')
 
-    ax2.scatter(data_test[0][num], data_test[1][num], label="Test", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=20)
-    ax2.scatter(data_friendly[0][num], data_friendly[1][num], label="Friendly", c=green, alpha=0.8, marker="o", s=20)
-    ax2.scatter(data_unfriendly[0][num], data_unfriendly[1][num], label="Unfriendly", c=red, alpha=0.8, marker="o", s=20)
+    ax2.scatter(data_test[0][num], data_test[1][num], label="Test", c=scalarMap.to_rgba(spai), alpha=0.8, marker="o", s=20, zorder=5)
+    ax2.scatter(data_friendly[0][num], data_friendly[1][num], label="Friendly", c=green, alpha=0.8, marker="o", s=20, zorder=5)
+    ax2.scatter(data_unfriendly[0][num], data_unfriendly[1][num], label="Unfriendly", c=red, alpha=0.8, marker="o", s=20, zorder=5)
     ax2.axis('scaled')
     ax2.invert_xaxis()
     ax2.invert_yaxis()

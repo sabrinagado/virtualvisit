@@ -516,7 +516,7 @@ ax.fill_between(x, y_est + y_err, y_est - y_err, alpha=0.2, color="lightgrey")
 
 # Plot raw data points
 c = np.where(y < 0, 'teal', 'gold')
-ax.scatter(x, y, s=30, c=c, alpha=0.3)
+ax.scatter(x, y, s=30, c=c, alpha=0.6)
 
 p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
 ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max()-df_diff["difference"].min()) + df_diff["difference"].min(),

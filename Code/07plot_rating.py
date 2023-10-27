@@ -16,7 +16,7 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 1
+wave = 2
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -143,6 +143,28 @@ fig.subplots_adjust(right=0.89)
 # plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"ratings_humans.png"), dpi=300, bbox_inches="tight")
 plt.close()
+
+# Correlation of Ratings
+df_like = df_rating.loc[(df_rating["Criterion"] == "Likeability"), ["VP", "Phase", "Object", "Criterion", "Value"]]
+df_fear = df_rating.loc[(df_rating["Criterion"] == "Fear"), ["VP", "Phase", "Object", "Criterion", "Value"]]
+df_anger = df_rating.loc[(df_rating["Criterion"] == "Anger"), ["VP", "Phase", "Object", "Criterion", "Value"]]
+df_reliability_ratings = df_like.merge(df_fear, on=["VP", "Phase", "Object"], suffixes=('_like', '_fear'))
+df_reliability_ratings = df_reliability_ratings.merge(df_anger, on=["VP", "Phase", "Object"])
+df_reliability_ratings = df_reliability_ratings.rename(columns={"Value": "Value_anger"})
+x = df_reliability_ratings["Value_like"].to_numpy()
+y = df_reliability_ratings["Value_fear"].to_numpy()
+linreg = linregress(x, y)
+print(f"Likeability x Fear: r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
+
+x = df_reliability_ratings["Value_like"].to_numpy()
+y = df_reliability_ratings["Value_anger"].to_numpy()
+linreg = linregress(x, y)
+print(f"Likeability x Anger: r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
+
+x = df_reliability_ratings["Value_fear"].to_numpy()
+y = df_reliability_ratings["Value_anger"].to_numpy()
+linreg = linregress(x, y)
+print(f"Fear x Anger: r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
 
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
