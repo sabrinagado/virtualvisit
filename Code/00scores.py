@@ -24,7 +24,7 @@ df_scores['smoking'] = df_scores['smoking'].replace({1: "smoker", 2: "no smoker"
 if wave == 1:
     problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
 elif wave == 2:
-    problematic_subjects = [1, 2, 3, 4]
+    problematic_subjects = [1, 2, 3, 4, 20]
 
 # % ===========================================================================
 # SPAI
@@ -229,3 +229,5 @@ df = df.loc[~(df['ID'].str.contains('test'))]
 df['ID'] = df['ID'].astype('int32')
 
 df.to_csv(os.path.join(file_path, 'scores_summary.csv'), index=False, decimal=',', sep=';', encoding='utf-8-sig')
+
+print(f"Problematic Subject: {problematic_subjects}")

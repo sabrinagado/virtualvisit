@@ -20,13 +20,13 @@ from Code.toolbox import utils
 import mne
 
 plt.ion()
-# matplotlib.use('QtAgg')
+matplotlib.use('QtAgg')
 
 
 # % ===========================================================================
 # Read in Data, Add Timestamps and Events
 # =============================================================================
-wave = 2
+wave = 1
 dir_path = os.getcwd()
 start = 1
 vp_folder = [int(item.split("_")[1]) for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}')) if ("VP" in item)]
@@ -604,6 +604,8 @@ for vp in vps:
     df_event = df_event.reset_index(drop=True)
 
     try:
+        end_orientation = df_event.loc[df_event["event"] == "StartWidget", "timestamp"].item()
+        baseline_orientation = end_orientation - timedelta(seconds=30)
         start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
         start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
         start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
@@ -621,6 +623,9 @@ for vp in vps:
     except:
         print("not enough events")
         continue
+
+    df_orient = pd.DataFrame({"timestamp": [baseline_orientation], "event": ["Orientation"], "duration": [30.]})
+    dfs.append(df_orient)
 
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
     df_hab["duration"] = (df_hab["timestamp"].shift(-1) - df_hab["timestamp"]).dt.total_seconds()
@@ -785,7 +790,9 @@ for vp in vps:
     df_event = df_event.loc[df_event["duration"] > 0]
 
     # Add event dict to describe events in MNE
+    # Add event dict to describe events in MNE
     event_dict = {'resting state': 1,
+                  'orientation': 10,
                   'habituation_living': 2,
                   'habituation_dining': 3,
                   'habituation_office': 4,
@@ -808,6 +815,7 @@ for vp in vps:
     # Add "event" columns (for MNE)
     df_event["name"] = df_event["event"]
     df_event.loc[df_event['name'].str.contains("resting state"), 'event'] = 1
+    df_event.loc[df_event['name'].str.contains("Orientation"), 'event'] = 10
     df_event.loc[df_event['name'].str.contains("Habituation_Living"), 'event'] = 2
     df_event.loc[df_event['name'].str.contains("Habituation_Dining"), 'event'] = 3
     df_event.loc[df_event['name'].str.contains("Habituation_Office"), 'event'] = 4

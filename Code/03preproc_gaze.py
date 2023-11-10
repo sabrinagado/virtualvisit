@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from scipy import signal
 from Code.toolbox import utils
 
-wave = 2
+wave = 1
 dir_path = os.getcwd()
 start = 1
 vp_folder = [int(item.split("_")[1]) for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}')) if ("VP" in item)]
@@ -34,7 +34,7 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 
 for vp in vps:
-    # vp = vps[4]
+    # vp = vps[0]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 
@@ -82,8 +82,7 @@ for vp in vps:
 
     # Get Events
     try:
-        files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if
-                 (item.endswith(".csv"))]
+        files = [item for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp)) if (item.endswith(".csv"))]
         event_file = [file for file in files if "event" in file][0]
         df_event = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'VP_' + vp, event_file), sep=';', decimal='.')
 
@@ -112,6 +111,8 @@ for vp in vps:
         continue
 
     try:
+        end_orientation = df_event.loc[df_event["event"] == "StartWidget", "timestamp"].item()
+        baseline_orientation = end_orientation - timedelta(seconds=30)
         start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
         start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
         start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
@@ -131,6 +132,10 @@ for vp in vps:
         continue
 
     dfs = []
+
+    df_orient = pd.DataFrame({"timestamp": [baseline_orientation], "event": ["Orientation"], "duration": [30.]})
+    dfs.append(df_orient)
+
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
     df_hab["duration"] = (df_hab["timestamp"].shift(-1) - df_hab["timestamp"]).dt.total_seconds()
     df_hab["event"] = df_hab["event"].replace("StartExploringRooms", "EnterOffice")
@@ -305,7 +310,7 @@ for vp in vps:
 
     # Iterate through interaction phases
     for idx_row, row in df_event.iterrows():
-        # idx_row = 7
+        # idx_row = 0
         # row = df_event.iloc[idx_row]
         phase = row['event']
         print(f"Phase: {phase}")
@@ -386,10 +391,9 @@ for vp in vps:
         else:
             continue
 
+    # Pupil
     df_gaze_grouped = df_gaze.groupby("event")["pupil_mean"].mean(numeric_only=True).reset_index().merge(df_gaze.groupby("event")["pupil_mean"].std().reset_index(), on="event", suffixes=("", "_sd"))
-    df_gaze_grouped = df_gaze_grouped.loc[(df_gaze_grouped["event"].str.contains("Habituation")) | (df_gaze_grouped["event"].str.contains("Test"))]
-
-    # Pupil: Save as dataframe
+    df_gaze_grouped = df_gaze_grouped.loc[(df_gaze_grouped["event"].str.contains("Orientation")) | (df_gaze_grouped["event"].str.contains("Habituation")) | (df_gaze_grouped["event"].str.contains("Test"))]
     for idx_row, row in df_gaze_grouped.iterrows():
         # idx_row = 0
         # row = df_gaze_grouped.iloc[0, :]
@@ -399,6 +403,7 @@ for vp in vps:
         df_pupil_temp.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'pupil.csv'), decimal='.', sep=';', index=False, mode='a',
                              header=not (os.path.exists(os.path.join(dir_path, f'Data-Wave{wave}', 'pupil.csv'))))
 
+    # Gaze
     df_gaze = df_gaze.dropna(subset="event")
     df_gaze = df_gaze.dropna(subset="actor")
     end_test = df_event.loc[len(df_event) - 1, "timestamp"] + pd.to_timedelta(df_event.loc[len(df_event) - 1, "duration"])

@@ -12,6 +12,7 @@ from matplotlib.lines import Line2D
 from scipy.stats import linregress, t, ttest_rel, percentileofscore
 from scipy import signal
 from rpy2.situation import (get_r_home)
+
 os.environ["R_HOME"] = get_r_home()
 import pymer4
 from tqdm import tqdm
@@ -363,15 +364,21 @@ dvs = ["HR (Mean)", "SCL (Mean)", "Pupil Dilation (Mean)", "HRV (HF_nu)", "HRV (
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
 for physio_idx, (physiology, ylabel, dv) in enumerate(zip(["hr", "eda", "pupil"], ylabels[0:3], dvs[0:3])):  # , "hrv_hf", "hrv_rmssd"
-    # physio_idx = 2
-    # physiology = "pupil"
+    # physio_idx = 1
+    # physiology = "eda"
     # ylabel, dv = ylabels[physio_idx], dvs[physio_idx]
     if "hrv" in physiology:
         df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'hr.csv'), decimal='.', sep=';')
     else:
         df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', f'{physiology}.csv'), decimal='.', sep=';')
 
+    # Baseline Correction
+    df_baseline = df.loc[df["Phase"].str.contains("Orientation")]
+    df_baseline["Baseline"] = df_baseline[dv]
     df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+    df_subset = df_subset.merge(df_baseline[["VP", "Baseline"]], on="VP", how="left")
+    df_subset[dv] = df_subset[dv] - df_subset["Baseline"]
+
     df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
     df_subset.loc[df_subset['Phase'].str.contains("Habituation"), "phase"] = "Habituation"
     df_subset.loc[df_subset['Phase'].str.contains("Office"), "room"] = "Office"

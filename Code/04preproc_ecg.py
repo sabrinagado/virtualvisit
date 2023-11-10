@@ -18,13 +18,13 @@ from Code.toolbox import utils
 import mne
 
 plt.ion()
-# matplotlib.use('QtAgg')
+matplotlib.use('QtAgg')
 
 
 # % ===========================================================================
 # Read in Data, Add Timestamps and Events
 # =============================================================================
-wave = 2
+wave = 1
 dir_path = os.getcwd()
 start = 1
 vp_folder = [int(item.split("_")[1]) for item in os.listdir(os.path.join(dir_path, f'Data-Wave{wave}')) if ("VP" in item)]
@@ -323,6 +323,8 @@ for vp in vps:
     df_event = df_event.reset_index(drop=True)
 
     try:
+        end_orientation = df_event.loc[df_event["event"] == "StartWidget", "timestamp"].item()
+        baseline_orientation = end_orientation - timedelta(seconds=30)
         start_roomtour = df_event.loc[df_event["event"] == "StartRoomTour", "timestamp"].item()
         start_habituation = df_event.loc[df_event["event"] == "StartExploringRooms", "timestamp"].item()
         start_roomrating1 = df_event.loc[df_event["event"] == "EndExploringRooms", "timestamp"].item()
@@ -340,6 +342,9 @@ for vp in vps:
     except:
         print("not enough events")
         continue
+
+    df_orient = pd.DataFrame({"timestamp": [baseline_orientation], "event": ["Orientation"], "duration": [30.]})
+    dfs.append(df_orient)
 
     df_hab = df_event.loc[(start_habituation <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating1)]
     df_hab["duration"] = (df_hab["timestamp"].shift(-1) - df_hab["timestamp"]).dt.total_seconds()
@@ -359,9 +364,7 @@ for vp in vps:
         df_test = df_event.loc[(start_test <= df_event["timestamp"]) & (df_event["timestamp"] <= start_roomrating2)]
         df_test = pd.concat([df_test, pd.DataFrame({"timestamp": [start_test], "event": "EnterOffice"})])
         df_test = df_test.sort_values(by="timestamp")
-        df_test = df_test.loc[
-            (df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))].reset_index(
-            drop=True)
+        df_test = df_test.loc[(df_test["event"].str.contains("Enter")) | (df_test["event"].str.contains("Clicked"))].reset_index(drop=True)
         room = ""
         for idx_row, row in df_test.iterrows():
             # idx_row = 0
@@ -508,6 +511,7 @@ for vp in vps:
 
     # Add event dict to describe events in MNE
     event_dict = {'resting state': 1,
+                  'orientation': 10,
                   'habituation_living': 2,
                   'habituation_dining': 3,
                   'habituation_office': 4,
@@ -528,6 +532,7 @@ for vp in vps:
     # Add "event" columns (for MNE)
     df_event["name"] = df_event["event"]
     df_event.loc[df_event['name'].str.contains("resting state"), 'event'] = 1
+    df_event.loc[df_event['name'].str.contains("Orientation"), 'event'] = 10
     df_event.loc[df_event['name'].str.contains("Habituation_Living"), 'event'] = 2
     df_event.loc[df_event['name'].str.contains("Habituation_Dining"), 'event'] = 3
     df_event.loc[df_event['name'].str.contains("Habituation_Office"), 'event'] = 4
@@ -552,12 +557,12 @@ for vp in vps:
 
     # Iterate through experimental phases and check ECG data
     for idx_row, row in df_event.iterrows():
-        # idx_row = 3
+        # idx_row = 1
         # row = df_event.iloc[idx_row]
 
         phase = row['name']
         print(f"Phase: {phase}")
-        # if not "Interaction" in phase:
+        # if not "Orientation" in phase:
         #     continue
 
         # Get start and end point of phase
@@ -704,7 +709,7 @@ problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47
 vps = [vp for vp in vps if not vp in problematic_subjects]
 dfs_hr = []
 for vp in vps:
-    # vp = vps[3]
+    # vp = vps[0]
     vp = f"0{vp}" if vp < 10 else f"{vp}"
     print(f"VP: {vp}")
 

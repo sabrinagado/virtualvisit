@@ -17,7 +17,7 @@ vps = np.arange(start, end + 1)
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
-    problematic_subjects = []  # [1, 2, 3, 4]
+    problematic_subjects = [1, 2, 3, 4, 13, 19, 20]
 
 vps = [vp for vp in vps if not vp in problematic_subjects]
 
@@ -69,7 +69,6 @@ for vp in vps:
     df_ratings = df_ratings.rename(columns={"Role": "condition"})
     df_ratings.loc[df_ratings['criterion'] == "", "criterion"] = "wellbeing"
 
-
     behav_friendly = df_ratings.loc[(df_ratings["condition"] == "friendly") & (df_ratings["criterion"].str.contains("Behavior")), "value"].item()
     behav_unfriendly = df_ratings.loc[(df_ratings["condition"] == "unfriendly") & (df_ratings["criterion"].str.contains("Behavior")), "value"].item()
 
@@ -106,3 +105,4 @@ df_rating = df_rating.drop(columns=['ID'])
 df_rating.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'), decimal='.', sep=';', index=False)
 
 problematic_subjects = list(np.unique(problematic_subjects))
+print(f"Problematic Subject: {problematic_subjects}")

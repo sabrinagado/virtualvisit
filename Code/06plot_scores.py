@@ -81,7 +81,7 @@ if not os.path.exists(save_path):
 if wave == 1:
     problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
 elif wave == 2:
-    problematic_subjects = [1, 2, 3, 4]
+    problematic_subjects = [1, 2, 3, 4, 13, 19, 20]
 
 
 df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')
@@ -99,7 +99,7 @@ colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
 for idx_scale, scale in enumerate(scales):
     # idx_scale = 5
     # scale = scales[idx_scale]
-    df_scale = df.filter(like=scale)
+    df_scale = df.filter(like=scale).dropna()
     cutoff = None
     if scale == "SPAI":
         min = 0
@@ -138,7 +138,7 @@ for idx_scale, scale in enumerate(scales):
             # subscale = df_scale.columns[idx_subscale]
 
             # Plot raw data points
-            for i in range(len(df)):
+            for i in range(len(df_scale)):
                 # i = 0
                 x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
                 y = df_scale.reset_index().loc[i, subscale].item()
@@ -200,7 +200,7 @@ for idx_scale, scale in enumerate(scales):
             # subscale = df_scale.columns[idx_subscale]
 
             # Plot raw data points
-            for i in range(len(df)):
+            for i in range(len(df_scale)):
                 # i = 0
                 x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
                 y = df_scale.reset_index().loc[i, subscale].item()
