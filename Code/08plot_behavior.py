@@ -20,7 +20,7 @@ import pymer4
 from Code.toolbox import utils
 
 
-wave = 2
+wave = 1
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -1280,20 +1280,22 @@ if wave == 1:
 
 # Movement
 df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
-df["x"] = df["x_player"]
-df["y"] = df["y_player"]
+if wave == 2:
+    df["x"] = df["x_player"]
+    df["y"] = df["y_player"]
+    df["distance_to_previous_scaled"] = df["distance_to_previous_player_scaled"]
 # df_dist = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'walking_distance.csv'), decimal='.', sep=';')
 
 df_spai = df[SA_score].unique()
 df_spai.sort()
 df_spai = df_spai[~np.isnan(df_spai)]
-cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.4 * np.max(df_spai), vmax=np.max(df_spai) + 0.2 * np.max(df_spai))
-scalarMap = matplotlib.cm.ScalarMappable(norm=cNorm, cmap=plt.get_cmap('Blues'))
+cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.1 * np.max(df_spai), vmax=np.max(df_spai) + 0.1 * np.max(df_spai))
+scalarMap = matplotlib.cm.ScalarMappable(norm=cNorm, cmap=plt.get_cmap('viridis_r'))
 scalarMap.set_array([])
 
 vps = df["VP"].unique()
 vps.sort()
-vps = np.reshape(vps, (-1, 4))
+vps = np.reshape(vps, (-1, 8))
 
 for vp_block in vps:
     # vp_block = vps[0]
@@ -1347,7 +1349,7 @@ for vp_block in vps:
                     for room in ["Dining", "Living"]:
                         # room = "Dining"
                         role = df_rooms.loc[df_rooms["Rooms"] == room, "Role"].item()
-
+                        color = green if role == "friendly" else red
                         if room == "Dining":
                             position_x = -490
                             position_y = -1034
@@ -1367,7 +1369,7 @@ for vp_block in vps:
 
             x = df_phase["y"].to_list()
             y = df_phase["x"].to_list()
-            lw = [item * 5 for item in df_phase["distance_to_previous_player_scaled"].to_list()]
+            lw = [item * 5 for item in df_phase["distance_to_previous_scaled"].to_list()]
             for i in np.arange(len(df_phase) - 1):
                 axes[idx_vp, idx_phase].plot([x[i], x[i + 1]], [y[i], y[i + 1]], lw=lw[i], label=phase, c=scalarMap.to_rgba(spai), alpha=0.8)
 
@@ -1527,8 +1529,9 @@ if wave == 2:
 df = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
 df_spai = list(df.drop_duplicates(subset="VP")[SA_score])
 df_spai.sort()
-cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.4 * np.max(df_spai), vmax=np.max(df_spai) + 0.2 * np.max(df_spai))
-scalarMap = matplotlib.cm.ScalarMappable(norm=cNorm, cmap=plt.get_cmap('Blues'))
+# cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.4 * np.max(df_spai), vmax=np.max(df_spai) + 0.2 * np.max(df_spai))
+cNorm = matplotlib.colors.Normalize(vmin=np.min(df_spai) - 0.1 * np.max(df_spai), vmax=np.max(df_spai) + 0.1 * np.max(df_spai))
+scalarMap = matplotlib.cm.ScalarMappable(norm=cNorm, cmap=plt.get_cmap('viridis_r'))
 vps = df["VP"].unique()
 vps.sort()
 cutoff_sa = 2.79 if SA_score == "SPAI" else 30

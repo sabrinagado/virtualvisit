@@ -16,7 +16,7 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 2
+wave = 1
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
@@ -30,6 +30,13 @@ if not os.path.exists(save_path):
 
 df_rating = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'ratings.csv'), decimal='.', sep=';')
 SA_score = "SPAI"
+df_clicks = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'events.csv'), decimal='.', sep=';')
+df_clicks = df_clicks.loc[df_clicks["event"].str.contains("Clicked")]
+df_clicks = df_clicks.groupby(["VP", "Condition"])["event"].count().reset_index()
+df_clicks = df_clicks.rename(columns={"event": "click_count"})
+
+df_rating = df_rating.merge(df_clicks, on=["VP", "Condition"], how="outer")
+df_rating["click_count"] = df_rating["click_count"].fillna(0)
 
 # Ratings Virtual Humans
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
@@ -174,7 +181,7 @@ conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
 colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
 
 for idx_label, label in enumerate(labels):
-    # idx_label = 4
+    # idx_label = 0
     # label = labels[idx_label]
     print(label)
     df_crit = df_rating.loc[df_rating["Criterion"] == label]
@@ -184,7 +191,9 @@ for idx_label, label in enumerate(labels):
     df_ancova = df_crit.copy()
     df_ancova = df_ancova.loc[df_ancova["Condition"].isin(["friendly", "unfriendly"])]
     df_ancova[SA_score] = (df_ancova[SA_score] - df_ancova[SA_score].mean()) / df_ancova[SA_score].std()
-    formula = f"Value ~  {SA_score} + Condition + Condition:{SA_score} + (1 | VP)"
+    formula = (f"Value ~  {SA_score} + Condition + Condition:{SA_score} + (1 | VP)")
+    # formula = (f"Value ~  {SA_score} + Condition + click_count "
+    #            f"+ Condition:{SA_score} + Condition:click_count + click_count:{SA_score} + Condition:{SA_score}:click_count + (1 | VP)")
     model = pymer4.models.Lmer(formula, data=df_ancova)
     model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
@@ -272,6 +281,104 @@ axes[2].legend(
 plt.tight_layout()
 plt.savefig(os.path.join(save_path, f"ratings_humans_{SA_score}.png"), dpi=300, bbox_inches="tight")
 plt.close()
+
+
+# Ratings Virtual Humans, Relationship with Social Anxiety and Clicks
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(14, 5))
+labels = ["Likeability", "Fear", "Anger"]  # , "Attractiveness", "Behavior"]
+conditions = ['Friendly', 'Unfriendly']
+colors = [['#9baf00', '#6f7d00', '#424b00'], ['#e2001a', '#a90014', '#55000a']]
+legend_labels = []
+for idx_label, label in enumerate(labels):
+    # idx_label = 2
+    # label = labels[idx_label]
+    print(label)
+    df_crit = df_rating.loc[df_rating["Criterion"] == label]
+    df_crit = df_crit.sort_values(by=SA_score)
+    # df_crit = df_crit.loc[~(df_crit["Condition"] == "unknown")]
+
+    df_ancova = df_crit.copy()
+    df_ancova = df_ancova.loc[df_ancova["Condition"].isin(["friendly", "unfriendly"])]
+    df_ancova[SA_score] = (df_ancova[SA_score] - df_ancova[SA_score].mean()) / df_ancova[SA_score].std()
+    formula = (f"Value ~  {SA_score} + Condition + click_count + "
+               f"Condition:{SA_score} + Condition:click_count + click_count:{SA_score} + "
+               f"Condition:{SA_score}:click_count + (1 | VP)")
+    model = pymer4.models.Lmer(formula, data=df_ancova)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i*i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 1
+        # condition = conditions[idx_condition]
+        df_spai = df_crit.groupby(["VP"])[SA_score].mean(numeric_only=True).reset_index()
+        df_spai = df_spai.sort_values(by=SA_score)
+
+        df_cond = df_crit.loc[df_crit['Condition'] == condition.lower()].reset_index(drop=True)
+        df_cond = df_cond.dropna(subset="Value")
+        df_cond = df_cond.groupby(["VP"]).mean(numeric_only=True).reset_index()
+        df_cond = df_cond.sort_values(by=SA_score)
+
+        for click_count in [0, 1, 2]:
+            # click_count = 2
+            if click_count == 0:
+                df_click = df_cond.loc[df_cond["click_count"] == click_count]
+                click_label = "0 Clicks"
+            elif click_count == 1:
+                df_click = df_cond.loc[df_cond["click_count"] == click_count]
+                click_label = "1 Click"
+            elif click_count == 2:
+                df_click = df_cond.loc[df_cond["click_count"] >= 1]
+                click_label = ">1 Clicks"
+
+            x = df_click[SA_score].to_numpy()
+            y = df_click["Value"].to_numpy()
+            linreg = linregress(x, y)
+            all_x = df_crit[SA_score].to_numpy()
+            all_y = df_crit["Value"].to_numpy()
+            all_y_est = linreg.slope * all_x + linreg.intercept
+            all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+                1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+            # Plot regression line
+            axes[idx_label].plot(all_x, all_y_est, '-', color=colors[idx_condition][click_count])
+            axes[idx_label].fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.4, color=colors[idx_condition][click_count])
+
+            # Plot raw data points
+            if idx_label == 0:
+                axes[idx_label].plot(x, y, 'o', ms=5, mfc=colors[idx_condition][click_count], mec=colors[idx_condition][click_count], alpha=0.4,
+                                     label=f"{conditions[idx_condition]}, {click_label}")
+                legend_labels.append(axes[idx_label].get_legend_handles_labels()[1])
+            else:
+                axes[idx_label].plot(x, y, 'o', ms=5, mfc=colors[idx_condition][click_count],
+                                    mec=colors[idx_condition][click_count], alpha=0.4, label=None)
+
+    # Style Plot
+    axes[idx_label].set_ylim([-2, df_crit["Value"].max()+2])
+    axes[idx_label].set_title(f"{label}", fontweight='bold')  # (N = {len(df_cond['VP'].unique())})
+    axes[idx_label].set_ylabel(label)
+    if "SPAI" in SA_score:
+        axes[idx_label].set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        axes[idx_label].set_xticks(range(5, 65, 5))
+    axes[idx_label].set_xlabel(SA_score)
+    axes[idx_label].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+
+fig.legend(
+    [Line2D([0], [0], color=colors[0][0], marker='o', markeredgecolor=colors[0][0], markeredgewidth=1, markerfacecolor=colors[0][0], alpha=.7),
+     Line2D([0], [0], color=colors[0][1], marker='o', markeredgecolor=colors[0][1], markeredgewidth=1, markerfacecolor=colors[0][1], alpha=.7),
+     Line2D([0], [0], color=colors[0][2], marker='o', markeredgecolor=colors[0][2], markeredgewidth=1, markerfacecolor=colors[0][2], alpha=.7),
+     Line2D([0], [0], color=colors[1][0], marker='o', markeredgecolor=colors[1][0], markeredgewidth=1, markerfacecolor=colors[1][0], alpha=.7),
+     Line2D([0], [0], color=colors[1][1], marker='o', markeredgecolor=colors[1][1], markeredgewidth=1, markerfacecolor=colors[1][1], alpha=.7),
+     Line2D([0], [0], color=colors[1][2], marker='o', markeredgecolor=colors[1][2], markeredgewidth=1, markerfacecolor=colors[1][2], alpha=.7)],
+    legend_labels[-1], loc="center right")
+plt.tight_layout()
+fig.subplots_adjust(right=0.84)
+plt.savefig(os.path.join(save_path, f"ratings_humans_clicks_{SA_score}.png"), dpi=300, bbox_inches="tight")
+plt.close()
+
 
 
 # Ratings Rooms
