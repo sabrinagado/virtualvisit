@@ -422,9 +422,8 @@ for physio_idx, (physiology, ylabel, dv) in enumerate(zip(["hr", "eda", "pupil"]
 
             # Plot boxplots
             meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-            medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-            fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
             whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
             capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
             boxprops = dict(color=colors[idx_condition])
@@ -432,25 +431,29 @@ for physio_idx, (physiology, ylabel, dv) in enumerate(zip(["hr", "eda", "pupil"]
             fwr_correction = True
             alpha = (1 - (0.05))
             bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, dv].values,
-                                               numb_iterations=5000,
-                                               alpha=alpha,
-                                               as_dict=True,
-                                               func='mean')
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
 
             axes[physio_idx].boxplot([df_phase.loc[:, dv].values],
-                       notch=True,  # bootstrap=5000,
-                       medianprops=medianlineprops,
-                       meanline=True,
-                       showmeans=True,
-                       meanprops=meanlineprops,
-                       showfliers=False, flierprops=fliermarkerprops,
-                       whiskerprops=whiskerprops,
-                       capprops=capprops,
-                       boxprops=boxprops,
-                       conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                       whis=[2.5, 97.5],
-                       positions=[pos[idx_phase]],
-                       widths=0.8 * boxWidth)
+                                     whiskerprops=whiskerprops,
+                                     capprops=capprops,
+                                     boxprops=boxprops,
+                                     medianprops=medianlineprops,
+                                     showfliers=False, flierprops=fliermarkerprops,
+                                     # meanline=True,
+                                     # showmeans=True,
+                                     # meanprops=meanprops,
+                                     # notch=True,  # bootstrap=5000,
+                                     # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                     whis=[2.5, 97.5],
+                                     positions=[pos[idx_phase]],
+                                     widths=0.8 * boxWidth)
+
+            axes[physio_idx].errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
+                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         df_cond = df_cond.rename(columns={dv: physiology})
         formula = f"{physiology} ~ phase + (1 | VP)"

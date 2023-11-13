@@ -79,9 +79,8 @@ for idx_room, room in enumerate(rooms):
 
         # Plot boxplots
         meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-        medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-        fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_phase])
+        fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_phase])
         whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_phase])
         capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_phase])
         boxprops = dict(color=colors[idx_phase])
@@ -89,25 +88,30 @@ for idx_room, room in enumerate(rooms):
         fwr_correction = True
         alpha = (1 - (0.05))
         bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "duration"].values,
-                                           numb_iterations=5000,
-                                           alpha=alpha,
-                                           as_dict=True,
-                                           func='mean')
+                                                 numb_iterations=5000,
+                                                 alpha=alpha,
+                                                 as_dict=True,
+                                                 func='mean')
 
         ax.boxplot([df_phase.loc[:, "duration"].values],
-                   notch=True,  # bootstrap=5000,
-                   medianprops=medianlineprops,
-                   meanline=True,
-                   showmeans=True,
-                   meanprops=meanlineprops,
-                   showfliers=False, flierprops=fliermarkerprops,
                    whiskerprops=whiskerprops,
                    capprops=capprops,
                    boxprops=boxprops,
-                   conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                   medianprops=medianlineprops,
+                   showfliers=False, flierprops=fliermarkerprops,
+                   # meanline=True,
+                   # showmeans=True,
+                   # meanprops=meanprops,
+                   # notch=True,  # bootstrap=5000,
+                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                    whis=[2.5, 97.5],
                    positions=[pos[idx_phase]],
                    widths=0.8 * boxWidth)
+
+        ax.errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
+                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+
         if (room == "Office") & (phase == "Test"):
             x = df_phase[SA_score].to_numpy()
             y = df_phase["duration"].to_numpy()
@@ -231,9 +235,8 @@ if wave == 1:
 
             # Plot boxplots
             meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-            medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-            fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
             whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
             capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
             boxprops = dict(color=colors[idx_condition])
@@ -241,25 +244,29 @@ if wave == 1:
             fwr_correction = True
             alpha = (1 - (0.05))
             bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "duration"].values,
-                                               numb_iterations=5000,
-                                               alpha=alpha,
-                                               as_dict=True,
-                                               func='mean')
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
 
             ax.boxplot([df_phase.loc[:, "duration"].values],
-                                    notch=True,  # bootstrap=5000,
-                                    medianprops=medianlineprops,
-                                    meanline=True,
-                                    showmeans=True,
-                                    meanprops=meanlineprops,
-                                    showfliers=False, flierprops=fliermarkerprops,
-                                    whiskerprops=whiskerprops,
-                                    capprops=capprops,
-                                    boxprops=boxprops,
-                                    conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                                    whis=[2.5, 97.5],
-                                    positions=[pos[idx_phase]],
-                                    widths=0.8 * boxWidth)
+                       whiskerprops=whiskerprops,
+                       capprops=capprops,
+                       boxprops=boxprops,
+                       medianprops=medianlineprops,
+                       showfliers=False, flierprops=fliermarkerprops,
+                       # meanline=True,
+                       # showmeans=True,
+                       # meanprops=meanprops,
+                       # notch=True,  # bootstrap=5000,
+                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                       whis=[2.5, 97.5],
+                       positions=[pos[idx_phase]],
+                       widths=0.8 * boxWidth)
+
+            ax.errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
+                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         formula = f"duration ~ phase + (1 | VP)"
         model = pymer4.models.Lmer(formula, data=df_cond)
@@ -502,9 +509,8 @@ if wave == 2:
 
         # Plot boxplots
         meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-        medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-        fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+        fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
         whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
         capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
         boxprops = dict(color=colors[idx_condition])
@@ -512,25 +518,29 @@ if wave == 2:
         fwr_correction = True
         alpha = (1 - (0.05))
         bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "duration"].values,
-                                           numb_iterations=5000,
-                                           alpha=alpha,
-                                           as_dict=True,
-                                           func='mean')
+                                                 numb_iterations=5000,
+                                                 alpha=alpha,
+                                                 as_dict=True,
+                                                 func='mean')
 
         ax.boxplot([df_cond.loc[:, "duration"].values],
-                                notch=True,  # bootstrap=5000,
-                                medianprops=medianlineprops,
-                                meanline=True,
-                                showmeans=True,
-                                meanprops=meanlineprops,
-                                showfliers=False, flierprops=fliermarkerprops,
-                                whiskerprops=whiskerprops,
-                                capprops=capprops,
-                                boxprops=boxprops,
-                                conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                                whis=[2.5, 97.5],
-                                positions=[pos[idx_condition]],
-                                widths=0.8 * boxWidth)
+                   whiskerprops=whiskerprops,
+                   capprops=capprops,
+                   boxprops=boxprops,
+                   medianprops=medianlineprops,
+                   showfliers=False, flierprops=fliermarkerprops,
+                   # meanline=True,
+                   # showmeans=True,
+                   # meanprops=meanprops,
+                   # notch=True,  # bootstrap=5000,
+                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                   whis=[2.5, 97.5],
+                   positions=[pos[idx_condition]],
+                   widths=0.8 * boxWidth)
+
+        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_test.copy()
     df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
@@ -727,9 +737,8 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
 
         # Plot boxplots
         meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-        medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-        fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+        fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
         whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
         capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
         boxprops = dict(color=colors[idx_condition])
@@ -737,25 +746,29 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
         fwr_correction = True
         alpha = (1 - (0.05))
         bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "distance"].values,
-                                           numb_iterations=5000,
-                                           alpha=alpha,
-                                           as_dict=True,
-                                           func='mean')
+                                                 numb_iterations=5000,
+                                                 alpha=alpha,
+                                                 as_dict=True,
+                                                 func='mean')
 
         ax.boxplot([df_cond.loc[:, "distance"].values],
-                                notch=True,  # bootstrap=5000,
-                                medianprops=medianlineprops,
-                                meanline=True,
-                                showmeans=True,
-                                meanprops=meanlineprops,
-                                showfliers=False, flierprops=fliermarkerprops,
-                                whiskerprops=whiskerprops,
-                                capprops=capprops,
-                                boxprops=boxprops,
-                                conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                                whis=[2.5, 97.5],
-                                positions=[pos[idx_condition]],
-                                widths=0.8 * boxWidth)
+                   whiskerprops=whiskerprops,
+                   capprops=capprops,
+                   boxprops=boxprops,
+                   medianprops=medianlineprops,
+                   showfliers=False, flierprops=fliermarkerprops,
+                   # meanline=True,
+                   # showmeans=True,
+                   # meanprops=meanprops,
+                   # notch=True,  # bootstrap=5000,
+                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                   whis=[2.5, 97.5],
+                   positions=[pos[idx_condition]],
+                   widths=0.8 * boxWidth)
+
+        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_grouped.copy()
     df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
@@ -886,9 +899,8 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
 
                 # Plot boxplots
                 meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-                medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-                fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+                medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+                fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
                 whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
                 capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
                 boxprops = dict(color=colors[idx_condition])
@@ -896,25 +908,29 @@ for dist, title in zip(["avg", "min"], ["Average", "Minimum"]):
                 fwr_correction = True
                 alpha = (1 - (0.05))
                 bootstrapping_dict = utils.bootstrapping(df_phase.loc[:, "distance"].values,
-                                                   numb_iterations=5000,
-                                                   alpha=alpha,
-                                                   as_dict=True,
-                                                   func='mean')
+                                                         numb_iterations=5000,
+                                                         alpha=alpha,
+                                                         as_dict=True,
+                                                         func='mean')
 
                 ax.boxplot([df_phase.loc[:, "distance"].values],
-                                        notch=True,  # bootstrap=5000,
-                                        medianprops=medianlineprops,
-                                        meanline=True,
-                                        showmeans=True,
-                                        meanprops=meanlineprops,
-                                        showfliers=False, flierprops=fliermarkerprops,
-                                        whiskerprops=whiskerprops,
-                                        capprops=capprops,
-                                        boxprops=boxprops,
-                                        conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                                        whis=[2.5, 97.5],
-                                        positions=[pos[idx_phase]],
-                                        widths=0.8 * boxWidth)
+                           whiskerprops=whiskerprops,
+                           capprops=capprops,
+                           boxprops=boxprops,
+                           medianprops=medianlineprops,
+                           showfliers=False, flierprops=fliermarkerprops,
+                           # meanline=True,
+                           # showmeans=True,
+                           # meanprops=meanprops,
+                           # notch=True,  # bootstrap=5000,
+                           # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                           whis=[2.5, 97.5],
+                           positions=[pos[idx_phase]],
+                           widths=0.8 * boxWidth)
+
+                ax.errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
+                            yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                            elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             formula = f"distance ~ phase + (1 | VP)"
             model = pymer4.models.Lmer(formula, data=df_cond)
@@ -1159,9 +1175,8 @@ if wave == 1:
 
         # Plot boxplots
         meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-        medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-        fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+        fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
         whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
         capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
         boxprops = dict(color=colors[idx_condition])
@@ -1169,25 +1184,29 @@ if wave == 1:
         fwr_correction = True
         alpha = (1 - (0.05))
         bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "click_count"].values,
-                                           numb_iterations=5000,
-                                           alpha=alpha,
-                                           as_dict=True,
-                                           func='mean')
+                                                 numb_iterations=5000,
+                                                 alpha=alpha,
+                                                 as_dict=True,
+                                                 func='mean')
 
         ax.boxplot([df_cond.loc[:, "click_count"].values],
-                                notch=True,  # bootstrap=5000,
-                                medianprops=medianlineprops,
-                                meanline=True,
-                                showmeans=True,
-                                meanprops=meanlineprops,
-                                showfliers=False, flierprops=fliermarkerprops,
-                                whiskerprops=whiskerprops,
-                                capprops=capprops,
-                                boxprops=boxprops,
-                                conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                                whis=[2.5, 97.5],
-                                positions=[pos[idx_condition]],
-                                widths=0.8 * boxWidth)
+                   whiskerprops=whiskerprops,
+                   capprops=capprops,
+                   boxprops=boxprops,
+                   medianprops=medianlineprops,
+                   showfliers=False, flierprops=fliermarkerprops,
+                   # meanline=True,
+                   # showmeans=True,
+                   # meanprops=meanprops,
+                   # notch=True,  # bootstrap=5000,
+                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                   whis=[2.5, 97.5],
+                   positions=[pos[idx_condition]],
+                   widths=0.8 * boxWidth)
+
+        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_subset.copy()
     df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()

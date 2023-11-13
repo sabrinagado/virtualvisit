@@ -17,7 +17,7 @@ import pymer4
 
 from Code.toolbox import utils
 
-wave = 2
+wave = 1
 if wave == 1:
     problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 42, 45, 46, 47, 53]
 elif wave == 2:
@@ -39,9 +39,9 @@ vps = [vp for vp in vps if not vp in problematic_subjects]
 df_gaze = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'gaze.csv'), decimal='.', sep=';')
 SA_score = "SPAI"
 dvs = ["Gaze Proportion", "Switches"]
-dv = dvs[0]
+dv = dvs[1]
 y_labels = ["Proportional Dwell Time on Virtual Agent", "Shifts of Visual Attention Towards Virtual Agent"]
-y_label = y_labels[0]
+y_label = y_labels[1]
 
 red = '#E2001A'
 green = '#B1C800'
@@ -320,10 +320,6 @@ if wave == 1:
     estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
 
 # Test-Phase
-meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
 df_test = df_gaze.loc[df_gaze["Phase"].str.contains("Test") & ~(df_gaze["Phase"].str.contains("Clicked"))]
 df_test = df_test.loc[df_test['ROI'] != "other"].reset_index(drop=True)
 df_test = df_test.groupby(["VP", "Condition"])[dv].sum().reset_index()
@@ -351,32 +347,39 @@ for idx_condition, condition in enumerate(conditions):
         ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
     # Plot boxplots
+    meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+    medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+    fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
     whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
     capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
     boxprops = dict(color=colors[idx_condition])
 
-    fwr_correction = False
-    alpha = (1 - (0.05 / 2)) if fwr_correction else (1 - (0.05))
+    fwr_correction = True
+    alpha = (1 - (0.05))
     bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, dv].values,
-                                       numb_iterations=5000,
-                                       alpha=alpha,
-                                       as_dict=True,
-                                       func='mean')
+                                             numb_iterations=5000,
+                                             alpha=alpha,
+                                             as_dict=True,
+                                             func='mean')
 
     ax.boxplot([df_cond.loc[:, dv].values],
-               notch=True,  # bootstrap=5000,
-                medianprops=medianlineprops,
-                meanline=True,
-                showmeans=True,
-                meanprops=meanlineprops,
-                showfliers=False, flierprops=fliermarkerprops,
-                whiskerprops=whiskerprops,
-                capprops=capprops,
-                boxprops=boxprops,
-                conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                whis=[2.5, 97.5],
-                positions=[pos[idx_condition]],
-                widths=0.8 * boxWidth)
+               whiskerprops=whiskerprops,
+               capprops=capprops,
+               boxprops=boxprops,
+               medianprops=medianlineprops,
+               showfliers=False, flierprops=fliermarkerprops,
+               # meanline=True,
+               # showmeans=True,
+               # meanprops=meanprops,
+               # notch=True,  # bootstrap=5000,
+               # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+               whis=[2.5, 97.5],
+               positions=[pos[idx_condition]],
+               widths=0.8 * boxWidth)
+
+    ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
 df_crit = df_test.copy()
 df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()

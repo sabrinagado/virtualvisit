@@ -10,65 +10,10 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import seaborn as sns
 import random
+from Code.toolbox import utils
 
 
-def percentiles(lst_vals, alpha, func='mean'):
-    lower = np.percentile(np.array(lst_vals), ((1.0 - alpha) / 2.0) * 100, axis=0)
-    upper = np.percentile(lst_vals, (alpha + ((1.0 - alpha) / 2.0)) * 100, axis=0)
-    if func == 'mean':
-        mean = np.mean(lst_vals, axis=0)
-    elif func == 'median':
-        mean = np.median(lst_vals, axis=0)
-    return lower, mean, upper
-
-
-def bootstrapping(input_sample,
-                  sample_size=None,
-                  numb_iterations=1000,
-                  alpha=0.95,
-                  plot_hist=False,
-                  as_dict=True,
-                  func='mean'):  # mean, median
-
-    if sample_size == None:
-        sample_size = len(input_sample)
-
-    lst_means = []
-
-    # ---------- Bootstrapping ------------------------------------------------
-
-    print('\nBootstrapping with {} iterations and alpha: {}'.format(numb_iterations, alpha))
-    for i in range(numb_iterations):
-        try:
-            re_sampled = random.choices(input_sample.values, k=sample_size)
-        except:
-            re_sampled = random.choices(input_sample, k=sample_size)
-
-        if func == 'mean':
-            lst_means.append(np.nanmean(np.array(re_sampled), axis=0))
-        elif func == 'median':
-            lst_means.append(np.median(np.array(re_sampled), axis=0))
-        # lst_means.append(np.median(np.array(re_sampled), axis=0))
-
-    # ---------- Konfidenzintervall -------------------------------------------
-
-    lower, mean, upper = percentiles(lst_means, alpha)
-
-    dict_return = {'lower': lower, 'mean': mean, 'upper': upper}
-
-    # ---------- Visulisierung ------------------------------------------------
-
-    if plot_hist:
-        plt.hist(lst_means)
-
-    # ---------- RETURN -------------------------------------------------------
-
-    if as_dict:
-        return dict_return
-    else:
-        return mean, np.array([np.abs(lower - mean), (upper - mean)])
-
-wave = 2
+wave = 1
 dir_path = os.getcwd()
 file_path = os.path.join(dir_path, f'Data-Wave{wave}')
 
@@ -79,7 +24,7 @@ if not os.path.exists(save_path):
 
 # ToDo: Adapt problematic subject list
 if wave == 1:
-    problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
+    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
 elif wave == 2:
     problematic_subjects = [1, 2, 3, 4, 13, 19, 20]
 
@@ -149,35 +94,38 @@ for idx_scale, scale in enumerate(scales):
 
             # Plot boxplots
             meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-            medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-            fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_subscale])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_subscale])
             whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_subscale])
             capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_subscale])
             boxprops = dict(color=colors[idx_subscale])
 
             fwr_correction = True
             alpha = (1 - (0.05))
-            bootstrapping_dict = bootstrapping(df_scale.loc[:, subscale].values,
-                                               numb_iterations=5000,
-                                               alpha=alpha,
-                                               as_dict=True,
-                                               func='mean')
+            bootstrapping_dict = utils.bootstrapping(df_scale.loc[:, subscale].values,
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
 
             axes[idx_subscale].boxplot([df_scale.loc[:, subscale].values],
-                       notch=True,  # bootstrap=5000,
-                       medianprops=medianlineprops,
-                       meanline=True,
-                       showmeans=True,
-                       meanprops=meanlineprops,
-                       showfliers=False, flierprops=fliermarkerprops,
                        whiskerprops=whiskerprops,
                        capprops=capprops,
                        boxprops=boxprops,
-                       conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                       medianprops=medianlineprops,
+                       showfliers=False, flierprops=fliermarkerprops,
+                       # meanline=True,
+                       # showmeans=True,
+                       # meanprops=meanprops,
+                       # notch=True,  # bootstrap=5000,
+                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                        whis=[2.5, 97.5],
                        positions=[pos[0]],
                        widths=0.8 * boxWidth)
+
+            axes[idx_subscale].errorbar(x=pos[0], y=bootstrapping_dict['mean'],
+                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             axes[idx_subscale].set_xticklabels([subscale])
             axes[idx_subscale].set_ylim(min, max)
@@ -211,35 +159,38 @@ for idx_scale, scale in enumerate(scales):
 
             # Plot boxplots
             meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-            medianlineprops = dict(linestyle='dashed', linewidth=1, color='grey')
-            fliermarkerprops = dict(marker='o', markersize=1, color='lightgrey')
-
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_subscale])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_subscale])
             whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_subscale])
             capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_subscale])
             boxprops = dict(color=colors[idx_subscale])
 
             fwr_correction = True
             alpha = (1 - (0.05))
-            bootstrapping_dict = bootstrapping(df_scale.loc[:, subscale].values,
-                                               numb_iterations=5000,
-                                               alpha=alpha,
-                                               as_dict=True,
-                                               func='mean')
+            bootstrapping_dict = utils.bootstrapping(df_scale.loc[:, subscale].values,
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
 
             ax.boxplot([df_scale.loc[:, subscale].values],
-                                       notch=True,  # bootstrap=5000,
-                                       medianprops=medianlineprops,
-                                       meanline=True,
-                                       showmeans=True,
-                                       meanprops=meanlineprops,
-                                       showfliers=False, flierprops=fliermarkerprops,
-                                       whiskerprops=whiskerprops,
-                                       capprops=capprops,
-                                       boxprops=boxprops,
-                                       conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                                       whis=[2.5, 97.5],
-                                       positions=[pos[0]],
-                                       widths=0.8 * boxWidth)
+                       whiskerprops=whiskerprops,
+                       capprops=capprops,
+                       boxprops=boxprops,
+                       medianprops=medianlineprops,
+                       showfliers=False, flierprops=fliermarkerprops,
+                       # meanline=True,
+                       # showmeans=True,
+                       # meanprops=meanprops,
+                       # notch=True,  # bootstrap=5000,
+                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                       whis=[2.5, 97.5],
+                       positions=[pos[0]],
+                       widths=0.8 * boxWidth)
+
+            ax.errorbar(x=pos[0], y=bootstrapping_dict['mean'],
+                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             ax.set_xticklabels([subscale])
             ax.set_ylim(min, max)
