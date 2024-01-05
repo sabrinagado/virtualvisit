@@ -12,38 +12,11 @@ import seaborn as sns
 import random
 from Code.toolbox import utils
 
-
-wave = 1
-dir_path = os.getcwd()
-file_path = os.path.join(dir_path, f'Data-Wave{wave}')
-
-save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Scores')
-if not os.path.exists(save_path):
-    print('creating path for saving')
-    os.makedirs(save_path)
-
-# ToDo: Adapt problematic subject list
-if wave == 1:
-    problematic_subjects = [1, 3, 12, 15, 19, 20, 23, 24, 31, 33, 41, 45, 46, 47]
-elif wave == 2:
-    problematic_subjects = [1, 2, 3, 4, 13, 19, 20]
+from Code import preproc_scores, preproc_ratings
 
 
-df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')
-df = df.loc[~(df["ID"].isin(problematic_subjects))]
-print(f"N = {len(df)}")
-print(f"Mean Age = {df['age'].mean()}, SD = {df['age'].std()}, Range = {df['age'].min()}-{df['age'].max()}")
-print(df['gender'].value_counts(normalize=True))
-
-df = pd.read_csv(os.path.join(file_path, 'scores_summary.csv'), decimal=',', sep=';')
-cutoff_ssq = df["SSQ-diff"].mean() + df["SSQ-diff"].std()  # .quantile(0.75)
-
-scales = ["SSQ-post", "SSQ-diff", "IPQ", "MPS", "ASI", "SPAI", "SIAS", "AQ", "ISK"]
-colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
-
-for idx_scale, scale in enumerate(scales):
-    # idx_scale = 5
-    # scale = scales[idx_scale]
+def plot_scale(df, scale, colors, problematic_subjects):
+    cutoff_ssq = df["SSQ-diff"].mean() + df["SSQ-diff"].std()  # .quantile(0.75)
     df_scale = df.filter(like=scale).dropna()
     cutoff = None
     if scale == "SPAI":
@@ -61,6 +34,9 @@ for idx_scale, scale in enumerate(scales):
         max = 4 * 18
     elif scale == "SIAS":
         cutoff = 30
+        min = np.min(df_scale.min())
+        max = np.max(df_scale.max())
+    elif "SSQ" in scale:
         min = np.min(df_scale.min())
         max = np.max(df_scale.max())
     elif scale == "AQ":
@@ -135,10 +111,6 @@ for idx_scale, scale in enumerate(scales):
             elif subscale == "AQ-K":
                 axes[idx_subscale].axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
 
-        fig.suptitle(scale)
-        plt.tight_layout()
-        plt.savefig(os.path.join(save_path, f"{scale}_vr.png"), dpi=300)
-        plt.close()
     elif n_subscales == 1:
         fig, ax = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 6))
         boxWidth = 1
@@ -197,44 +169,62 @@ for idx_scale, scale in enumerate(scales):
             ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
             if cutoff:
                 ax.axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
+    fig.suptitle(scale)
+    plt.tight_layout()
 
-        fig.suptitle(scale)
-        plt.tight_layout()
-        plt.savefig(os.path.join(save_path, f"{scale}_vr.png"), dpi=300)
-        plt.close()
 
-    df_plot = df.copy()
+def plot_sad(df):
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 1.6))
+    sns.histplot(df["SPAI"], color="#1B4C87", ax=ax, binwidth=0.2, binrange=(0, 5),
+                 kde=True, line_kws={"linewidth": 1, "color": "#173d6a"}, edgecolor='#f8f8f8',)
+    ax.set_xlabel("SPAI (Social Anxiety)")
+    ax.set_xlim([0, 5])
+    # ax.set_ylim([0, 11])
+    ax.set_yticks(range(0, 5, 2))
+    ax.axvline(x=df["SPAI"].median(), color="#FFC300")
+    ax.axvline(x=2.79, color="#FF5733")
+    ax.legend(
+            [Line2D([0], [0], color='#FFC300'), Line2D([0], [0], color='#FF5733')],
+            ['Median', 'Remission Cut-Off'], fontsize='xx-small', loc="best", frameon=False)
+    ax.set_facecolor('#f8f8f8')
+    plt.tight_layout()
 
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 1.6))
-colors = ['#FF5733', '#FFC300', '#183DB2']
-df_plot = df_plot.loc[~(df_plot["ID"].isin(problematic_subjects))]
-sns.histplot(df_plot["SPAI"], color="#1B4C87", ax=ax, binwidth=0.2, binrange=(0, 5),
-             kde=True, line_kws={"linewidth": 1, "color": "#173d6a"}, edgecolor='#f8f8f8',)
-ax.set_xlabel("SPAI (Social Anxiety)")
-ax.set_xlim([0, 5])
-# ax.set_ylim([0, 11])
-ax.set_yticks(range(0, 5, 2))
-ax.axvline(x=df_plot["SPAI"].median(), color="#FFC300")
-ax.axvline(x=2.79, color="#FF5733")
-ax.legend(
-        [Line2D([0], [0], color='#FFC300'), Line2D([0], [0], color='#FF5733')],
-        ['Median', 'Remission Cut-Off'], fontsize='xx-small', loc="best", frameon=False)
-ax.set_facecolor('#f8f8f8')
-plt.tight_layout()
-plt.savefig(os.path.join(save_path, f"Distribution_SPAI.png"), dpi=300)
-plt.close()
 
-"""
-from rpy2.situation import (get_r_home)
-os.environ["R_HOME"] = get_r_home()
-# Execute one block after another
-%load_ext rpy2.ipython
+if __name__ == '__main__':
+    wave = 1
+    dir_path = os.getcwd()
+    filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
-df_corr = df[['ASI3', 'SPAI', 'SIAS', 'AQ-K', 'VAS_start_anxiety', 'SSQ-diff', 'IPQ', 'MPS-SocP']]
+    save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Scores')
+    if not os.path.exists(save_path):
+        print('creating path for saving')
+        os.makedirs(save_path)
 
-%%R -i df_corr
-library(apaTables)
-library(tidyverse)
-library(readr)
-apa.cor.table(df_corr, filename = "test.doc", show.sig.stars=TRUE)
-"""
+    if wave == 1:
+        problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
+    elif wave == 2:
+        problematic_subjects = [1, 2, 3, 4, 20, 29, 64]
+
+    file_name = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "raw" in item)][0]
+    df_scores_raw = pd.read_excel(os.path.join(filepath, file_name))
+    df_scores_raw = df_scores_raw.loc[df_scores_raw["FINISHED"] == 1]
+    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, problematic_subjects)
+
+    start = 1
+    vp_folder = [int(item.split("_")[1]) for item in os.listdir(filepath) if ("VP" in item)]
+    end = np.max(vp_folder)
+    vps = np.arange(start, end + 1)
+    vps = [vp for vp in vps if not vp in problematic_subjects]
+
+    df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
+
+    scales = ["SSQ-post", "SSQ-diff", "IPQ", "MPS", "ASI", "SPAI", "SIAS", "AQ", "ISK"]
+    colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
+
+    plot_scale(df_scores, "SSQ-diff", colors, problematic_subjects)
+    plt.savefig(os.path.join(save_path, f"SSQ-diff.png"), dpi=300)
+    plt.close()
+
+    plot_sad(df_scores)
+    plt.savefig(os.path.join(save_path, f"sad_distribution.png"), dpi=300)
+    plt.close()
