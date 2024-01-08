@@ -469,6 +469,7 @@ def plot_time_diff_rooms_agents_sad(df, SA_score="SPAI"):
 
 # Time spent in the different rooms
 def plot_time_rooms_agents_dynamic(df, SA_score="SPAI"):
+    # df = df_events
     df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("With")]
     df_test = df_test.dropna(subset="duration")
     df_test = df_test.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
@@ -479,7 +480,9 @@ def plot_time_rooms_agents_dynamic(df, SA_score="SPAI"):
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-    colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
+    red = '#E2001A'
+    green = '#B1C800'
+    colors = [green, red]
 
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
@@ -565,6 +568,107 @@ def plot_time_rooms_agents_dynamic(df, SA_score="SPAI"):
     plt.tight_layout()
 
 
+def plot_time_test_look_agents_dynamic(df, SA_score="SPAI"):
+    # df = df_events
+    df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+    df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+    df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+    df_test = df_test.dropna(subset="duration")
+    df_test = df_test.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
+    df_test = df_test.drop(columns=SA_score)
+    df_test = df_test.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+    df_test = df_test.sort_values(by=SA_score)
+
+    conditions = ["friendly", "unfriendly"]
+    titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    red = '#E2001A'
+    green = '#B1C800'
+    colors = [green, red]
+
+    boxWidth = 1 / (len(conditions) + 1)
+    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
+        df_cond = df_cond.dropna(subset="duration")
+
+        # Plot raw data points
+        for i in range(len(df_cond)):
+            # i = 0
+            x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
+            y = df_cond.reset_index().loc[i, "duration"].item()
+            y_jittered = random.uniform(y - 0.1, y + 0.1)
+            ax.plot(x, y_jittered, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+
+        # Plot boxplots
+        meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+        fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
+        whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+        capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+        boxprops = dict(color=colors[idx_condition])
+
+        fwr_correction = True
+        alpha = (1 - (0.05))
+        bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "duration"].values,
+                                                 numb_iterations=5000,
+                                                 alpha=alpha,
+                                                 as_dict=True,
+                                                 func='mean')
+
+        ax.boxplot([df_cond.loc[:, "duration"].values],
+                   whiskerprops=whiskerprops,
+                   capprops=capprops,
+                   boxprops=boxprops,
+                   medianprops=medianlineprops,
+                   showfliers=False, flierprops=fliermarkerprops,
+                   # meanline=True,
+                   # showmeans=True,
+                   # meanprops=meanprops,
+                   # notch=True,  # bootstrap=5000,
+                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                   whis=[2.5, 97.5],
+                   positions=[pos[idx_condition]],
+                   widths=0.8 * boxWidth)
+
+        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+
+    df_crit = df_test.copy()
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+    formula = f"duration ~ Condition + {SA_score} + " \
+              f"Condition:{SA_score} + (1 | VP)"
+
+    max = df_test["duration"].max()
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    print(f"ANOVA: Look at Agents (Condition and {SA_score})")
+    print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
+    print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
+    print(f"Interaction Condition x {SA_score}, F({round(anova.loc[f'Condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:{SA_score}', 'p_eta_2'].item(), 2)}")
+    # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+    p = anova.loc["Condition", "P-val"].item()
+    if p < 0.05:
+        ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+        ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        ax.vlines(x=pos[1], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+        ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
+
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    plt.tight_layout()
+
+
 # Time spent in the different rooms: Correlation with SPAI
 def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
     df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("With")]
@@ -577,7 +681,70 @@ def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
-    colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
+    red = '#E2001A'
+    green = '#B1C800'
+    colors = [green, red]
+
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        df_cond = df_test.loc[df_test['Condition'] == condition].reset_index(drop=True)
+
+        x = df_cond[SA_score].to_numpy()
+        y = df_cond["duration"].to_numpy()
+        linreg = linregress(x, y)
+        all_x = df_test[SA_score].to_numpy()
+        all_y = df_cond["duration"].to_numpy()
+        all_y_est = linreg.slope * all_x + linreg.intercept
+        all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+            1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+        # Plot regression line
+        ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
+        ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
+
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
+        else:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
+
+        # Plot raw data points
+        ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
+
+    ax.set_xlabel(SA_score)
+    if "SPAI" in SA_score:
+        ax.set_xticks(range(0, 6))
+    elif "SIAS" in SA_score:
+        ax.set_xticks(range(5, 65, 5))
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
+    ax.legend()
+    plt.tight_layout()
+
+
+def plot_time_test_look_agents_dynamic_sad(df, SA_score="SPAI"):
+    # df = df_events
+    df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+    df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+    df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+    df_test = df_test.dropna(subset="duration")
+    df_test = df_test.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
+    df_test = df_test.drop(columns=SA_score)
+    df_test = df_test.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+    df_test = df_test.sort_values(by=SA_score)
+
+    conditions = ["friendly", "unfriendly"]
+    titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    red = '#E2001A'
+    green = '#B1C800'
+    colors = [green, red]
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
@@ -623,8 +790,13 @@ def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
 
 
 # Difference duration
-def plot_diff_duration(df, SA_score="SPAI"):
-    df_test = df.loc[df["event"].str.contains("Test")]
+def plot_diff_duration(df, wave, SA_score="SPAI"):
+    if wave == 1:
+        df_test = df.loc[df["event"].str.contains("Test")]
+    elif wave == 2:
+        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
     df_test = df_test.dropna(subset="duration")
     df_spai = df_test[["VP", SA_score]].drop_duplicates(subset="VP")
     df_test = df_test.loc[df_test["Condition"].isin(["friendly", "unfriendly"])]
@@ -678,17 +850,26 @@ def plot_diff_duration(df, SA_score="SPAI"):
     df_diff = df_diff.sort_values(by="VP").reset_index(drop=True)
     return df_diff
 
+
 # % ===========================================================================
 # Interpersonal Distance
 # =============================================================================
-def plot_interpersonal_distance(df, dist="avg", SA_score="SPAI"):
+def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI"):
+    # dist = "avg"
+    # df = df_distance
     if dist == "avg":
         title = "Average"
     elif dist == "min":
         title = "Minimum"
 
     conditions = ["friendly", "unfriendly"]
-    df_test = df.loc[df["phase"].str.contains("Test")]
+    if wave == 1:
+        df_test = df.loc[df["phase"].str.contains("Test")]
+    elif wave == 2:
+        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+
     df_test = df_test.loc[df_test["Condition"].isin(conditions)]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     if dist == "avg":
@@ -789,10 +970,14 @@ def plot_interpersonal_distance(df, dist="avg", SA_score="SPAI"):
 
 
 # Interpersonal Distance: Correlation with SPAI
-def plot_interpersonal_distance_sad(df, dist="avg", SA_score="SPAI"):
+def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI"):
     conditions = ["friendly", "unfriendly"]
-    df_test = df.loc[df["phase"].str.contains("Test")]
-    df_test = df_test.loc[df_test["Condition"].isin(conditions)]
+    if wave == 1:
+        df_test = df.loc[df["phase"].str.contains("Test")]
+    elif wave == 2:
+        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
 
     if dist == "avg":
         df_grouped = df_test.groupby(["VP", "Condition"]).mean(numeric_only=True).reset_index()
@@ -1091,9 +1276,15 @@ def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
 
 
 # Difference distance
-def plot_diff_distance(df, SA_score="SPAI"):
+def plot_diff_distance(df, wave, SA_score="SPAI"):
     # df = df_distance
-    df_test = df.loc[df["phase"].str.contains("Test")]
+    if wave == 1:
+        df_test = df.loc[df["phase"].str.contains("Test")]
+    elif wave == 2:
+        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+        df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+
     df_test = df_test.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
     df_test = df_test.dropna(subset="distance")
     df_spai = df_test[["VP", SA_score]].drop_duplicates(subset="VP")
@@ -1107,7 +1298,6 @@ def plot_diff_distance(df, SA_score="SPAI"):
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     df_diff = df_diff.sort_values(by=SA_score)
-    colors = ['teal']
     x = df_diff[SA_score].to_numpy()
     y = df_diff["difference"].to_numpy()
     linreg = linregress(x, y)
@@ -1120,7 +1310,7 @@ def plot_diff_distance(df, SA_score="SPAI"):
     ax.fill_between(x, y_est + y_err, y_est - y_err, alpha=0.2, color="lightgrey")
 
     # Plot raw data points
-    c = np.where(y < 0, 'teal', 'gold')
+    c = np.where(y < 0, 'gold', 'teal')
     ax.scatter(x, y, s=30, c=c, alpha=0.6)
 
     p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
@@ -1706,7 +1896,7 @@ def plot_walking_distance(df, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

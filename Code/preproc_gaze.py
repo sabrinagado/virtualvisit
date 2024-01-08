@@ -79,7 +79,7 @@ def get_gaze(vps, filepath, wave, df_scores):
 
         # Iterate through interaction phases
         for idx_row, row in df_events_vp.iterrows():
-            # idx_row = 1
+            # idx_row = 13
             # row = df_events_vp.iloc[idx_row]
             phase = row['event']
             # print(f"Phase: {phase}")
@@ -122,7 +122,7 @@ def get_gaze(vps, filepath, wave, df_scores):
             # Save gaze data for interactions and test-phase
             if "Test" in phase or "Interaction" in phase:
                 for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
-                    # character = "Ettore"
+                    # character = "Emanuel"
                     for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
                         # roi = "head"
                         # searchstring = "Head"
@@ -147,7 +147,7 @@ def get_gaze(vps, filepath, wave, df_scores):
                         df_gazes_vp = pd.concat([df_gazes_vp, df_gaze_temp])
 
                 # Save continuous data for interactions and clicks
-                if "Clicked" in phase or "Interaction" in phase:
+                if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
                     start = df_gaze_subset.loc[0, "timestamp"]
                     df_gaze_subset["time"] = pd.to_timedelta(df_gaze_subset["timestamp"] - start)
 
@@ -174,19 +174,14 @@ def get_gaze(vps, filepath, wave, df_scores):
             character = row["Character"]
             role = row["Role"]
             room = row["Rooms"]
-            if wave == 1:
-                df_gazes_vp.loc[df_gazes_vp["Person"].str.contains(character), "Condition"] = role
-                df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(character), "Condition"] = role
-                df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(room), "Condition"] = role
-                df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(role.capitalize()), "Condition"] = role
-            elif wave == 2:
-                df_gazes_vp.loc[df_gazes_vp["Person"].str.contains(character), "Condition"] = role
-                df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(character), "Condition"] = role
-                df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(character), "Condition"] = role
-                df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(role.capitalize()), "Condition"] = role
 
             df_gazes_vp["Phase"] = df_gazes_vp["Phase"].str.replace(character, role.capitalize())
             df_pupil_vp["Phase"] = df_pupil_vp["Phase"].str.replace(character, role.capitalize())
+            if wave == 1:
+                df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(room), "Condition"] = role
+            df_gazes_vp.loc[df_gazes_vp["Person"].str.contains(character), "Condition"] = role
+            df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(role.capitalize()), "Condition"] = role
+            df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(character), "Condition"] = role
             df_pupil_interaction_vp["event"] = df_pupil_interaction_vp["event"].str.replace(character, role.capitalize())
 
         df_gazes = pd.concat([df_gazes, df_gazes_vp])
@@ -220,7 +215,7 @@ def get_gaze(vps, filepath, wave, df_scores):
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

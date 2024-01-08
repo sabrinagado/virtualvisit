@@ -182,14 +182,14 @@ def drop_consecutive_duplicates(df, subset, keep="first", times="timestamp", tol
 
 
 def get_hr(vps, filepath, wave, df_scores):
-    df_hr = pd.DataFrame()
-    df_hr_interaction = pd.DataFrame()
+    failed_phases = []
     for vp in tqdm(vps):
         # vp = vps[0]
         vp = f"0{vp}" if vp < 10 else f"{vp}"
         # print(f"VP: {vp}")
 
-        df_hr_vp = pd.DataFrame()
+        df_hr_vp = pd.DataFrame(columns=['VP', 'Phase', 'event_id', 'HR (Mean)', 'HR (Std)', 'HRV (MeanNN)', 'HRV (RMSSD)',
+                                         'HRV (LF)', 'HRV (HF)', 'HRV (HF_nu)', 'Proportion Usable Data', 'Duration'])
         df_hr_interaction_vp = pd.DataFrame()
 
         # Get ECG data
@@ -255,66 +255,116 @@ def get_hr(vps, filepath, wave, df_scores):
 
         # Iterate through experimental phases and check ECG data
         for idx_row, row in df_events_vp.iterrows():
-            # idx_row = 21
+            # idx_row = 11
             # row = df_events_vp.iloc[idx_row]
             phase = row['name']
             # print(f"Phase: {phase}")
-
-            # Get start and end point of phase
-            start_phase = row['timestamp']
-            end_phase = row['timestamp'] + pd.to_timedelta(row['duration'], unit="S")
-
-            # Cut ECG dataset
-            df_ecg_subset = df_ecg.loc[(df_ecg["timestamp"] >= start_phase) & (df_ecg["timestamp"] < end_phase + timedelta(seconds=1))]
-            df_ecg_subset["name"] = phase
-            # df_ecg_subset = df_ecg_subset.loc[df_ecg_subset['name'] == phase].reset_index(drop=True)
-
-            # Create MNE events file
-            mne_events = pd.DataFrame()
-            mne_events['Samples'] = list(df_ecg_subset.dropna(subset="event").index)
-            mne_events['MNE'] = [0] * len(df_ecg_subset.dropna(subset="event"))
-            mne_events['Condition'] = df_ecg_subset.dropna(subset="event")['event'].to_list()
-            mne_events = mne_events.iloc[:1]
-
-            # Create MNE info file and MNE raw file
-            info = mne.create_info(ch_names=["ECG"], sfreq=sampling_rate, ch_types=['ecg'])
-            # raw = mne.io.RawArray(np.reshape(np.array(df_ecg[["ecg [mV]", "event"]]), (2, len(df_ecg))), info)
-            data = np.reshape(df_ecg_subset["ecg [mV]"].to_numpy(), (1, len(df_ecg_subset["ecg [mV]"])))
-            raw = mne.io.RawArray(data, info, verbose=False)
-
-            # 2 Hz high-pass filter in order to remove slow signal drifts
-            raw.filter(picks=['ECG'], l_freq=5, h_freq=None, verbose=False)
-            # raw.plot(duration=20, scalings='auto', block=True)
-
-            # Get annotations from events and add duration
             try:
-                annot_from_events = mne.annotations_from_events(events=mne_events.to_numpy(), event_desc=event_dict_rev,
-                                                                sfreq=raw.info['sfreq'], orig_time=raw.info['meas_date'], verbose=False)
-                annot_events = raw.annotations
-                duration = df_events_vp.loc[idx_row, "duration"]
-                annot_events.append(onset=annot_from_events[0]['onset'], duration=duration, description=annot_from_events[0]['description'])
-                raw.set_annotations(annot_events, emit_warning=False, verbose=False)
+                # Get start and end point of phase
+                start_phase = row['timestamp']
+                end_phase = row['timestamp'] + pd.to_timedelta(row['duration'], unit="S")
 
-                # Add duration to MNE events file
-                mne_events['Durations'] = annot_events.duration
-                duration_pre = annot_events.duration[0]
-                mne_events['Condition'] = mne_events['Condition'].astype(int)
-            except Exception as e:
-                print(e)
-                continue
+                # Cut ECG dataset
+                df_ecg_subset = df_ecg.loc[(df_ecg["timestamp"] >= start_phase) & (df_ecg["timestamp"] < end_phase + timedelta(seconds=1))]
+                df_ecg_subset["name"] = phase
+                # df_ecg_subset = df_ecg_subset.loc[df_ecg_subset['name'] == phase].reset_index(drop=True)
 
-            duration_pre = raw.times.max()
+                # Create MNE events file
+                mne_events = pd.DataFrame()
+                mne_events['Samples'] = list(df_ecg_subset.dropna(subset="event").index)
+                mne_events['MNE'] = [0] * len(df_ecg_subset.dropna(subset="event"))
+                mne_events['Condition'] = df_ecg_subset.dropna(subset="event")['event'].to_list()
+                mne_events = mne_events.iloc[:1]
 
-            # Use customized neurokit function to analyze ECG
-            try:
-                signals, peak_detection, mne_events = ecg_custom_process(raw, mne_events, event_dict_rev, vp=vp, phase=phase, sampling_rate=raw.info['sfreq'],
-                                                                         method_clean="neurokit", manual_correction=True)
-            except Exception as e:
-                print("Interrupted!")
-                print(e)
-                signals = []
+                # Create MNE info file and MNE raw file
+                info = mne.create_info(ch_names=["ECG"], sfreq=sampling_rate, ch_types=['ecg'])
+                # raw = mne.io.RawArray(np.reshape(np.array(df_ecg[["ecg [mV]", "event"]]), (2, len(df_ecg))), info)
+                data = np.reshape(df_ecg_subset["ecg [mV]"].to_numpy(), (1, len(df_ecg_subset["ecg [mV]"])))
+                raw = mne.io.RawArray(data, info, verbose=False)
 
-            if len(signals) == 0:
+                # 2 Hz high-pass filter in order to remove slow signal drifts
+                raw.filter(picks=['ECG'], l_freq=5, h_freq=None, verbose=False)
+                # raw.plot(duration=20, scalings='auto', block=True)
+
+                # Get annotations from events and add duration
+                try:
+                    annot_from_events = mne.annotations_from_events(events=mne_events.to_numpy(), event_desc=event_dict_rev,
+                                                                    sfreq=raw.info['sfreq'], orig_time=raw.info['meas_date'], verbose=False)
+                    annot_events = raw.annotations
+                    duration = df_events_vp.loc[idx_row, "duration"]
+                    annot_events.append(onset=annot_from_events[0]['onset'], duration=duration, description=annot_from_events[0]['description'])
+                    raw.set_annotations(annot_events, emit_warning=False, verbose=False)
+
+                    # Add duration to MNE events file
+                    mne_events['Durations'] = annot_events.duration
+                    mne_events['Condition'] = mne_events['Condition'].astype(int)
+                except Exception as e:
+                    print(e)
+
+                duration_pre = raw.times.max()
+
+                # Use customized neurokit function to analyze ECG
+                try:
+                    signals, peak_detection, mne_events = ecg_custom_process(raw, mne_events, event_dict_rev, vp=vp, phase=phase, sampling_rate=raw.info['sfreq'],
+                                                                             method_clean="neurokit", manual_correction=True)
+                except Exception as e:
+                    print(e)
+                    signals = []
+
+                # duration
+                duration_post = len(signals["ECG_Clean"]) / sampling_rate
+
+                if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
+                    df_ecg_subset_save = signals.copy()
+                    df_ecg_subset_save["timestamp"] = df_ecg_subset["timestamp"].reset_index(drop=True)
+
+                    start_ecg = df_ecg_subset_save.loc[0, "ECG_Rate"]
+                    df_ecg_subset_save["ECG"] = df_ecg_subset_save["ECG_Rate"] - start_ecg
+
+                    start = df_ecg_subset_save.loc[0, "timestamp"]
+                    df_ecg_subset_save["time"] = pd.to_timedelta(df_ecg_subset_save["timestamp"] - start)
+                    df_ecg_subset_save = df_ecg_subset_save.set_index("time")
+                    df_ecg_subset_save = df_ecg_subset_save.resample("0.1S").mean(numeric_only=True)
+                    df_ecg_subset_save = df_ecg_subset_save.reset_index()
+                    df_ecg_subset_save["time"] = df_ecg_subset_save["time"].dt.total_seconds()
+                    df_ecg_subset_save["VP"] = int(vp)
+                    df_ecg_subset_save["event"] = phase
+                    df_ecg_subset_save = df_ecg_subset_save[["VP", "event", "time", "ECG"]]
+                    df_hr_interaction_vp = pd.concat([df_hr_interaction_vp, df_ecg_subset_save])
+
+                # HRV
+                if duration_post >= 30:
+                    # Cut signal to 30 seconds (to make phases comparable)
+                    signals = signals[0:sampling_rate * 30]
+                    # hrv = nk.hrv(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
+                    hrv_time = nk.hrv_time(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
+                    hrv_freq = nk.hrv_frequency(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate, psd_method='fft')
+                    # Normative units = 100 * (HF absolute power / (total absolute power − very low frequency absolute power (0–0.003 Hz))
+                    hrv_freq = hrv_freq.fillna(value=0)
+                    hrv_freq["HRV_HF_nu"] = 100 * (hrv_freq["HRV_HF"] / (hrv_freq["HRV_TP"] - hrv_freq["HRV_ULF"]))
+                else:
+                    hrv_time = pd.DataFrame([["", ""]], columns=['HRV_MeanNN', 'HRV_RMSSD'])
+                    hrv_freq = pd.DataFrame([["", "", ""]], columns=['HRV_LF', 'HRV_HF', 'HRV_HF_nu'])
+
+                # HR: Get Mean and Std
+                # Save as dataframe
+                df_hr_temp = pd.DataFrame({'VP': [int(vp)],
+                                           'Phase': [phase],
+                                           'event_id': [idx_row],
+                                           'HR (Mean)': [np.mean(signals['ECG_Rate'])],
+                                           'HR (Std)': [np.std(signals['ECG_Rate'])],
+                                           'HRV (MeanNN)': [hrv_time['HRV_MeanNN'][0]],
+                                           'HRV (RMSSD)': [hrv_time['HRV_RMSSD'][0]],
+                                           'HRV (LF)': [hrv_freq['HRV_LF'][0]],
+                                           'HRV (HF)': [hrv_freq['HRV_HF'][0]],
+                                           'HRV (HF_nu)': [hrv_freq["HRV_HF_nu"][0]],
+                                           'Proportion Usable Data': [round(np.max([duration_post / duration_pre, 1]), 2)],
+                                           'Duration': [duration_post]})
+                df_hr_vp = pd.concat([df_hr_vp, df_hr_temp])
+                plt.close()
+
+            except:
+                print(f"ERROR in VP {vp}, Phase {phase}, Event {idx_row}")
                 df_hr_temp = pd.DataFrame({'VP': [int(vp)],
                                            'Phase': [phase],
                                            'event_id': [idx_row],
@@ -328,60 +378,8 @@ def get_hr(vps, filepath, wave, df_scores):
                                            'Proportion Usable Data': [0],
                                            'Duration': [0]})
                 df_hr_vp = pd.concat([df_hr_vp, df_hr_temp])
+                failed_phases.append(f"VP {vp}, Phase {phase}, Event {idx_row}")
                 plt.close()
-                continue
-
-            if ("Interaction" in phase) or ("Click" in phase):
-                df_ecg_subset_save = signals.copy()
-                df_ecg_subset_save["timestamp"] = df_ecg_subset["timestamp"].reset_index(drop=True)
-
-                start_ecg = df_ecg_subset_save.loc[0, "ECG_Rate"]
-                df_ecg_subset_save["ECG"] = df_ecg_subset_save["ECG_Rate"] - start_ecg
-
-                start = df_ecg_subset_save.loc[0, "timestamp"]
-                df_ecg_subset_save["time"] = pd.to_timedelta(df_ecg_subset_save["timestamp"] - start)
-                df_ecg_subset_save = df_ecg_subset_save.set_index("time")
-                df_ecg_subset_save = df_ecg_subset_save.resample("0.1S").mean(numeric_only=True)
-                df_ecg_subset_save = df_ecg_subset_save.reset_index()
-                df_ecg_subset_save["time"] = df_ecg_subset_save["time"].dt.total_seconds()
-                df_ecg_subset_save["VP"] = int(vp)
-                df_ecg_subset_save["event"] = phase
-                df_ecg_subset_save = df_ecg_subset_save[["VP", "event", "time", "ECG"]]
-                df_hr_interaction_vp = pd.concat([df_hr_interaction_vp, df_ecg_subset_save])
-
-            # duration
-            duration_post = len(signals["ECG_Clean"]) / sampling_rate
-
-            # HRV
-            if duration_post >= 30:
-                # Cut signal to 30 seconds (to make phases comparable)
-                signals = signals[0:sampling_rate * 30]
-                # hrv = nk.hrv(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
-                hrv_time = nk.hrv_time(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate)
-                hrv_freq = nk.hrv_frequency(signals['ECG_R_Peaks'].to_numpy(), sampling_rate=sampling_rate, psd_method='fft')
-                # Normative units = 100 * (HF absolute power / (total absolute power − very low frequency absolute power (0–0.003 Hz))
-                hrv_freq = hrv_freq.fillna(value=0)
-                hrv_freq["HRV_HF_nu"] = 100 * (hrv_freq["HRV_HF"] / (hrv_freq["HRV_TP"] - hrv_freq["HRV_ULF"]))
-            else:
-                hrv_time = pd.DataFrame([["", ""]], columns=['HRV_MeanNN', 'HRV_RMSSD'])
-                hrv_freq = pd.DataFrame([["", "", ""]], columns=['HRV_LF', 'HRV_HF', 'HRV_HF_nu'])
-
-            # HR: Get Mean and Std
-            # Save as dataframe
-            df_hr_temp = pd.DataFrame({'VP': [int(vp)],
-                                       'Phase': [phase],
-                                       'event_id': [idx_row],
-                                       'HR (Mean)': [np.mean(signals['ECG_Rate'])],
-                                       'HR (Std)': [np.std(signals['ECG_Rate'])],
-                                       'HRV (MeanNN)': [hrv_time['HRV_MeanNN'][0]],
-                                       'HRV (RMSSD)': [hrv_time['HRV_RMSSD'][0]],
-                                       'HRV (LF)': [hrv_freq['HRV_LF'][0]],
-                                       'HRV (HF)': [hrv_freq['HRV_HF'][0]],
-                                       'HRV (HF_nu)': [hrv_freq["HRV_HF_nu"][0]],
-                                       'Proportion Usable Data': [round(np.max([duration_post / duration_pre, 1]), 2)],
-                                       'Duration': [duration_post]})
-            df_hr_vp = pd.concat([df_hr_vp, df_hr_temp])
-            plt.close()
 
         # Add Conditions
         for idx_row, row in df_roles.iterrows():
@@ -395,7 +393,8 @@ def get_hr(vps, filepath, wave, df_scores):
             if wave == 1:
                 df_hr_vp.loc[df_hr_vp["Phase"].str.contains(room), "Condition"] = role
             df_hr_vp.loc[df_hr_vp["Phase"].str.contains(role.capitalize()), "Condition"] = role
-            df_hr_interaction_vp["event"] = df_hr_interaction_vp["event"].str.replace(character, role.capitalize())
+            if len(df_hr_interaction_vp) > 0:
+                df_hr_interaction_vp["event"] = df_hr_interaction_vp["event"].str.replace(character, role.capitalize())
 
         # Add Participant Data
         df_hr_vp = df_hr_vp.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
@@ -404,6 +403,8 @@ def get_hr(vps, filepath, wave, df_scores):
                                        'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                        'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
         df_hr_vp = df_hr_vp.drop(columns=['ID'])
+        df_hr_vp.to_csv(os.path.join(filepath, 'hr.csv'), decimal='.', sep=';', index=False, mode='a',
+                        header=not (os.path.exists(os.path.join(filepath, 'hr.csv'))))
 
         df_hr_interaction_vp = df_hr_interaction_vp.merge(df_scores[['ID', 'gender', 'age', 'motivation', 'tiredness',
                                                                'SSQ-pre', 'SSQ-pre-N', 'SSQ-pre-O', 'SSQ-pre-D', 'SSQ-post', 'SSQ-post-N', 'SSQ-post-O', 'SSQ-post-D','SSQ-diff',
@@ -411,12 +412,9 @@ def get_hr(vps, filepath, wave, df_scores):
                                                                'ASI3', 'ASI3-PC', 'ASI3-CC', 'ASI3-SC', 'SPAI', 'SIAS', 'AQ-K', 'AQ-K_SI', 'AQ-K_KR', 'AQ-K_FV',
                                                                'ISK-K_SO', 'ISK-K_OF', 'ISK-K_SSt', 'ISK-K_RE']], left_on="VP", right_on="ID", how="left")
         df_hr_interaction_vp = df_hr_interaction_vp.drop(columns=['ID'])
-
-        df_hr = pd.concat([df_hr, df_hr_vp])
-        df_hr_interaction = pd.concat([df_hr_interaction, df_hr_interaction_vp])
-        df_hr.to_csv(os.path.join(filepath, 'hr.csv'), decimal='.', sep=';', index=False)
-        df_hr_interaction.to_csv(os.path.join(filepath, 'hr_interaction.csv'), decimal='.', sep=';', index=False)
-    return df_hr, df_hr_interaction
+        df_hr_interaction_vp.to_csv(os.path.join(filepath, 'hr_interaction.csv'), decimal='.', sep=';', index=False, mode='a',
+                                    header=not (os.path.exists(os.path.join(filepath, 'hr_interaction.csv'))))
+    return failed_phases
 
 
 if __name__ == '__main__':
@@ -424,7 +422,7 @@ if __name__ == '__main__':
     # dir_path = os.getcwd()
     # filepath = os.path.join(dir_path, f'Data-Wave{wave}')
     if wave == 1:
-        problematic_subjects = [1, 3, 12, 19, 33, 45, 46] + [7, 56, 61, 64]  # 7, 56, 61 and 64 have bad ECG signal quality
+        problematic_subjects = [1, 3, 12, 19, 33, 45, 46] + [7, 22, 56, 61, 64]  # 7, 22, 56, 61 and 64 have bad ECG signal quality
     elif wave == 2:
         problematic_subjects = [1, 2, 3, 4, 20, 29, 64] + [9, 11, 17, 29, 44, 47]
 
@@ -451,4 +449,4 @@ if __name__ == '__main__':
 
     vps = [vp for vp in vps if not vp in problematic_subjects + finished_subjects]
 
-    df_hr, df_hr_interaction = get_hr(vps, filepath, wave, df_scores)
+    get_hr(vps, filepath, wave, df_scores)

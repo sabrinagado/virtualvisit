@@ -317,15 +317,23 @@ def plot_gaze_click(df, dv="Gaze Proportion", SA_score="SPAI"):
 
 
 # Test-Phase
-def plot_gaze_test(df, dv="Gaze Proportion", SA_score="SPAI"):
+def plot_gaze_test(df, wave, dv="Gaze Proportion", SA_score="SPAI"):
     # df = df_gaze
     if dv == "Gaze Proportion":
         y_label = "Proportional Dwell Time on Virtual Agent"
     elif dv == "Switches":
         y_label = "Shifts of Visual Attention Towards Virtual Agent"
-    df_test = df.loc[df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+    if wave == 1:
+        df_test = df.loc[df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+    elif wave == 2:
+        df_test = df.loc[df["Phase"].str.contains("Test") & df["Phase"].str.contains("Vis") & ~df["Phase"].str.contains("Actor")]
+        df_test = df_test.loc[df_test.apply(lambda x: x["Condition"].capitalize() in x["Phase"], axis=1)]
     df_test = df_test.loc[df_test['ROI'] != "other"].reset_index(drop=True)
-    df_test = df_test.groupby(["VP", "Condition"])[dv].sum().reset_index()
+    if wave == 1:
+        df_test = df_test.groupby(["VP", "Condition"])[dv].sum().reset_index()
+    elif wave == 2:
+        df_test = df_test.groupby(["VP", "Condition", "ROI"])[dv].mean().reset_index()
+        df_test = df_test.groupby(["VP", "Condition"])[dv].sum().reset_index()
     df_test = df_test.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
 
     max = round(df_test[dv].max(), 2) * 1.1
@@ -567,7 +575,7 @@ def plot_diff_gaze(df, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

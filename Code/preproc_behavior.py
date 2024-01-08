@@ -368,6 +368,15 @@ def get_phases(vps, filepath, wave, df_scores):
         df_events_vp["VP"] = int(vp)
         df_events_vp = df_events_vp[["VP", "timestamp", "event", "Condition", "duration"]]
 
+        # Add Conditions
+        for idx_row, row in df_roles.iterrows():
+            # idx_row = 0
+            # row = df_roles.iloc[idx_row, :]
+            room = row["Rooms"]
+            role = row["Role"]
+            character = row["Character"]
+            df_events_vp["event"] = df_events_vp["event"].str.replace(character, role.capitalize())
+
         df_events = pd.concat([df_events, df_events_vp])
 
     # Add Subject Data
@@ -640,11 +649,20 @@ def get_distances(vps, filepath, wave, df_scores):
                     df_phase["distance_to_unfriendly"] = df_phase.apply(lambda x: math.dist(x[["x_player", "y_player"]].to_numpy().flatten(),
                                                                                             x[["x_unfriendly", "y_unfriendly"]].to_numpy().flatten()), axis=1)
                     for condition in ["friendly", "unfriendly"]:
+                        # condition = "friendly"
                         df_dist_vh_cond = df_phase.copy()
-                        df_dist_vh_cond["distance"] = df_dist_vh_cond[f"distance_to_{condition}"] / 100
+                        df_dist_vh_cond[f"distance"] = df_dist_vh_cond[f"distance_to_{condition}"] / 100
                         df_dist_vh_cond["Condition"] = condition
                         df_dist_vh_cond = df_dist_vh_cond[['VP', 'time', 'phase', 'event', 'Condition', 'distance']]
 
+                        # Add Conditions
+                        for idx_row, row in df_roles.iterrows():
+                            # idx_row = 0
+                            # row = df_roles.iloc[idx_row, :]
+                            room = row["Rooms"]
+                            role = row["Role"]
+                            character = row["Character"]
+                            df_dist_vh_cond["event"] = df_dist_vh_cond["event"].str.replace(character, role.capitalize())
                         df_dist_vh = pd.concat([df_dist_vh, df_dist_vh_cond])
 
     # Add participant scores
@@ -703,6 +721,7 @@ if __name__ == '__main__':
     df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
 
     vps = [vp for vp in vps if not vp in problematic_subjects]
+
     df_events = get_phases(vps, filepath, wave, df_scores)
     df_events = df_events.loc[~(df_events["VP"].isin(problematic_subjects))]
     df_events.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'events.csv'), decimal='.', sep=';', index=False)

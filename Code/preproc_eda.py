@@ -606,7 +606,7 @@ def get_eda(vps, filepath, wave, df_scores):
             df_scl_vp = pd.concat([df_scl_vp, df_eda_temp])
             plt.close()
 
-            if ("Interaction" in phase) or ("Click" in phase):
+            if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
                 df_eda_subset_save = signals.copy()
                 df_eda_subset_save["timestamp"] = df_eda_subset["timestamp"].reset_index(drop=True)
 
@@ -631,8 +631,11 @@ def get_eda(vps, filepath, wave, df_scores):
             room = row["Rooms"]
             role = row["Role"]
             character = row["Character"]
-            df_scl_vp.loc[df_scl_vp["Phase"].str.contains(room), "Condition"] = role
             df_scl_vp["Phase"] = df_scl_vp["Phase"].str.replace(character, role.capitalize())
+
+            if wave == 1:
+                df_scl_vp.loc[df_scl_vp["Phase"].str.contains(room), "Condition"] = role
+            df_scl_vp.loc[df_scl_vp["Phase"].str.contains(role.capitalize()), "Condition"] = role
             if len(df_scr_interaction_vp) > 0:
                 df_scr_interaction_vp["event"] = df_scr_interaction_vp["event"].str.replace(character, role.capitalize())
 
