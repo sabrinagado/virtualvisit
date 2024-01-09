@@ -475,7 +475,7 @@ def get_eda(vps, filepath, wave, df_scores):
         # print(f"VP: {vp}")
 
         df_scl_vp = pd.DataFrame()
-        df_scr_interaction_vp = pd.DataFrame()
+        df_scr_interaction_vp = pd.DataFrame(columns=["VP", "event", "time", "EDA"])
 
         # Get EDA data
         try:
@@ -607,6 +607,9 @@ def get_eda(vps, filepath, wave, df_scores):
             plt.close()
 
             if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
+                if (wave == 2) & ((duration_post < 5.9) | (df_scr_interaction_vp["event"].str.contains(phase).any())):
+                    continue
+
                 df_eda_subset_save = signals.copy()
                 df_eda_subset_save["timestamp"] = df_eda_subset["timestamp"].reset_index(drop=True)
 

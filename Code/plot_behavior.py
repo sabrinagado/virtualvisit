@@ -568,7 +568,7 @@ def plot_time_rooms_agents_dynamic(df, SA_score="SPAI"):
     plt.tight_layout()
 
 
-def plot_time_test_look_agents_dynamic(df, SA_score="SPAI"):
+def plot_time_test_look_agents_dynamic(df, SA_score="SPAI", only_visible=True):
     # df = df_events
     df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
     df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
@@ -854,7 +854,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 # % ===========================================================================
 # Interpersonal Distance
 # =============================================================================
-def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI"):
+def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI", only_visible=False):
     # dist = "avg"
     # df = df_distance
     if dist == "avg":
@@ -866,7 +866,9 @@ def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI"):
     if wave == 1:
         df_test = df.loc[df["phase"].str.contains("Test")]
     elif wave == 2:
-        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis")]
+        if only_visible:
+            df_test = df_test.loc[~df_test["event"].str.contains("Actor")]
         df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
         df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
 
@@ -970,12 +972,14 @@ def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI"):
 
 
 # Interpersonal Distance: Correlation with SPAI
-def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI"):
+def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_visible=False):
     conditions = ["friendly", "unfriendly"]
     if wave == 1:
         df_test = df.loc[df["phase"].str.contains("Test")]
     elif wave == 2:
-        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
+        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis")]
+        if only_visible:
+            df_test = df_test.loc[~df_test["event"].str.contains("Actor")]
         df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
         df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
 

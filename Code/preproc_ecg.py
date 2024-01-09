@@ -190,7 +190,7 @@ def get_hr(vps, filepath, wave, df_scores):
 
         df_hr_vp = pd.DataFrame(columns=['VP', 'Phase', 'event_id', 'HR (Mean)', 'HR (Std)', 'HRV (MeanNN)', 'HRV (RMSSD)',
                                          'HRV (LF)', 'HRV (HF)', 'HRV (HF_nu)', 'Proportion Usable Data', 'Duration'])
-        df_hr_interaction_vp = pd.DataFrame()
+        df_hr_interaction_vp = pd.DataFrame(columns=["VP", "event", "time", "ECG"])
 
         # Get ECG data
         try:
@@ -255,10 +255,14 @@ def get_hr(vps, filepath, wave, df_scores):
 
         # Iterate through experimental phases and check ECG data
         for idx_row, row in df_events_vp.iterrows():
-            # idx_row = 11
+            # idx_row = 20
             # row = df_events_vp.iloc[idx_row]
             phase = row['name']
             # print(f"Phase: {phase}")
+
+            # if not ("Visible" in phase) or ("Actor" in phase):
+            #     continue
+
             try:
                 # Get start and end point of phase
                 start_phase = row['timestamp']
@@ -315,6 +319,8 @@ def get_hr(vps, filepath, wave, df_scores):
                 duration_post = len(signals["ECG_Clean"]) / sampling_rate
 
                 if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
+                    if (wave == 2) & ((duration_post < 5.9) | (df_hr_interaction_vp["event"].str.contains(phase).any())):
+                        continue
                     df_ecg_subset_save = signals.copy()
                     df_ecg_subset_save["timestamp"] = df_ecg_subset["timestamp"].reset_index(drop=True)
 
@@ -330,6 +336,7 @@ def get_hr(vps, filepath, wave, df_scores):
                     df_ecg_subset_save["VP"] = int(vp)
                     df_ecg_subset_save["event"] = phase
                     df_ecg_subset_save = df_ecg_subset_save[["VP", "event", "time", "ECG"]]
+                    df_ecg_subset_save = df_ecg_subset_save.loc[df_ecg_subset_save["time"] < 10]
                     df_hr_interaction_vp = pd.concat([df_hr_interaction_vp, df_ecg_subset_save])
 
                 # HRV

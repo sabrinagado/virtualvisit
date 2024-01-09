@@ -34,7 +34,7 @@ def get_gaze(vps, filepath, wave, df_scores):
 
         df_gazes_vp = pd.DataFrame()
         df_pupil_vp = pd.DataFrame()
-        df_pupil_interaction_vp = pd.DataFrame()
+        df_pupil_interaction_vp = pd.DataFrame(columns=["VP", "event", "time", "pupil"])
 
         try:
             files = [item for item in os.listdir(os.path.join(filepath, 'VP_' + vp)) if (item.endswith(".csv"))]
@@ -148,6 +148,8 @@ def get_gaze(vps, filepath, wave, df_scores):
 
                 # Save continuous data for interactions and clicks
                 if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
+                    if (wave == 2) & (df_pupil_interaction_vp["event"].str.contains(phase).any()):
+                        continue
                     start = df_gaze_subset.loc[0, "timestamp"]
                     df_gaze_subset["time"] = pd.to_timedelta(df_gaze_subset["timestamp"] - start)
 
