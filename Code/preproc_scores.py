@@ -211,8 +211,10 @@ def create_scores(df, problematic_subjects=None):
     df_problematic_subjects = df_summary.loc[df_summary["SSQ-diff"] > cutoff_ssq]
     problematic_subjects = list(np.unique(problematic_subjects + df_problematic_subjects["ID"].to_list()))
 
-    df_summary['purpose'] = df_summary['purpose'].str.replace('-', '')
-    df_summary['variables'] = df_summary['variables'].str.replace('-', '')
+    df_summary['purpose'] = df_summary['purpose'].str.replace('-', ', ')
+    df_summary['variables'] = df_summary['variables'].str.replace('-', ', ')
+    df_summary['purpose'] = df_summary['purpose'].str.replace('\n', ', ')
+    df_summary['variables'] = df_summary['variables'].str.replace('\n', ', ')
     df_summary['ID'] = df_summary['ID'].astype('string')
     df_summary = df_summary.loc[~(df_summary['ID'].str.contains('test'))]
     df_summary['ID'] = df_summary['ID'].astype('int32')
