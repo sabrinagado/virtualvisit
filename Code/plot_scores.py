@@ -15,46 +15,62 @@ from Code.toolbox import utils
 from Code import preproc_scores, preproc_ratings
 
 
+
 def plot_scale(df, scale, colors, problematic_subjects):
     cutoff_ssq = df["SSQ-diff"].mean() + df["SSQ-diff"].std()  # .quantile(0.75)
     df_scale = df.filter(like=scale).dropna()
     cutoff = None
-    if scale == "SPAI":
-        min = 0
-        max = 6
-        cutoff = 2.79
+    titles_subscale = []
+    if "SSQ" in scale:
+        min = np.min(df_scale.min())
+        max = np.max(df_scale.max())
+        if "diff" in scale:
+            print(f"SSQ threshold: {round(cutoff_ssq, 1)}")
+        titles_subscale = ["SSQ", "Nausea", "Oculomotor\nDisturbance", "Disorientation"]
     elif scale == "IPQ":
         min = 0
         max = 6
+        print(f"IPQ median: {round(df_scale['IPQ'].median(), 1)}")
+        titles_subscale = ["IPQ", "Spatial\nPresence", "Experienced\nRealism", "Involvement"]
     elif scale == "MPS":
         min = 1
         max = 5
+        titles_subscale = ["Physical\nPresence", "Social\nPresence", "Self-Presence"]
     elif scale == "ASI":
         min = 0
         max = 4 * 18
+        titles_subscale = ["ASI3", "Physical\nConcerns", "Cognitive\nConcerns", "Social\nConcerns"]
+    elif scale == "SPAI":
+        min = 0
+        max = 6
+        cutoff = 2.79
     elif scale == "SIAS":
         cutoff = 30
-        min = np.min(df_scale.min())
-        max = np.max(df_scale.max())
-    elif "SSQ" in scale:
         min = np.min(df_scale.min())
         max = np.max(df_scale.max())
     elif scale == "AQ":
         min = 0
         max = 33
         cutoff = 17
+        titles_subscale = ["AQ-k", "Social\nInteraction", "Communication and\nReciprocity", "Imagination and\nCreativity"]
+    elif scale == "ISK":
+        min = np.min(df_scale.min())
+        max = np.max(df_scale.max())
+        titles_subscale = ["Social\nOrientation", "Offensiveness", "Self-Control", "Reflexibility"]
     else:
         min = np.min(df_scale.min())
         max = np.max(df_scale.max())
     min = min - 0.02 * max
     max = max + 0.02 * max
     n_subscales = len(df_scale.columns)
+    if not titles_subscale:
+        titles_subscale = df_scale.columns
     if n_subscales > 1:
-        fig, axes = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 6))
+        fig, axes = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 4))
         boxWidth = 1
         pos = [1]
 
-        for idx_subscale, subscale in enumerate(df_scale.columns):
+        for idx_subscale, (subscale, title_subscale) in enumerate(zip(df_scale.columns, titles_subscale)):
             # idx_subscale = 0
             # subscale = df_scale.columns[idx_subscale]
 
@@ -103,7 +119,7 @@ def plot_scale(df, scale, colors, problematic_subjects):
                         yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
-            axes[idx_subscale].set_xticklabels([subscale])
+            axes[idx_subscale].set_xticklabels([title_subscale])
             axes[idx_subscale].set_ylim(min, max)
             axes[idx_subscale].grid(color='lightgrey', linestyle='-', linewidth=0.3)
             if subscale == "SSQ-diff":
@@ -112,7 +128,7 @@ def plot_scale(df, scale, colors, problematic_subjects):
                 axes[idx_subscale].axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
 
     elif n_subscales == 1:
-        fig, ax = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 6))
+        fig, ax = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 4))
         boxWidth = 1
         pos = [1]
         for idx_subscale, subscale in enumerate(df_scale.columns):
@@ -167,9 +183,10 @@ def plot_scale(df, scale, colors, problematic_subjects):
             ax.set_xticklabels([subscale])
             ax.set_ylim(min, max)
             ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+            ax.set_title(scale)
             if cutoff:
                 ax.axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
-    fig.suptitle(scale)
+    # fig.suptitle(scale)
     plt.tight_layout()
 
 
@@ -178,9 +195,9 @@ def plot_sad(df):
     sns.histplot(df["SPAI"], color="#1B4C87", ax=ax, binwidth=0.2, binrange=(0, 5),
                  kde=True, line_kws={"linewidth": 1, "color": "#173d6a"}, edgecolor='#f8f8f8',)
     ax.set_xlabel("SPAI (Social Anxiety)")
-    ax.set_xlim([0, 5])
+    ax.set_xlim([0, 6])
     # ax.set_ylim([0, 11])
-    ax.set_yticks(range(0, 5, 2))
+    ax.set_yticks(range(0, 6, 2))
     ax.axvline(x=df["SPAI"].median(), color="#FFC300")
     ax.axvline(x=2.79, color="#FF5733")
     ax.legend(

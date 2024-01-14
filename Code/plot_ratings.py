@@ -19,6 +19,7 @@ from Code.toolbox import utils
 from Code import preproc_scores, preproc_ratings
 
 
+
 # Ratings VR
 def plot_rating_vr(df):
     # df = df_ratings
@@ -274,7 +275,7 @@ def plot_rating_agents(df):
     for idx_label, label in enumerate(labels):
         # idx_label = 0
         # label = labels[idx_label]
-        print(f"\n{label}")
+        # print(f"\n{label}")
 
         boxWidth = 1 / (len(conditions) + 2)
         pos = [idx_label + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
@@ -337,7 +338,7 @@ def plot_rating_agents(df):
         estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
         p = anova.loc["Condition", "P-val"].item()
 
-        print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
+        # print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
 
         max = 100  # df_crit["Value"].max()
         if p < 0.05:
@@ -403,11 +404,13 @@ def corr_ratings(df):
 
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
-def plot_rating_agents_sad(df, SA_score="SPAI"):
+def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
     fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 5))
-    labels = ["Likeability", "Fear", "Anger"]  # , "Attractiveness", "Behavior"]
+    labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
     conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
     colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
+
+    anovas = pd.DataFrame()
 
     for idx_label, label in enumerate(labels):
         # idx_label = 0
@@ -420,7 +423,7 @@ def plot_rating_agents_sad(df, SA_score="SPAI"):
         df_ancova = df_crit.copy()
         df_ancova = df_ancova.loc[df_ancova["Condition"].isin(["friendly", "unfriendly"])]
         df_ancova[SA_score] = (df_ancova[SA_score] - df_ancova[SA_score].mean()) / df_ancova[SA_score].std()
-        formula = (f"Value ~  {SA_score} + Condition + Condition:{SA_score} + (1 | VP)")
+        formula = (f"Value ~  Condition + {SA_score} + Condition:{SA_score} + (1 | VP)")
         # formula = (f"Value ~  {SA_score} + Condition + click_count "
         #            f"+ Condition:{SA_score} + Condition:click_count + click_count:{SA_score} + Condition:{SA_score}:click_count + (1 | VP)")
         model = pymer4.models.Lmer(formula, data=df_ancova)
@@ -430,9 +433,27 @@ def plot_rating_agents_sad(df, SA_score="SPAI"):
         anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
         # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-        print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
         print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
-        print(f"Interaction, F({round(anova.loc[f'{SA_score}:Condition', 'NumDF'].item(), 1)}, {round(anova.loc[f'{SA_score}:Condition', 'DenomDF'].item(), 1)})={round(anova.loc[f'{SA_score}:Condition', 'F-stat'].item(), 2)}, p={round(anova.loc[f'{SA_score}:Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'{SA_score}:Condition', 'p_eta_2'].item(), 2)}")
+        print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
+        print(f"Interaction, F({round(anova.loc[f'Condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:{SA_score}', 'p_eta_2'].item(), 2)}")
+
+        anova['NumDF'] = anova['NumDF'].round().astype("str")
+        anova['DenomDF'] = anova['DenomDF'].round().astype("str")
+        anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+        anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+        anova['P-val'] = anova['P-val'].round(3).astype("str")
+        anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+        anova['P-val'] = anova['P-val'].replace({"0.": "."})
+        anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+        anova["label"] = label
+        anova = anova.reset_index(names=['factor'])
+        anova = anova[["label", "factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+        anova = anova.drop(columns="index")
+        anovas = pd.concat([anovas, anova])
+
+        if idx_label > 2:
+            continue
 
         for idx_condition, condition in enumerate(conditions):
             # idx_condition = 0
@@ -498,6 +519,8 @@ def plot_rating_agents_sad(df, SA_score="SPAI"):
          Line2D([0], [0], color="white", marker='o', markeredgecolor='lightgrey', markeredgewidth=1, markerfacecolor='lightgrey', alpha=.7)],
         ["Friendly", "Unfriendly", "Neutral", "Unknown"], loc="upper right")
     plt.tight_layout()
+
+    anovas.to_csv(os.path.join(save_path, 'lmms_ratings.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
 
 # Ratings Virtual Humans, Relationship with Social Anxiety and Clicks

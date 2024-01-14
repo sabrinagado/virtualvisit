@@ -22,6 +22,7 @@ from Code.toolbox import utils
 
 from Code import preproc_scores, preproc_ratings, preproc_behavior
 
+
 # % ===========================================================================
 # Duration
 # =============================================================================
@@ -39,7 +40,7 @@ def plot_time_rooms(df, SA_score="SPAI"):
     df_subset = df_subset.drop(columns=SA_score)
     df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
     red = '#E2001A'
     green = '#B1C800'
@@ -186,7 +187,7 @@ def plot_time_rooms(df, SA_score="SPAI"):
 
 
 # Time spent in the different rooms of the virtual agents
-def plot_time_rooms_agents_static(df, SA_score="SPAI"):
+def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
     df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
     df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
     df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
@@ -200,7 +201,7 @@ def plot_time_rooms_agents_static(df, SA_score="SPAI"):
     phases = ['Habituation', 'Test']
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 5))
     boxWidth = 1 / (len(conditions) + 1)
 
     for idx_condition, condition in enumerate(conditions):
@@ -324,6 +325,20 @@ def plot_time_rooms_agents_static(df, SA_score="SPAI"):
         p_sign = "***" if p_test < 0.001 else "**" if p_test < 0.01 else "*" if p_test < 0.05 else "." if p_test < 0.1 else ""
         ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
+    anova['NumDF'] = anova['NumDF'].round().astype("str")
+    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+    anova['P-val'] = anova['P-val'].round(3).astype("str")
+    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+    anova['P-val'] = anova['P-val'].replace({"0.": "."})
+    anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+    anova = anova.reset_index(names=['factor'])
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova.drop(columns="index")
+    anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
     ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -352,7 +367,7 @@ def plot_time_test_rooms_agents_static_sad(df, SA_score="SPAI"):
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -398,7 +413,7 @@ def plot_time_test_rooms_agents_static_sad(df, SA_score="SPAI"):
 
 
 # Time spent in the different rooms: Correlation with SPAI (Test-Habituation)
-def plot_time_diff_rooms_agents_sad(df, SA_score="SPAI"):
+def plot_time_rooms_agents_static_diff_sad(df, SA_score="SPAI"):
     df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
     df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
     df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
@@ -418,7 +433,7 @@ def plot_time_diff_rooms_agents_sad(df, SA_score="SPAI"):
     df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
     df_diff = df_diff.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -468,7 +483,7 @@ def plot_time_diff_rooms_agents_sad(df, SA_score="SPAI"):
 
 
 # Time spent in the different rooms
-def plot_time_rooms_agents_dynamic(df, SA_score="SPAI"):
+def plot_time_rooms_agents_dynamic(df, save_path, SA_score="SPAI"):
     # df = df_events
     df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("With")]
     df_test = df_test.dropna(subset="duration")
@@ -479,7 +494,7 @@ def plot_time_rooms_agents_dynamic(df, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -562,13 +577,27 @@ def plot_time_rooms_agents_dynamic(df, SA_score="SPAI"):
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
         ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
+    anova['NumDF'] = anova['NumDF'].round().astype("str")
+    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+    anova['P-val'] = anova['P-val'].round(3).astype("str")
+    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+    anova['P-val'] = anova['P-val'].replace({"0.": "."})
+    anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+    anova = anova.reset_index(names=['factor'])
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova.drop(columns="index")
+    anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
     ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"Total Duration [s] in Test Phase")
     plt.tight_layout()
 
 
-def plot_time_test_look_agents_dynamic(df, SA_score="SPAI", only_visible=True):
+def plot_time_test_look_agents_dynamic(df, save_path, SA_score="SPAI", only_visible=True):
     # df = df_events
     df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis") & ~df["event"].str.contains("Actor")]
     df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
@@ -581,7 +610,7 @@ def plot_time_test_look_agents_dynamic(df, SA_score="SPAI", only_visible=True):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -663,6 +692,20 @@ def plot_time_test_look_agents_dynamic(df, SA_score="SPAI", only_visible=True):
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
         ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
+    anova['NumDF'] = anova['NumDF'].round().astype("str")
+    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+    anova['P-val'] = anova['P-val'].round(3).astype("str")
+    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+    anova['P-val'] = anova['P-val'].replace({"0.": "."})
+    anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+    anova = anova.reset_index(names=['factor'])
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova.drop(columns="index")
+    anova.to_csv(os.path.join(save_path, f'lmms_look.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
     ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"Total Duration [s] in Test Phase")
@@ -680,7 +723,7 @@ def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -741,7 +784,7 @@ def plot_time_test_look_agents_dynamic_sad(df, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -807,7 +850,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     df_diff = df_diff.sort_values(by=SA_score)
     colors = ['teal']
     x = df_diff[SA_score].to_numpy()
@@ -854,7 +897,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 # % ===========================================================================
 # Interpersonal Distance
 # =============================================================================
-def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI", only_visible=False):
+def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI", only_visible=False):
     # dist = "avg"
     # df = df_distance
     if dist == "avg":
@@ -886,7 +929,7 @@ def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI", only_visi
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -950,10 +993,9 @@ def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI", only_visi
     sum_sq_error = (sum(i * i for i in model.residuals))
     anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
     print(f"ANOVA: {title} Interpersonal Distance (Condition and {SA_score})")
-    print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
+    print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
     print(f"Interaction Condition x {SA_score}, F({round(anova.loc[f'Condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:{SA_score}', 'p_eta_2'].item(), 2)}")
-    
     # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
     p = anova.loc["Condition", "P-val"].item()
@@ -963,6 +1005,20 @@ def plot_interpersonal_distance(df, wave, dist="avg", SA_score="SPAI", only_visi
         ax.vlines(x=pos[1], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
         ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
+
+    anova['NumDF'] = anova['NumDF'].round().astype("str")
+    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+    anova['P-val'] = anova['P-val'].round(3).astype("str")
+    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+    anova['P-val'] = anova['P-val'].replace({"0.": "."})
+    anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+    anova = anova.reset_index(names=['factor'])
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova.drop(columns="index")
+    anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
     ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -997,7 +1053,7 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
 
@@ -1047,7 +1103,7 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_
 
 
 # Distance to virtual agents (Comparison to Habituation)
-def plot_interpersonal_distance_diff(df, dist="avg", SA_score="SPAI"):
+def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI"):
     if dist == "avg":
         df_subset = df.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
         title = "Average"
@@ -1062,7 +1118,7 @@ def plot_interpersonal_distance_diff(df, dist="avg", SA_score="SPAI"):
     titles = ["Position of\nFriendly Agent", "Position of\nUnfriendly Agent"]
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 5))
     boxWidth = 1 / (len(conditions) + 1)
 
     for idx_condition, condition in enumerate(conditions):
@@ -1186,6 +1242,20 @@ def plot_interpersonal_distance_diff(df, dist="avg", SA_score="SPAI"):
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
         ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
+    anova['NumDF'] = anova['NumDF'].round().astype("str")
+    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+    anova['P-val'] = anova['P-val'].round(3).astype("str")
+    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+    anova['P-val'] = anova['P-val'].replace({"0.": "."})
+    anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+    anova = anova.reset_index(names=['factor'])
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova.drop(columns="index")
+    anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance_diff.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
     ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -1224,7 +1294,7 @@ def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
     df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
     df_diff = df_diff.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     red = '#E2001A'
@@ -1300,7 +1370,7 @@ def plot_diff_distance(df, wave, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     df_diff = df_diff.sort_values(by=SA_score)
     x = df_diff[SA_score].to_numpy()
     y = df_diff["difference"].to_numpy()
@@ -1346,7 +1416,7 @@ def plot_diff_distance(df, wave, SA_score="SPAI"):
 # % ===========================================================================
 # Clicks
 # =============================================================================
-def plot_clicks(df, SA_score="SPAI"):
+def plot_clicks(df, save_path, SA_score="SPAI"):
     df_subset = df.loc[df["event"].str.contains("Clicked")]
     df_subset = df_subset.groupby(["VP", "Condition"])["event"].count().reset_index()
     df_subset = df_subset.rename(columns={"event": "click_count"})
@@ -1367,7 +1437,7 @@ def plot_clicks(df, SA_score="SPAI"):
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -1446,14 +1516,24 @@ def plot_clicks(df, SA_score="SPAI"):
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
         ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
+    anova['NumDF'] = anova['NumDF'].round().astype("str")
+    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+    anova['P-val'] = anova['P-val'].round(3).astype("str")
+    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+    anova['P-val'] = anova['P-val'].replace({"0.": "."})
+    anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+    anova = anova.reset_index(names=['factor'])
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova.drop(columns="index")
+    anova.to_csv(os.path.join(save_path, f'lmms_clicks.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
     ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"Number of Clicks on the Virtual Agents")
     # ax.set_title("Additional Interaction Attempts", fontweight='bold')
-    ax.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7)],
-        ["Friendly\nAgent", "Unfriendly\nAgent"], loc="upper right")
     plt.tight_layout()
 
 
@@ -1478,7 +1558,7 @@ def plot_clicks_sad(df, SA_score="SPAI"):
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     df_subset = df_subset.sort_values(by=SA_score)
@@ -1833,7 +1913,7 @@ def animate_movement(df, vp, SA_score, save_path):
 # Walking Distance
 # =============================================================================
 def plot_walking_distance(df, SA_score="SPAI"):
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 6))
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 5))
     phases = ["Habituation", "Test"]
     titles = ["Habituation", "Test"]
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
