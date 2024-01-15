@@ -77,6 +77,34 @@ def get_gaze(vps, filepath, wave, df_scores):
 
         df_events_vp = df_events_vp.loc[df_events_vp["duration"] > 0]
 
+        df_gaze_test = df_gaze_resampled.loc[(df_gaze_resampled["timestamp"] >= events["start_test"]) & (df_gaze_resampled["timestamp"] < events["start_roomrating2"])]
+        df_gaze_test = drop_consecutive_duplicates(df_gaze_test, subset="timestamp", keep="first")
+        df_gaze_test = df_gaze_test.loc[df_gaze_test["eye_openness"] == 1]
+        for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
+            # character = "Emanuel"
+            for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
+                # roi = "head"
+                # searchstring = "Head"
+                number = len(df_gaze_test.loc[df_gaze_test['actor'].str.contains(f"{character}{searchstring}")])
+                proportion = 0 if number == 0 else number / len(df_gaze_test)
+
+                if roi == "head":
+                    switches_towards_roi = (df_gaze_test["actor"].str.contains(f"{character}Head") & (~(df_gaze_test["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
+                elif roi == "body":
+                    switches_towards_roi = ((df_gaze_test["actor"].str.contains(f"{character}Head") | df_gaze_test["actor"].str.contains(f"{character}_Char")) &
+                                            ~((df_gaze_test["actor"].shift().str.contains(f"{character}Head") | df_gaze_test["actor"].shift().str.contains(f"{character}_Char")))).sum(axis=0)
+
+                # Save as dataframe
+                df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
+                                             'Phase': ["Test"],
+                                             'Person': [character],
+                                             'Condition': [""],
+                                             'ROI': [roi],
+                                             'Gaze Proportion': [proportion],
+                                             'Number': [number],
+                                             'Switches': [switches_towards_roi]})
+                df_gazes_vp = pd.concat([df_gazes_vp, df_gaze_temp])
+
         # Iterate through interaction phases
         for idx_row, row in df_events_vp.iterrows():
             # idx_row = 7
@@ -128,58 +156,30 @@ def get_gaze(vps, filepath, wave, df_scores):
                                               'Pupil Dilation (Mean)': [df_gaze_subset['pupil_filtered'].mean()]})
                 df_pupil_vp = pd.concat([df_pupil_vp, df_pupil_temp])
 
-            # Save gaze data for interactions and test-phase
-            if "Test" in phase or "Interaction" in phase:
-                df_gaze_subset_attention = df_gaze_subset.loc[df_gaze_subset["eye_openness"] == 1]
-                for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
-                    # character = "Emanuel"
-                    for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
-                        # roi = "head"
-                        # searchstring = "Head"
-                        number = len(df_gaze_subset_attention.loc[df_gaze_subset_attention['actor'].str.contains(f"{character}{searchstring}")])
-                        proportion = 0 if number == 0 else number / len(df_gaze_subset_attention)
+            # Save continuous data for interactions and clicks
+            if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
+                if (wave == 2) & (df_pupil_interaction_vp["event"].str.contains(phase).any()):
+                    continue
+                if (percent_missing_left >= 0.25) or (percent_missing_right >= 0.25):
+                    continue
+                start = df_gaze_subset.loc[0, "timestamp"]
+                df_gaze_subset["time"] = pd.to_timedelta(df_gaze_subset["timestamp"] - start)
 
-                        if roi == "head":
-                            switches_towards_roi = (df_gaze_subset_attention["actor"].str.contains(f"{character}Head") & (~(df_gaze_subset_attention["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
-                        elif roi == "body":
-                            switches_towards_roi = ((df_gaze_subset_attention["actor"].str.contains(f"{character}Head") | df_gaze_subset_attention["actor"].str.contains(f"{character}_Char")) & ~(
-                                (df_gaze_subset_attention["actor"].shift().str.contains(f"{character}Head") | df_gaze_subset_attention["actor"].shift().str.contains(f"{character}_Char")))).sum(axis=0)
+                # 2 Hz low-pass butterworth filter
+                timestamps = np.array(df_gaze_subset["time"].dt.total_seconds() * 1000)
+                sr, fs = utils.get_sampling_rate(timestamps)
 
-                        # Save as dataframe
-                        df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
-                                                     'Phase': [phase],
-                                                     'Person': [character],
-                                                     'Condition': [""],
-                                                     'ROI': [roi],
-                                                     'Gaze Proportion': [proportion],
-                                                     'Number': [number],
-                                                     'Switches': [switches_towards_roi]})
-                        df_gazes_vp = pd.concat([df_gazes_vp, df_gaze_temp])
+                start_pupil = df_gaze_subset.loc[0, "pupil_filtered"]
+                df_gaze_subset["pupil"] = df_gaze_subset["pupil_filtered"] - start_pupil
 
-                # Save continuous data for interactions and clicks
-                if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
-                    if (wave == 2) & (df_pupil_interaction_vp["event"].str.contains(phase).any()):
-                        continue
-                    if (percent_missing_left >= 0.25) or (percent_missing_right >= 0.25):
-                        continue
-                    start = df_gaze_subset.loc[0, "timestamp"]
-                    df_gaze_subset["time"] = pd.to_timedelta(df_gaze_subset["timestamp"] - start)
-
-                    # 2 Hz low-pass butterworth filter
-                    timestamps = np.array(df_gaze_subset["time"].dt.total_seconds() * 1000)
-                    sr, fs = utils.get_sampling_rate(timestamps)
-
-                    start_pupil = df_gaze_subset.loc[0, "pupil_filtered"]
-                    df_gaze_subset["pupil"] = df_gaze_subset["pupil_filtered"] - start_pupil
-
-                    df_gaze_subset = df_gaze_subset.set_index("time")
-                    df_gaze_subset = df_gaze_subset.resample("0.1S").mean(numeric_only=True)
-                    df_gaze_subset = df_gaze_subset.reset_index()
-                    df_gaze_subset["time"] = df_gaze_subset["time"].dt.total_seconds()
-                    df_gaze_subset["VP"] = int(vp)
-                    df_gaze_subset["event"] = phase
-                    df_gaze_subset = df_gaze_subset[["VP", "event", "time", "pupil"]]
-                    df_pupil_interaction_vp = pd.concat([df_pupil_interaction_vp, df_gaze_subset])
+                df_gaze_subset = df_gaze_subset.set_index("time")
+                df_gaze_subset = df_gaze_subset.resample("0.1S").mean(numeric_only=True)
+                df_gaze_subset = df_gaze_subset.reset_index()
+                df_gaze_subset["time"] = df_gaze_subset["time"].dt.total_seconds()
+                df_gaze_subset["VP"] = int(vp)
+                df_gaze_subset["event"] = phase
+                df_gaze_subset = df_gaze_subset[["VP", "event", "time", "pupil"]]
+                df_pupil_interaction_vp = pd.concat([df_pupil_interaction_vp, df_gaze_subset])
 
         # Add Conditions
         for idx_row, row in df_roles.iterrows():
@@ -189,7 +189,7 @@ def get_gaze(vps, filepath, wave, df_scores):
             role = row["Role"]
             room = row["Rooms"]
 
-            df_gazes_vp["Phase"] = df_gazes_vp["Phase"].str.replace(character, role.capitalize())
+            # df_gazes_vp["Phase"] = df_gazes_vp["Phase"].str.replace(character, role.capitalize())
             df_pupil_vp["Phase"] = df_pupil_vp["Phase"].str.replace(character, role.capitalize())
             if wave == 1:
                 df_pupil_vp.loc[df_pupil_vp["Phase"].str.contains(room), "Condition"] = role
@@ -229,7 +229,7 @@ def get_gaze(vps, filepath, wave, df_scores):
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

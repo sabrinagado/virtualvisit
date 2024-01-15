@@ -746,15 +746,15 @@ def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        if idx_condition == 0:
-            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_condition])
-        else:
-            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_condition])
+        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        # if idx_condition == 0:
+        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
+        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+        #                          color=colors[idx_condition])
+        # else:
+        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
+        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+        #                          color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
@@ -807,15 +807,15 @@ def plot_time_test_look_agents_dynamic_sad(df, SA_score="SPAI"):
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        if idx_condition == 0:
-            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_condition])
-        else:
-            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_condition])
+        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        # if idx_condition == 0:
+        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
+        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+        #                          color=colors[idx_condition])
+        # else:
+        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
+        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+        #                          color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])

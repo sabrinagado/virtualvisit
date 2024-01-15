@@ -1232,8 +1232,6 @@ def plot_physio_test_sad(filepath, SA_score="SPAI"):
 
 # Test-Habituation
 def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
-    # if not "Wave1" in filepath:
-    #     return
     physiologies = ["hr", "eda", "pupil", "hrv_hf", "hrv_rmssd"]
     ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]",
                "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
@@ -1336,6 +1334,34 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
                                           yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
                                           elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
+            df_crit = df_subset.copy()
+            df_crit.loc[df_crit["phase"].str.contains("Test"), "phase"] = "Test"
+            df_crit = df_crit.groupby(["VP", "phase"]).mean(numeric_only=True).reset_index()
+            df_crit = df_crit.rename(columns={dv: physiology})
+            df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+            formula = f"{physiology} ~ phase + (1 | VP)"
+
+            model = pymer4.models.Lmer(formula, data=df_crit)
+            model.fit(factors={"phase": ['Habituation', 'Test']}, summarize=False)
+            anova = model.anova(force_orthogonal=True)
+            sum_sq_error = (sum(i * i for i in model.residuals))
+            anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+
+            anova['NumDF'] = anova['NumDF'].round().astype("str")
+            anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+            anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+            anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+            anova['P-val'] = anova['P-val'].round(3).astype("str")
+            anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+            anova['P-val'] = anova['P-val'].replace({"0.": "."})
+            anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+            anova = anova.reset_index(names=['factor'])
+            anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+            anova = anova.drop(columns="index")
+            anova1 = anova.copy()
+
             df_crit = df_subset.loc[df_subset["phase"].str.contains("Test")]
             df_crit = df_crit.loc[df_crit["Condition"].isin(conditions)]
             df_crit = df_crit.rename(columns={dv: physiology})
@@ -1376,6 +1402,7 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
             anova = anova.reset_index(names=['factor'])
             anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
             anova = anova.drop(columns="index")
+            anova = pd.concat([anova1, anova])
             anova.to_csv(os.path.join(save_path, f'lmms_{physiology}.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
             axes[physio_idx].set_xticks(pos)
