@@ -111,53 +111,79 @@ def get_gaze(vps, filepath, wave, df_scores):
             # row = df_events_vp.iloc[idx_row]
             phase = row['event']
             # print(f"Phase: {phase}")
-
-            # Get start and end point of phase
-            start_phase = row['timestamp']
-            end_phase = row['timestamp'] + pd.to_timedelta(row['duration'], unit="S")
-
-            # Cut gaze dataset
-            df_gaze_subset = df_gaze_resampled.loc[(df_gaze_resampled["timestamp"] >= start_phase) & (df_gaze_resampled["timestamp"] < end_phase + timedelta(seconds=1))]
-            # df_gaze_subset = df_gaze_subset.loc[df_gaze_subset['event'] == phase]
-            if len(df_gaze_subset) == 0:
-                continue
-
-            df_gaze_subset = drop_consecutive_duplicates(df_gaze_subset, subset="timestamp", keep="first")
-
-            df_gaze_subset = df_gaze_subset.reset_index(drop=True)
-
-            df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == -1), "pupil_left"] = np.nan
-            df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == 0), "pupil_left"] = np.nan
-            df_gaze_subset.loc[(df_gaze_subset["pupil_left"] < df_gaze_subset["pupil_left"].mean() - 2 * df_gaze_subset["pupil_left"].std()), "pupil_left"] = np.nan
-            percent_missing_left = df_gaze_subset["pupil_left"].isnull().sum() / len(df_gaze_subset)
-            df_gaze_subset["pupil_left"] = df_gaze_subset["pupil_left"].interpolate(method="linear", limit_direction="both")
-
-            df_gaze_subset.loc[(df_gaze_subset["pupil_right"] == -1), "pupil_right"] = np.nan
-            df_gaze_subset.loc[(df_gaze_subset["pupil_right"] == 0), "pupil_right"] = np.nan
-            df_gaze_subset.loc[(df_gaze_subset["pupil_right"] < df_gaze_subset["pupil_right"].mean() - 2 * df_gaze_subset["pupil_right"].std()), "pupil_right"] = np.nan
-            percent_missing_right = df_gaze_subset["pupil_right"].isnull().sum() / len(df_gaze_subset)
-            df_gaze_subset["pupil_right"] = df_gaze_subset["pupil_right"].interpolate(method="linear", limit_direction="both")
-
-            if (percent_missing_left < 0.25) and (percent_missing_right < 0.25):
-                # Filter pupil
-                pupil = df_gaze_subset[["pupil_left", "pupil_right"]].mean(axis=1).to_numpy()
-                rolloff = 12
-                lpfreq = 2
-                pupil_filtered = np.concatenate((np.repeat(pupil[0], 100), pupil, np.repeat(pupil[-1], 100)))  # zero padding
-                pupil_filtered[np.isnan(pupil_filtered)] = np.nanmean(pupil_filtered)
-                b, a = signal.butter(int(rolloff / 6), lpfreq * (1 / (sr / 2)))  # low-pass filter
-                pupil_filtered = signal.filtfilt(b, a, pupil_filtered)  # apply filter
-                pupil_filtered = pupil_filtered[100:-100]
-                df_gaze_subset["pupil_filtered"] = pupil_filtered
-
-                # Save Pupil
-                df_pupil_temp = pd.DataFrame({'VP': [int(vp)],
-                                              'Phase': [row["event"]],
-                                              'Pupil Dilation (Mean)': [df_gaze_subset['pupil_filtered'].mean()]})
-                df_pupil_vp = pd.concat([df_pupil_vp, df_pupil_temp])
-
+            
             # Save continuous data for interactions and clicks
             if ("Interaction" in phase) or ("Click" in phase) or (("Visible" in phase) and not ("Actor" in phase)):
+                # Get start and end point of phase
+                start_phase = row['timestamp']
+                end_phase = row['timestamp'] + pd.to_timedelta(row['duration'], unit="S")
+
+                # Cut gaze dataset
+                df_gaze_subset = df_gaze_resampled.loc[(df_gaze_resampled["timestamp"] >= start_phase) & (df_gaze_resampled["timestamp"] < end_phase + timedelta(seconds=1))]
+                # df_gaze_subset = df_gaze_subset.loc[df_gaze_subset['event'] == phase]
+                if len(df_gaze_subset) == 0:
+                    continue
+
+                df_gaze_subset = drop_consecutive_duplicates(df_gaze_subset, subset="timestamp", keep="first")
+                df_gaze_subset = df_gaze_subset.reset_index(drop=True)
+                
+                if "Interaction" in phase:
+                    # df_gaze_int = df_gaze_subset.loc[df_gaze_int["eye_openness"] == 1]
+                    for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
+                        # character = "Emanuel"
+                        for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
+                            # roi = "head"
+                            # searchstring = "Head"
+                            number = len(df_gaze_subset.loc[df_gaze_subset['actor'].str.contains(f"{character}{searchstring}")])
+                            proportion = 0 if number == 0 else number / len(df_gaze_subset)
+
+                            if roi == "head":
+                                switches_towards_roi = (df_gaze_subset["actor"].str.contains(f"{character}Head") & (~(df_gaze_subset["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
+                            elif roi == "body":
+                                switches_towards_roi = ((df_gaze_subset["actor"].str.contains(f"{character}Head") | df_gaze_subset["actor"].str.contains(f"{character}_Char")) &
+                                                        ~((df_gaze_subset["actor"].shift().str.contains(f"{character}Head") | df_gaze_subset["actor"].shift().str.contains(f"{character}_Char")))).sum(axis=0)
+
+                            # Save as dataframe
+                            df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
+                                                         'Phase': [phase],
+                                                         'Person': [character],
+                                                         'Condition': [""],
+                                                         'ROI': [roi],
+                                                         'Gaze Proportion': [proportion],
+                                                         'Number': [number],
+                                                         'Switches': [switches_towards_roi]})
+                            df_gazes_vp = pd.concat([df_gazes_vp, df_gaze_temp])
+    
+                df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == -1), "pupil_left"] = np.nan
+                df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == 0), "pupil_left"] = np.nan
+                df_gaze_subset.loc[(df_gaze_subset["pupil_left"] < df_gaze_subset["pupil_left"].mean() - 2 * df_gaze_subset["pupil_left"].std()), "pupil_left"] = np.nan
+                percent_missing_left = df_gaze_subset["pupil_left"].isnull().sum() / len(df_gaze_subset)
+                df_gaze_subset["pupil_left"] = df_gaze_subset["pupil_left"].interpolate(method="linear", limit_direction="both")
+    
+                df_gaze_subset.loc[(df_gaze_subset["pupil_right"] == -1), "pupil_right"] = np.nan
+                df_gaze_subset.loc[(df_gaze_subset["pupil_right"] == 0), "pupil_right"] = np.nan
+                df_gaze_subset.loc[(df_gaze_subset["pupil_right"] < df_gaze_subset["pupil_right"].mean() - 2 * df_gaze_subset["pupil_right"].std()), "pupil_right"] = np.nan
+                percent_missing_right = df_gaze_subset["pupil_right"].isnull().sum() / len(df_gaze_subset)
+                df_gaze_subset["pupil_right"] = df_gaze_subset["pupil_right"].interpolate(method="linear", limit_direction="both")
+    
+                if (percent_missing_left < 0.25) and (percent_missing_right < 0.25):
+                    # Filter pupil
+                    pupil = df_gaze_subset[["pupil_left", "pupil_right"]].mean(axis=1).to_numpy()
+                    rolloff = 12
+                    lpfreq = 2
+                    pupil_filtered = np.concatenate((np.repeat(pupil[0], 100), pupil, np.repeat(pupil[-1], 100)))  # zero padding
+                    pupil_filtered[np.isnan(pupil_filtered)] = np.nanmean(pupil_filtered)
+                    b, a = signal.butter(int(rolloff / 6), lpfreq * (1 / (sr / 2)))  # low-pass filter
+                    pupil_filtered = signal.filtfilt(b, a, pupil_filtered)  # apply filter
+                    pupil_filtered = pupil_filtered[100:-100]
+                    df_gaze_subset["pupil_filtered"] = pupil_filtered
+    
+                    # Save Pupil
+                    df_pupil_temp = pd.DataFrame({'VP': [int(vp)],
+                                                  'Phase': [row["event"]],
+                                                  'Pupil Dilation (Mean)': [df_gaze_subset['pupil_filtered'].mean()]})
+                    df_pupil_vp = pd.concat([df_pupil_vp, df_pupil_temp])
+
                 if (wave == 2) & (df_pupil_interaction_vp["event"].str.contains(phase).any()):
                     continue
                 if (percent_missing_left >= 0.25) or (percent_missing_right >= 0.25):

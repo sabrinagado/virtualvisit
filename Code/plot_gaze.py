@@ -16,8 +16,7 @@ os.environ["R_HOME"] = get_r_home()
 import pymer4
 
 from Code.toolbox import utils
-
-from Code import preproc_scores, preproc_ratings, preproc_gaze
+from Code import preproc_scores, preproc_ratings
 
 
 # Visualize ET Validation
@@ -133,134 +132,157 @@ def plot_et_validation(vps, filepath):
 
 
 # Test-Phase
-def plot_gaze_test(df, save_path, wave, dv="Gaze Proportion", SA_score="SPAI"):
-    # df = df_gaze
+def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
+    # df = df_gaze.copy()
     if dv == "Gaze Proportion":
-        y_label = "Proportional Dwell Time on Virtual Agent"
+        y_label = "Proportional Dwell Time on Virtual Agents"
     elif dv == "Switches":
-        y_label = "Shifts of Visual Attention Towards Virtual Agent"
+        y_label = "Shifts of Visual Attention Towards Virtual Agents"
 
-    df_grouped = df.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
-    df_grouped = df_grouped.drop(columns=SA_score)
-    df_grouped = df_grouped.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
-
-    max = round(df_grouped[dv].max(), 2) * 1.1
     conditions = ["friendly", "unfriendly"]
     labels = ["Friendly\nAgent", "Unfriendly\nAgent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+
+    df_acq = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
+    df_acq.loc[df_acq["Phase"].str.contains("Interaction"), "Phase"] = "Acquisition"
+    df_test = df.loc[df["Phase"] == "Test"]
+    df = pd.concat([df_acq, df_test])
+    df = df.loc[df["Condition"].isin(conditions)]
+    red = '#E2001A'
+    green = '#B1C800'
+    colors = [green, red]
+
+    if only_head:
+        df = df.loc[df["ROI"] == "head"]
+
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(3.5 * len(conditions), 5))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
-    for idx_condition, condition in enumerate(conditions):
-        # idx_condition = 1
-        # condition = conditions[idx_condition]
-        df_cond = df_grouped.loc[df_grouped['Condition'] == condition].reset_index(drop=True)
+    for idx_phase, phase in enumerate(["Acquisition", "Test"]):
+        # idx_phase = 0
+        # phase = "Acquisition"
+        df_phase = df.loc[df["Phase"].str.contains(phase)]
 
-        red = '#E2001A'
-        green = '#B1C800'
-        blue = '#1F82C0'
-        colors = [green, red]
+        df_grouped = df_phase.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
+        df_grouped = df_grouped.drop(columns=SA_score)
+        df_grouped = df_grouped.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
 
-        # Plot raw data points
-        for i in range(len(df_cond)):
-            # i = 0
-            x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
-            y = df_cond.loc[i, dv].item()
-            ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+        for idx_condition, condition in enumerate(conditions):
+            # idx_condition = 1
+            # condition = conditions[idx_condition]
+            df_cond = df_grouped.loc[df_grouped['Condition'] == condition].reset_index(drop=True)
 
-        # Plot boxplots
-        meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
-        medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
-        fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
-        whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
-        capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
-        boxprops = dict(color=colors[idx_condition])
+            # Plot raw data points
+            for i in range(len(df_cond)):
+                # i = 0
+                x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
+                y = df_cond.loc[i, dv].item()
+                axes[idx_phase].plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
 
-        fwr_correction = True
-        alpha = (1 - (0.05))
-        bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, dv].values,
-                                                 numb_iterations=5000,
-                                                 alpha=alpha,
-                                                 as_dict=True,
-                                                 func='mean')
+            # Plot boxplots
+            meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
+            whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+            capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+            boxprops = dict(color=colors[idx_condition])
 
-        ax.boxplot([df_cond.loc[:, dv].values],
-                   whiskerprops=whiskerprops,
-                   capprops=capprops,
-                   boxprops=boxprops,
-                   medianprops=medianlineprops,
-                   showfliers=False, flierprops=fliermarkerprops,
-                   # meanline=True,
-                   # showmeans=True,
-                   # meanprops=meanprops,
-                   # notch=True,  # bootstrap=5000,
-                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                   whis=[2.5, 97.5],
-                   positions=[pos[idx_condition]],
-                   widths=0.8 * boxWidth)
+            fwr_correction = True
+            alpha = (1 - (0.05))
+            bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, dv].values,
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
 
-        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
-                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+            axes[idx_phase].boxplot([df_cond.loc[:, dv].values],
+                       whiskerprops=whiskerprops,
+                       capprops=capprops,
+                       boxprops=boxprops,
+                       medianprops=medianlineprops,
+                       showfliers=False, flierprops=fliermarkerprops,
+                       # meanline=True,
+                       # showmeans=True,
+                       # meanprops=meanprops,
+                       # notch=True,  # bootstrap=5000,
+                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                       whis=[2.5, 97.5],
+                       positions=[pos[idx_condition]],
+                       widths=0.8 * boxWidth)
 
-    df_crit = df_grouped.loc[df_grouped["Condition"].isin(conditions)]
-    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
-    df_crit = df_crit.rename(columns={dv: "gaze"})
+            axes[idx_phase].errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
-    formula = f"gaze ~ Condition + {SA_score} + Condition:{SA_score} + (1 | VP)"
+        max = df_grouped[dv].max()
 
-    max = df_crit["gaze"].max()
-    model = pymer4.models.Lmer(formula, data=df_crit)
-    model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
-    anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-    estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+        df_crit = df_grouped.copy()
+        df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+        df_crit = df_crit.rename(columns={dv: "gaze"})
 
-    p = anova.loc["Condition", "P-val"].item()
-    if p < 0.05:
-        ax.hlines(y=max*1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
-        ax.vlines(x=pos[0], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        ax.vlines(x=pos[1], ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
-        ax.text(np.mean([pos[0], pos[1]]), max*1.105, p_sign, color='k', horizontalalignment='center')
+        formula = f"gaze ~ Condition + {SA_score} +" \
+                  f"Condition:{SA_score} + (1 | VP)"
 
-    ax.set_xticklabels(labels)
-    # ax.set_title(f"Spontaneous Fixations", fontweight='bold')  # (N = {len(df_cond['VP'].unique())})
-    max = round(df_crit["gaze"].max(), 2) * 1.17
-    ax.set_ylim([0, max])
-    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{y_label}s")
+        model = pymer4.models.Lmer(formula, data=df_crit)
+        model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+        anova = model.anova(force_orthogonal=True)
+        sum_sq_error = (sum(i * i for i in model.residuals))
+        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
-    anova['NumDF'] = anova['NumDF'].round().astype("str")
-    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
-    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
-    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
-    anova['P-val'] = anova['P-val'].round(3).astype("str")
-    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
-    anova['P-val'] = anova['P-val'].replace({"0.": "."})
-    anova['p_eta_2'] = anova['p_eta_2'].round(3).astype("str")
+        p = anova.loc["Condition", "P-val"].item()
+        if p < 0.05:
+            axes[idx_phase].hlines(y=max * 1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+            axes[idx_phase].vlines(x=pos[0], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+            axes[idx_phase].vlines(x=pos[1], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+            p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+            axes[idx_phase].text(np.mean([pos[0], pos[1]]), max * 1.105, p_sign, color='k', horizontalalignment='center')
 
-    anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
-    anova = anova.drop(columns="index")
-    anova.to_csv(os.path.join(save_path, f'lmms_gaze_{dv}_test.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+        axes[idx_phase].set_xticklabels(labels)
 
+        axes[idx_phase].set_title(f"{phase} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
+
+        axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+        axes[idx_phase].set_ylim(0, max * 1.17)
+
+        anova['NumDF'] = anova['NumDF'].round().astype("str")
+        anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+        anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+        anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+        anova['P-val'] = anova['P-val'].round(3).astype("str")
+        anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+        anova['P-val'] = anova['P-val'].replace({"0.": "."})
+        anova['p_eta_2'] = anova['p_eta_2'].round(3).astype("str")
+
+        anova = anova.reset_index(names=['factor'])
+        anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+        anova = anova.drop(columns="index")
+        if only_head:
+            anova.to_csv(os.path.join(save_path, f"lmms_gaze_{dv.replace(' ', '_').lower()}_{phase.lower()}_head.csv"), index=False, decimal='.', sep=';')
+        else:
+            anova.to_csv(os.path.join(save_path, f"lmms_gaze_{dv.replace(' ', '_').lower()}_{phase.lower()}.csv"), index=False, decimal='.', sep=';')
+
+    if only_head:
+        axes[0].set_ylabel(f"{y_label}' Heads")
+    else:
+        axes[0].set_ylabel(f"{y_label}")
     plt.tight_layout()
 
 
 # Test, Relationship SPAI, ROI
-def plot_gaze_test_roi(df, save_path, dv="Gaze Proportion", SA_score="SPAI"):
+def plot_gaze_roi(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI"):
     # df = df_gaze
     if dv == "Gaze Proportion":
         y_label = "Proportional Dwell Time on Virtual Agent"
     elif dv == "Switches":
         y_label = "Shifts of Visual Attention Towards Virtual Agent"
+    df = df.loc[df["Phase"].str.contains(phase)]
     df = df.sort_values(by=SA_score)
 
     max = round(df[dv].max(), 2) * 1.1
 
     conditions = ["friendly", "unfriendly"]
+    df = df.loc[df["Condition"].isin(conditions)]
     # titles = ["Spontaneous Fixations on\nFriendly Agent", "Spontaneous Fixations on\nUnfriendly Agent"]
     fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(3.5 * len(conditions), 5))
     for idx_condition, condition in enumerate(conditions):
@@ -310,62 +332,28 @@ def plot_gaze_test_roi(df, save_path, dv="Gaze Proportion", SA_score="SPAI"):
         axes[idx_condition].set_ylim([0, max])
         axes[idx_condition].set_xlabel(SA_score)
         axes[idx_condition].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-        axes[idx_condition].set_ylabel(y_label)
-
+    axes[0].set_ylabel(y_label)
     plt.tight_layout()
-
-    df = df.rename(columns={dv: "gaze"})
-    df = df.loc[df["Condition"].str.contains("friendly")]
-    df[SA_score] = (df[SA_score] - df[SA_score].mean()) / df[SA_score].std()
-
-    formula = f"gaze ~ Condition + {SA_score} + ROI +" \
-              f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI +" \
-              f"Condition:{SA_score}:ROI + (1 | VP)"
-
-    model = pymer4.models.Lmer(formula, data=df)
-    model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["body", "head"]}, summarize=False)
-    anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-    print(f"ANOVA: Gaze Test (Condition, ROI and {SA_score})")
-    print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
-    print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
-    print(f"ROI Main Effect, F({round(anova.loc['ROI', 'NumDF'].item(), 1)}, {round(anova.loc['ROI', 'DenomDF'].item(), 1)})={round(anova.loc['ROI', 'F-stat'].item(), 2)}, p={round(anova.loc['ROI', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['ROI', 'p_eta_2'].item(), 2)}")
-    print(f"Interaction Condition x {SA_score}, F({round(anova.loc[f'Condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:{SA_score}', 'p_eta_2'].item(), 2)}")
-    print(f"Interaction Condition x ROI, F({round(anova.loc[f'Condition:ROI', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:ROI', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:ROI', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:ROI', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:ROI', 'p_eta_2'].item(), 2)}")
-    print(f"Interaction {SA_score} x ROI, F({round(anova.loc[f'{SA_score}:ROI', 'NumDF'].item(), 1)}, {round(anova.loc[f'{SA_score}:ROI', 'DenomDF'].item(), 1)})={round(anova.loc[f'{SA_score}:ROI', 'F-stat'].item(), 2)}, p={round(anova.loc[f'{SA_score}:ROI', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'{SA_score}:ROI', 'p_eta_2'].item(), 2)}")
-    print(f"Interaction Condition x {SA_score} x ROI, F({round(anova.loc[f'Condition:{SA_score}:ROI', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:{SA_score}:ROI', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:{SA_score}:ROI', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:{SA_score}:ROI', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:{SA_score}:ROI', 'p_eta_2'].item(), 2)}")
-    estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="ROI", p_adjust="holm")
-
-    anova['NumDF'] = anova['NumDF'].round().astype("str")
-    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
-    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
-    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
-    anova['P-val'] = anova['P-val'].round(3).astype("str")
-    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
-    anova['P-val'] = anova['P-val'].replace({"0.": "."})
-    anova['p_eta_2'] = anova['p_eta_2'].round(3).astype("str")
-
-    anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
-    anova = anova.drop(columns="index")
-    anova.to_csv(os.path.join(save_path, f'lmms_gaze_{dv}_test_roi.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
 
 # Test, Relationship SPAI
-def plot_gaze_test_sad(df, dv="Gaze Proportion", SA_score="SPAI"):
+def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
     # df = df_gaze
+    # phase = "Interaction"
     if dv == "Gaze Proportion":
         y_label = "Proportional Dwell Time on Virtual Agent"
     elif dv == "Switches":
         y_label = "Shifts of Visual Attention Towards Virtual Agent"
 
+    df = df.loc[df["Phase"].str.contains(phase)]
     df = df.sort_values(by=SA_score)
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    df = df.loc[df["Condition"].isin(conditions)]
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -400,6 +388,7 @@ def plot_gaze_test_sad(df, dv="Gaze Proportion", SA_score="SPAI"):
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
+    ax.set_title(f"{phase.replace('Interaction', 'Acquisition')} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
     ax.set_xlabel(SA_score)
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
@@ -407,14 +396,13 @@ def plot_gaze_test_sad(df, dv="Gaze Proportion", SA_score="SPAI"):
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(y_label)
-    # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
     ax.legend(loc="upper right")
     plt.tight_layout()
 
 
 # Difference
 def plot_diff_gaze(df, SA_score="SPAI"):
-    df_test = df.loc[df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+    df_test = df.loc[df["Phase"].str.contains("Test")]
     df_spai = df_test[["VP", SA_score]].drop_duplicates(subset="VP")
     df_diff = df_test.groupby(["VP", "Person", "Condition"]).sum(numeric_only=True).reset_index()
     df_diff = df_diff.pivot(index='VP', columns='Condition', values='Gaze Proportion').reset_index()
@@ -468,7 +456,7 @@ def plot_diff_gaze(df, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 2
+    wave = 1
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
@@ -504,23 +492,3 @@ if __name__ == '__main__':
     df_gaze = pd.read_csv(os.path.join(filepath, 'gaze.csv'), decimal='.', sep=';')
     dvs = ["Gaze Proportion", "Switches"]
     dv = dvs[0]
-    plot_gaze_acq(df_gaze, dv="Gaze Proportion", SA_score="SPAI")
-    plt.savefig(os.path.join(save_path, f"gaze_acq-{dv}_{SA_score}.png"), dpi=300)
-    plt.close()
-
-    if wave == 1:
-        plot_gaze_click(df_gaze, dv="Gaze Proportion", SA_score="SPAI")
-        plt.savefig(os.path.join(save_path, f"gaze_click-{dv}_{SA_score}.png"), dpi=300)
-        plt.close()
-
-    plot_gaze_test(df_gaze, dv="Gaze Proportion", SA_score="SPAI")
-    plt.savefig(os.path.join(save_path, f"gaze_test-{dv}.png"), dpi=300)
-    plt.close()
-
-    plot_gaze_test_roi(df_gaze, dv="Gaze Proportion", SA_score="SPAI")
-    plt.savefig(os.path.join(save_path, f"gaze_test-{dv}_{SA_score}.png"), dpi=300)
-    plt.close()
-
-    df_diff_gaze = plot_diff_gaze(df_gaze, SA_score="SPAI")
-    plt.savefig(os.path.join(save_path, f"gaze_test-{dv}-diff_{SA_score}.png"), dpi=300)
-    plt.close()

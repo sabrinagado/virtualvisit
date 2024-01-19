@@ -234,14 +234,3 @@ if __name__ == '__main__':
     vps = [vp for vp in vps if not vp in problematic_subjects]
 
     df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
-
-    scales = ["SSQ-post", "SSQ-diff", "IPQ", "MPS", "ASI", "SPAI", "SIAS", "AQ", "ISK"]
-    colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
-
-    plot_scale(df_scores, "SSQ-diff", colors, problematic_subjects)
-    plt.savefig(os.path.join(save_path, f"SSQ-diff.png"), dpi=300)
-    plt.close()
-
-    plot_sad(df_scores)
-    plt.savefig(os.path.join(save_path, f"sad_distribution.png"), dpi=300)
-    plt.close()

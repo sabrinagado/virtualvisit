@@ -652,19 +652,3 @@ if __name__ == '__main__':
     vps = [vp for vp in vps if not vp in problematic_subjects]
 
     df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
-
-    plot_rating_vr(df_ratings)
-    plt.savefig(os.path.join(save_path, f"ratings_vr.png"), dpi=300)
-    plt.close()
-
-    plot_rating_rooms(df_ratings, wave)
-    plt.savefig(os.path.join(save_path, f"ratings_rooms.png"), dpi=300, bbox_inches="tight")
-
-    plot_rating_agents(df_ratings)
-    plt.savefig(os.path.join(save_path, f"ratings_agents.png"), dpi=300, bbox_inches="tight")
-    plt.close()
-    corr_ratings(df_ratings)
-
-    plot_rating_agents_sad(df_ratings)
-    plt.savefig(os.path.join(save_path, f"ratings_agents_SPAI.png"), dpi=300, bbox_inches="tight")
-    plt.close()

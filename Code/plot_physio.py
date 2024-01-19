@@ -1655,44 +1655,14 @@ if __name__ == '__main__':
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
-    for physiology in ("hr", "eda"):
-        df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
-        df_check = df.loc[df["Proportion Usable Data"] >= .75]
-        print(f"Participants included for {physiology}-analysis: {len(df_check['VP'].unique())}")
-
     save_path = os.path.join(dir_path, f'Plots-Wave{wave}', 'Physiology')
     if not os.path.exists(save_path):
         print('creating path for saving')
         os.makedirs(save_path)
 
-    plot_physio_acq(filepath)
-    plt.savefig(os.path.join(save_path, f"physiology_acq.png"), dpi=300)
-    plt.close()
-
-    if wave == 1:
-        plot_physio_click(filepath)
-        plt.savefig(os.path.join(save_path, f"physiology_click.png"), dpi=300)
-        plt.close()
-
-    elif wave == 2:
-        plot_physio_visible(filepath)
-        plt.savefig(os.path.join(save_path, f"physiology_vis.png"), dpi=300)
-        plt.close()
+    for physiology in ("hr", "eda"):
+        df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+        df_check = df.loc[df["Proportion Usable Data"] >= .75]
+        print(f"Participants included for {physiology}-analysis: {len(df_check['VP'].unique())}")
 
     SA_score = "SPAI"
-    plot_physio_test(filepath, SA_score)
-    plt.savefig(os.path.join(save_path, f"physiology_hab-test.png"), dpi=300, bbox_inches="tight")
-    plt.close()
-
-    plot_physio_test_sad(filepath, SA_score)
-    plt.savefig(os.path.join(save_path, f"physiology_test_{SA_score}.png"), dpi=300, bbox_inches="tight")
-    plt.close()
-
-    plot_physio_diff(filepath, SA_score)
-    plt.savefig(os.path.join(save_path, f"physiology_hab-test.png"), dpi=300, bbox_inches="tight")
-    plt.close()
-
-    if wave == 1:
-        plot_physio_diff_sad(filepath, SA_score)
-        plt.savefig(os.path.join(save_path, f"physiology_hab-test_{SA_score}.png"), dpi=300, bbox_inches="tight")
-        plt.close()
