@@ -159,8 +159,8 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
     for idx_phase, phase in enumerate(["Acquisition", "Test"]):
-        # idx_phase = 0
-        # phase = "Acquisition"
+        # idx_phase = 1
+        # phase = "Test"
         df_phase = df.loc[df["Phase"].str.contains(phase)]
 
         df_grouped = df_phase.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
@@ -215,16 +215,27 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         max = df_grouped[dv].max()
-
-        df_crit = df_grouped.copy()
+        if only_head:
+            df_crit = df_grouped.copy()
+        else:
+            df_crit = df_phase.reset_index(drop=True)
         df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
         df_crit = df_crit.rename(columns={dv: "gaze"})
 
-        formula = f"gaze ~ Condition + {SA_score} +" \
-                  f"Condition:{SA_score} + (1 | VP)"
+        if only_head:
+            formula = f"gaze ~ Condition + {SA_score} +" \
+                      f"Condition:{SA_score} + (1 | VP)"
 
-        model = pymer4.models.Lmer(formula, data=df_crit)
-        model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+            model = pymer4.models.Lmer(formula, data=df_crit)
+            model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+        else:
+            formula = f"gaze ~ Condition + {SA_score} + ROI + " \
+                      f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI + " \
+                      f"Condition:{SA_score}:ROI + (1 | VP)"
+
+            model = pymer4.models.Lmer(formula, data=df_crit)
+            model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["head", "body"]}, summarize=False)
+
         anova = model.anova(force_orthogonal=True)
         sum_sq_error = (sum(i * i for i in model.residuals))
         anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
@@ -252,14 +263,12 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
         anova['P-val'] = anova['P-val'].round(3).astype("str")
         anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
         anova['P-val'] = anova['P-val'].replace({"0.": "."})
-        anova['p_eta_2'] = anova['p_eta_2'].round(3).astype("str")
+        anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
         anova = anova.reset_index(names=['factor'])
         anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
         anova = anova.drop(columns="index")
-        if only_head:
-            anova.to_csv(os.path.join(save_path, f"lmms_gaze_{dv.replace(' ', '_').lower()}_{phase.lower()}_head.csv"), index=False, decimal='.', sep=';')
-        else:
+        if not only_head:
             anova.to_csv(os.path.join(save_path, f"lmms_gaze_{dv.replace(' ', '_').lower()}_{phase.lower()}.csv"), index=False, decimal='.', sep=';')
 
     if only_head:
@@ -484,9 +493,9 @@ if __name__ == '__main__':
     df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
     vps = [vp for vp in vps if not vp in problematic_subjects]
 
-    plot_et_validation(vps, filepath)
-    plt.savefig(os.path.join(save_path, f"et_calibration.png"), dpi=300)
-    plt.close()
+    # plot_et_validation(vps, filepath)
+    # plt.savefig(os.path.join(save_path, f"et_calibration.png"), dpi=300)
+    # plt.close()
 
     SA_score = "SPAI"
     df_gaze = pd.read_csv(os.path.join(filepath, 'gaze.csv'), decimal='.', sep=';')
