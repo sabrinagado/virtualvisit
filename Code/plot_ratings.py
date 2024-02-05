@@ -19,7 +19,6 @@ from Code.toolbox import utils
 from Code import preproc_scores, preproc_ratings
 
 
-
 # Ratings VR
 def plot_rating_vr(df):
     # df = df_ratings
@@ -404,8 +403,8 @@ def corr_ratings(df):
 
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
-def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 5))
+def plot_rating_agents_scale(df, save_path, scale="SPAI"):
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 4.5))
     labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
     conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
     colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
@@ -417,16 +416,17 @@ def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
         # label = labels[idx_label]
         print(f"\n{label}")
         df_crit = df.loc[df["Criterion"] == label]
-        df_crit = df_crit.sort_values(by=SA_score)
+        df_crit = df_crit.sort_values(by=scale)
         # df_crit = df_crit.loc[~(df_crit["Condition"] == "unknown")]
 
-        df_ancova = df_crit.copy()
-        df_ancova = df_ancova.loc[df_ancova["Condition"].isin(["friendly", "unfriendly"])]
-        df_ancova[SA_score] = (df_ancova[SA_score] - df_ancova[SA_score].mean()) / df_ancova[SA_score].std()
-        formula = (f"Value ~  Condition + {SA_score} + Condition:{SA_score} + (1 | VP)")
+        df_lmm = df_crit.copy()
+        df_lmm = df_lmm.loc[df_lmm["Condition"].isin(["friendly", "unfriendly"])]
+        df_lmm[scale] = (df_lmm[scale] - df_lmm[scale].mean()) / df_lmm[scale].std()
+        df_lmm = df_lmm.rename(columns={scale: "scale"})
+        formula = (f"Value ~  Condition + scale + Condition:scale + (1 | VP)")
         # formula = (f"Value ~  {SA_score} + Condition + click_count "
         #            f"+ Condition:{SA_score} + Condition:click_count + click_count:{SA_score} + Condition:{SA_score}:click_count + (1 | VP)")
-        model = pymer4.models.Lmer(formula, data=df_ancova)
+        model = pymer4.models.Lmer(formula, data=df_lmm)
         model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
         sum_sq_error = (sum(i*i for i in model.residuals))
@@ -434,8 +434,8 @@ def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
         # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
         print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
-        print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
-        print(f"Interaction, F({round(anova.loc[f'Condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:{SA_score}', 'p_eta_2'].item(), 2)}")
+        print(f"{scale} Main Effect, F({round(anova.loc['scale', 'NumDF'].item(), 1)}, {round(anova.loc['scale', 'DenomDF'].item(), 1)})={round(anova.loc['scale', 'F-stat'].item(), 2)}, p={round(anova.loc['scale', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['scale', 'p_eta_2'].item(), 2)}")
+        print(f"Interaction, F({round(anova.loc[f'Condition:scale', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:scale', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:scale', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:scale', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:scale', 'p_eta_2'].item(), 2)}")
 
         anova['NumDF'] = anova['NumDF'].round().astype("str")
         anova['DenomDF'] = anova['DenomDF'].round().astype("str")
@@ -458,18 +458,17 @@ def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
         for idx_condition, condition in enumerate(conditions):
             # idx_condition = 0
             # condition = conditions[idx_condition]
-            df_spai = df_crit.groupby(["VP"])[SA_score].mean(numeric_only=True).reset_index()
-            df_spai = df_spai.sort_values(by=SA_score)
+            df_spai = df_crit.groupby(["VP"])[scale].mean(numeric_only=True).reset_index()
 
             df_cond = df_crit.loc[df_crit['Condition'] == condition.lower()].reset_index(drop=True)
             df_cond = df_cond.dropna(subset="Value")
             df_cond = df_cond.groupby(["VP"]).mean(numeric_only=True).reset_index()
-            df_cond = df_cond.sort_values(by=SA_score)
+            df_cond = df_cond.sort_values(by=scale)
 
-            x = df_cond[SA_score].to_numpy()
+            x = df_cond[scale].to_numpy()
             y = df_cond["Value"].to_numpy()
             linreg = linregress(x, y)
-            all_x = df_crit[SA_score].to_numpy()
+            all_x = df_crit[scale].to_numpy()
             all_y = df_crit["Value"].to_numpy()
             all_y_est = linreg.slope * all_x + linreg.intercept
             all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -481,19 +480,19 @@ def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
 
             p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
             if idx_condition == 2:
-                axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.95 * df_crit["Value"].max(),
+                axes[idx_label].text(df_crit[scale].min() + 0.01 * np.max(x), 0.95 * df_crit["Value"].max(),
                         r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                         color=colors[idx_condition])
             elif idx_condition == 3:
-                axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.91 * df_crit["Value"].max(),
+                axes[idx_label].text(df_crit[scale].min() + 0.01 * np.max(x), 0.91 * df_crit["Value"].max(),
                         r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                         color=colors[idx_condition])
             elif idx_condition == 1:
-                axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.87 * df_crit["Value"].max(),
+                axes[idx_label].text(df_crit[scale].min() + 0.01 * np.max(x), 0.87 * df_crit["Value"].max(),
                         r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                         color=colors[idx_condition])
             elif idx_condition == 0:
-                axes[idx_label].text(df_crit[SA_score].min() + 0.01 * np.max(x), 0.83 * df_crit["Value"].max(),
+                axes[idx_label].text(df_crit[scale].min() + 0.01 * np.max(x), 0.83 * df_crit["Value"].max(),
                         r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
                         color=colors[idx_condition])
 
@@ -505,13 +504,17 @@ def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
         axes[idx_label].set_ylim([-2, df_crit["Value"].max()+2])
         axes[idx_label].set_title(f"{label}", fontweight='bold')  # (N = {len(df_cond['VP'].unique())})
         axes[idx_label].set_ylabel(label)
-        if "SPAI" in SA_score:
+        if "SPAI" in scale:
             axes[idx_label].set_xticks(range(0, 6))
-        elif "SIAS" in SA_score:
+        elif "SIAS" in scale:
             axes[idx_label].set_xticks(range(5, 65, 5))
-        axes[idx_label].set_xlabel(SA_score)
+        elif "IPQ" in scale:
+            axes[idx_label].set_xticks(range(0, 7))
+        elif "MPS" in scale:
+            axes[idx_label].set_xticks(range(1, 6))
+        axes[idx_label].set_xlabel(scale)
         axes[idx_label].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    axes[2].legend(loc="upper right")
+    # axes[2].legend(loc="upper right")
     axes[2].legend(
         [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7),
@@ -520,7 +523,7 @@ def plot_rating_agents_sad(df, save_path, SA_score="SPAI"):
         ["Friendly", "Unfriendly", "Neutral", "Unknown"], loc="upper right")
     plt.tight_layout()
 
-    anovas.to_csv(os.path.join(save_path, 'lmms_ratings.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+    anovas.to_csv(os.path.join(save_path, f'lmms_ratings_{scale}.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
 
 # Ratings Virtual Humans, Relationship with Social Anxiety and Clicks
@@ -652,3 +655,13 @@ if __name__ == '__main__':
     vps = [vp for vp in vps if not vp in problematic_subjects]
 
     df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
+
+    # df_ratings = df_ratings.loc[~(df_ratings["VP"].isin(problematic_subjects))]
+    # df_ratings_fear = df_ratings.loc[df_ratings["Criterion"] == "Fear"]
+    # df_ratings_fear = df_ratings_fear[["VP", "Condition", "Value", "SPAI"]]
+    # df_ratings_fear.columns = ["VP", "Condition", "Rating", "SPAI"]
+    # df_ratings_fear.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'fear_ratings.csv'), decimal='.', sep=';', index=False)
+    #
+    # df_fear_wide = df_ratings_fear.pivot(index=['VP', 'SPAI'], columns="Condition", values='Rating').reset_index()
+    # df_fear_wide.columns = ["VP", "SPAI", "Condition_friendly", "Condition_neutral", "Condition_unfriendly", "Condition_unknown"]
+    # df_fear_wide.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'fear_ratings_wide.csv'), decimal='.', sep=';', index=False)

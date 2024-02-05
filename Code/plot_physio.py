@@ -22,21 +22,21 @@ from Code.toolbox import utils
 # Acquisition
 def plot_physio_acq(filepath, split=False, median=None, SA_score="SPAI", permutations=1000):
     physiologies = ["hr", "eda", "pupil", "hrv_hf"]
-    ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
+    ylabels = ["Heart Rate [BPM]", "Skin Conductance [µS]", "Pupil Diameter [mm]"]
     dvs = ["ECG", "EDA", "pupil"]
     red = '#E2001A'
     green = '#B1C800'
     blue = '#1F82C0'
     colors = [green, red, blue]
     if split:
-        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(18, 6))
-        for idx_group, SA_group in enumerate(["HSA", "LSA"]):
-            # idx_group = 0
-            # SA_group = "HSA"
-            for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
-                # physio_idx = 2
-                # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
-                df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
+        fig, axes = plt.subplots(nrows=2, ncols=len(dvs), figsize=(6*len(dvs), 6))
+        for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
+            # physio_idx = 0
+            # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
+            df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
+            for idx_group, SA_group in enumerate(["HSA", "LSA"]):
+                # idx_group = 0
+                # SA_group = "HSA"
                 if SA_group == "LSA":
                     df_group = df.loc[df[SA_score] < median]
                 else:
@@ -96,9 +96,6 @@ def plot_physio_acq(filepath, split=False, median=None, SA_score="SPAI", permuta
                     # Plot line
                     axes[idx_group, physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
                     axes[idx_group, physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
-
-                y_pos = axes[idx_group, physio_idx].get_ylim()[0] + 0.02 * (
-                        axes[idx_group, physio_idx].get_ylim()[1] - axes[idx_group, physio_idx].get_ylim()[0])
 
                 # Calculate differences for values
                 df_diff = df_group.loc[df_group["event"].isin(phases)]
@@ -175,6 +172,14 @@ def plot_physio_acq(filepath, split=False, median=None, SA_score="SPAI", permuta
                 t_vals = t_vals.merge(cluster_mass[["idx_cluster", "p-val"]], on='idx_cluster', how="left")
 
                 # If p-value of cluster < .05 add cluster to plot
+                # y_pos = axes[idx_group, physio_idx].get_ylim()[0] + 0.02 * (
+                #         axes[idx_group, physio_idx].get_ylim()[1] - axes[idx_group, physio_idx].get_ylim()[0])
+                if physiology == "hr":
+                    y_pos = -4
+                elif physiology == "eda":
+                    y_pos = -0.4
+                elif physiology == "pupil":
+                    y_pos = -0.55
                 for timepoint in t_vals["time"].unique():
                     # timepoint = 0
                     p = t_vals.loc[(t_vals["time"] == timepoint), "p-val"].item()
@@ -183,6 +188,12 @@ def plot_physio_acq(filepath, split=False, median=None, SA_score="SPAI", permuta
 
                 # Style Plot
                 axes[idx_group, physio_idx].set_xlim([0, 5])
+                if physiology == "hr":
+                    axes[idx_group, physio_idx].set_ylim([-4.5, 6])
+                elif physiology == "eda":
+                    axes[idx_group, physio_idx].set_ylim([-0.52, 1.3])
+                elif physiology == "pupil":
+                    axes[idx_group, physio_idx].set_ylim([-0.6, 0.45])
                 axes[idx_group, physio_idx].set_ylabel(ylabel)
                 if idx_group == 0:
                     axes[idx_group, physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}",fontweight='bold')  # (N = {len(df['VP'].unique())})
@@ -190,12 +201,12 @@ def plot_physio_acq(filepath, split=False, median=None, SA_score="SPAI", permuta
                     axes[idx_group, physio_idx].set_xlabel("Seconds after Interaction Onset")
                 axes[idx_group, physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
+        for idx_group, SA_group in enumerate(["HSA", "LSA"]):
             axes[idx_group, 2].legend(loc="upper right")
             axes[idx_group, 0].text(-0.7, np.mean(axes[idx_group, 0].get_ylim()), f"{SA_group}", color="k", fontweight="bold", fontsize="large", verticalalignment='center', rotation=90)
     else:
-        fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
-        for physio_idx, (physiology, column_name, ylabel) in enumerate(
-                zip(["hr", "eda", "pupil"], ["ECG", "EDA", "pupil"], ylabels)):
+        fig, axes = plt.subplots(nrows=1, ncols=len(dvs), figsize=(6*len(dvs), 5))
+        for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
             # physio_idx = 0
             # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
             df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
@@ -350,6 +361,12 @@ def plot_physio_acq(filepath, split=False, median=None, SA_score="SPAI", permuta
 
             # Style Plot
             axes[physio_idx].set_xlim([0, 5])
+            if physiology == "hr":
+                axes[physio_idx].set_ylim([-4.5, 5])
+            elif physiology == "eda":
+                axes[physio_idx].set_ylim([-0.5, 1.5])
+            elif physiology == "pupil":
+                axes[physio_idx].set_ylim([-0.5, 0.5])
             axes[physio_idx].set_ylabel(ylabel)
             axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}", fontweight='bold')  # (N = {len(df['VP'].unique())})
             axes[physio_idx].set_xlabel("Seconds after Interaction Onset")
@@ -1651,7 +1668,7 @@ def plot_physio_diff_sad(filepath, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 2
+    wave = 1
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

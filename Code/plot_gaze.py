@@ -131,7 +131,6 @@ def plot_et_validation(vps, filepath):
     plt.tight_layout()
 
 
-# Test-Phase
 def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
     # df = df_gaze.copy()
     if dv == "Gaze Proportion":
@@ -254,7 +253,10 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
         axes[idx_phase].set_title(f"{phase} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
 
         axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-        axes[idx_phase].set_ylim(0, max * 1.17)
+        if (phase == "Acquisition") & (dv == "Gaze Proportion"):
+            axes[idx_phase].set_ylim(0, 1)
+        else:
+            axes[idx_phase].set_ylim(0, max * 1.17)
 
         anova['NumDF'] = anova['NumDF'].round().astype("str")
         anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
@@ -278,8 +280,244 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     plt.tight_layout()
 
 
+def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
+    # df = df_gaze.copy()
+    if dv == "Gaze Proportion":
+        y_label = "Proportional Dwell Time on Virtual Agents"
+    elif dv == "Switches":
+        y_label = "Shifts of Visual Attention Towards Virtual Agents"
+
+    conditions = ["friendly", "unfriendly"]
+    labels = ["Friendly\nAgent", "Unfriendly\nAgent"]
+
+    if phase == "Interaction":
+        df = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
+        df.loc[df["Phase"].str.contains("Interaction"), "Phase"] = "Acquisition"
+        title = "Acquisition Phase"
+    elif phase == "Test":
+        df = df.loc[df["Phase"] == "Test"]
+        title = "Test Phase"
+
+    df = df.loc[df["Condition"].isin(conditions)]
+    red = '#E2001A'
+    green = '#B1C800'
+    colors = [green, red]
+
+    if only_head:
+        df = df.loc[df["ROI"] == "head"]
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 5))
+    boxWidth = 1 / (len(conditions) + 1)
+    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+
+    df_grouped = df.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
+    df_grouped = df_grouped.drop(columns=SA_score)
+    df_grouped = df_grouped.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 1
+        # condition = conditions[idx_condition]
+        df_cond = df_grouped.loc[df_grouped['Condition'] == condition].reset_index(drop=True)
+
+        # Plot raw data points
+        for i in range(len(df_cond)):
+            # i = 0
+            x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
+            y = df_cond.loc[i, dv].item()
+            ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3)
+
+        # Plot boxplots
+        meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+        medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+        fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
+        whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+        capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+        boxprops = dict(color=colors[idx_condition])
+
+        fwr_correction = True
+        alpha = (1 - (0.05))
+        bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, dv].values,
+                                                 numb_iterations=5000,
+                                                 alpha=alpha,
+                                                 as_dict=True,
+                                                 func='mean')
+
+        ax.boxplot([df_cond.loc[:, dv].values],
+                   whiskerprops=whiskerprops,
+                   capprops=capprops,
+                   boxprops=boxprops,
+                   medianprops=medianlineprops,
+                   showfliers=False, flierprops=fliermarkerprops,
+                   # meanline=True,
+                   # showmeans=True,
+                   # meanprops=meanprops,
+                   # notch=True,  # bootstrap=5000,
+                   # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                   whis=[2.5, 97.5],
+                   positions=[pos[idx_condition]],
+                   widths=0.8 * boxWidth)
+
+        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+
+    max = df_grouped[dv].max()
+    if only_head:
+        df_crit = df_grouped.copy()
+    else:
+        df_crit = df.reset_index(drop=True)
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+    df_crit = df_crit.rename(columns={dv: "gaze"})
+
+    if only_head:
+        formula = f"gaze ~ Condition + {SA_score} +" \
+                  f"Condition:{SA_score} + (1 | VP)"
+
+        model = pymer4.models.Lmer(formula, data=df_crit)
+        model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
+    else:
+        formula = f"gaze ~ Condition + {SA_score} + ROI + " \
+                  f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI + " \
+                  f"Condition:{SA_score}:ROI + (1 | VP)"
+
+        model = pymer4.models.Lmer(formula, data=df_crit)
+        model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["head", "body"]}, summarize=False)
+
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+    p = anova.loc["Condition", "P-val"].item()
+    if p < 0.05:
+        ax.hlines(y=max * 1.10, xmin=pos[0], xmax=pos[1], linewidth=0.7, color='k')
+        ax.vlines(x=pos[0], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+        ax.vlines(x=pos[1], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+        ax.text(np.mean([pos[0], pos[1]]), max * 1.105, p_sign, color='k', horizontalalignment='center')
+
+    ax.set_xticklabels(labels)
+
+    ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
+
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    if (phase == "Interaction") & (dv == "Gaze Proportion"):
+        ax.set_ylim(0, 1)
+    else:
+        ax.set_ylim(0, max * 1.17)
+
+    if only_head:
+        ax.set_ylabel(f"{y_label}' Heads")
+    else:
+        ax.set_ylabel(f"{y_label}")
+    plt.tight_layout()
+
+
+def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
+    # df = df_gaze.copy()
+    if dv == "Gaze Proportion":
+        y_label = "Proportional Dwell Time on Virtual Agents"
+    elif dv == "Switches":
+        y_label = "Shifts of Visual Attention Towards Virtual Agents"
+
+    if phase == "Interaction":
+        df = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
+        df.loc[df["Phase"].str.contains("Interaction"), "Phase"] = "Acquisition"
+        title = "Acquisition Phase"
+    elif phase == "Test":
+        df = df.loc[df["Phase"] == "Test"]
+        title = "Test Phase"
+
+    conditions = ["friendly", "unfriendly"]
+    labels = ["Friendly\nAgent", "Unfriendly\nAgent"]
+    rois = ["body", "head"]
+    df = df.loc[df["Condition"].isin(conditions)]
+    reds = ['#E2001A', '#89003e']
+    greens = ['#B1C800', '#3b8703']
+    colors = [greens, reds]
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
+
+    for idx_condition, condition in enumerate(conditions):
+        # idx_condition = 0
+        # condition = conditions[idx_condition]
+        boxWidth = 1 / (len(rois) + 1)
+        pos = [idx_condition + x * boxWidth for x in np.arange(1, len(rois) + 1)]
+
+        df_cond = df.loc[df['Condition'] == condition].reset_index(drop=True)
+
+        for idx_roi, roi in enumerate(rois):
+            # idx_roi = 0
+            # roi = rois[idx_roi]
+
+            df_roi = df_cond.loc[df_cond['ROI'] == roi].reset_index(drop=True)
+
+            # Plot raw data points
+            for i in range(len(df_roi)):
+                # i = 0
+                x = random.uniform(pos[idx_roi] - (0.25 * boxWidth), pos[idx_roi] + (0.25 * boxWidth))
+                y = df_roi.loc[i, dv].item()
+                ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_condition][idx_roi], mec=colors[idx_condition][idx_roi], alpha=0.3)
+
+            # Plot boxplots
+            meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition][idx_roi])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition][idx_roi])
+            whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition][idx_roi])
+            capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition][idx_roi])
+            boxprops = dict(color=colors[idx_condition][idx_roi])
+
+            fwr_correction = True
+            alpha = (1 - (0.05))
+            bootstrapping_dict = utils.bootstrapping(df_roi.loc[:, dv].values,
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
+
+            ax.boxplot([df_roi.loc[:, dv].values],
+                       whiskerprops=whiskerprops,
+                       capprops=capprops,
+                       boxprops=boxprops,
+                       medianprops=medianlineprops,
+                       showfliers=False, flierprops=fliermarkerprops,
+                       # meanline=True,
+                       # showmeans=True,
+                       # meanprops=meanprops,
+                       # notch=True,  # bootstrap=5000,
+                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                       whis=[2.5, 97.5],
+                       positions=[pos[idx_roi]],
+                       widths=0.8 * boxWidth)
+
+            ax.errorbar(x=pos[idx_roi], y=bootstrapping_dict['mean'],
+                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+
+    ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
+    ax.set_xticklabels(labels)
+
+    ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
+
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    if (phase == "Interaction") & (dv == "Gaze Proportion"):
+        ax.set_ylim(0, 1)
+    elif dv == "Switches":
+        ax.set_ylim(0, df[dv].max())
+
+    ax.set_ylabel(f"{y_label}")
+
+    fig.legend(
+        [Line2D([0], [0], marker='o', markeredgecolor=colors[0][0], markeredgewidth=1, markerfacecolor=colors[0][0], alpha=.7, lw=0),
+         Line2D([0], [0], marker='o', markeredgecolor=colors[0][1], markeredgewidth=1, markerfacecolor=colors[0][1], alpha=.7, lw=0),
+         Line2D([0], [0], marker='o', markeredgecolor=colors[1][0], markeredgewidth=1, markerfacecolor=colors[1][0], alpha=.7, lw=0),
+         Line2D([0], [0], marker='o', markeredgecolor=colors[1][1], markeredgewidth=1, markerfacecolor=colors[1][1], alpha=.7, lw=0)],
+        ["Body Friendly Agent", "Head Friendly Agent", "Body Unfriendly Agent", "Head Unfriendly Agent"], loc="center right")
+    fig.subplots_adjust(right=0.6)
+
+
 # Test, Relationship SPAI, ROI
-def plot_gaze_roi(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI"):
+def plot_gaze_roi_sad(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI"):
     # df = df_gaze
     if dv == "Gaze Proportion":
         y_label = "Proportional Dwell Time on Virtual Agent"
@@ -346,7 +584,7 @@ def plot_gaze_roi(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI"):
 
 
 # Test, Relationship SPAI
-def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
+def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
     # df = df_gaze
     # phase = "Interaction"
     if dv == "Gaze Proportion":
@@ -355,12 +593,20 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
         y_label = "Shifts of Visual Attention Towards Virtual Agent"
 
     df = df.loc[df["Phase"].str.contains(phase)]
-    df = df.sort_values(by=SA_score)
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
 
     df = df.loc[df["Condition"].isin(conditions)]
+
+    if only_head:
+        df = df.loc[df["ROI"] == "head"]
+
+    df_grouped = df.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
+    df_grouped = df_grouped.drop(columns=SA_score)
+    df_grouped = df_grouped.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
+
+    df_grouped = df_grouped.sort_values(by=SA_score)
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 5))
     red = '#E2001A'
@@ -369,12 +615,12 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
-        df_cond = df.loc[df['Condition'] == condition].reset_index(drop=True)
+        df_cond = df_grouped.loc[df_grouped['Condition'] == condition].reset_index(drop=True)
 
         x = df_cond[SA_score].to_numpy()
         y = df_cond[dv].to_numpy()
         linreg = linregress(x, y)
-        all_x = df[SA_score].to_numpy()
+        all_x = df_grouped[SA_score].to_numpy()
         all_y = df_cond[dv].to_numpy()
         all_y_est = linreg.slope * all_x + linreg.intercept
         all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
@@ -384,15 +630,15 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        if idx_condition == 0:
-            ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.95 * (df[dv].max() - df[dv].min()) + df[dv].min(),
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_condition])
-        else:
-            ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.91 * (df[dv].max() - df[dv].min()) + df[dv].min(),
-                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-                                 color=colors[idx_condition])
+        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        # if idx_condition == 0:
+        #     ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_grouped[dv].max() - df_grouped[dv].min()) + df_grouped[dv].min(),
+        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+        #                          color=colors[idx_condition])
+        # else:
+        #     ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_grouped[dv].max() - df_grouped[dv].min()) + df_grouped[dv].min(),
+        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+        #                          color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
@@ -404,7 +650,10 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
     elif "SIAS" in SA_score:
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(y_label)
+    if only_head:
+        ax.set_ylabel(f"{y_label}' Heads")
+    else:
+        ax.set_ylabel(f"{y_label}")
     ax.legend(loc="upper right")
     plt.tight_layout()
 

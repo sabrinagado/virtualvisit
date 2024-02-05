@@ -255,7 +255,7 @@ def get_gaze(vps, filepath, wave, df_scores):
 
 
 if __name__ == '__main__':
-    wave = 2
+    wave = 1
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
