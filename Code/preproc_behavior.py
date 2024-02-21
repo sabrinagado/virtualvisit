@@ -339,7 +339,7 @@ def get_events(vp, filepath, wave, df_roles):
 def get_phases(vps, filepath, wave, df_scores):
     df_events = pd.DataFrame()
     for vp in vps:
-        # vp = vps[1]
+        # vp = vps[8]
         vp = f"0{vp}" if vp < 10 else f"{vp}"
 
         # Get Conditions
@@ -397,7 +397,7 @@ def get_distances(vps, filepath, wave, df_scores):
     df_movement = pd.DataFrame()
     df_dist_vh = pd.DataFrame()
     for vp in tqdm(vps):
-        # vp = vps[1]
+        # vp = vps[14]
         vp = f"0{vp}" if vp < 10 else f"{vp}"
 
         # Get Movement File
@@ -466,6 +466,7 @@ def get_distances(vps, filepath, wave, df_scores):
                 # phase = "Habituation"
                 df_phase = df.loc[df["phase"] == phase].reset_index(drop=True)
 
+                # Movement
                 start_position = df_phase.drop_duplicates("VP", keep="first")[["x", "y"]].to_numpy().flatten()
                 df_phase["distance_from_start"] = df_phase.apply(lambda x: math.dist(x[["x", "y"]].to_numpy().flatten(), start_position), axis=1)
                 df_distance_temp = pd.DataFrame({"VP": [vp],
@@ -508,48 +509,35 @@ def get_distances(vps, filepath, wave, df_scores):
 
                 df_movement = pd.concat([df_movement, df_phase])
 
-                df_phase = df.loc[df["phase"] == phase].reset_index(drop=True)
-                df_phase = df_phase.loc[~(df_phase["event"].str.contains("Office"))]
+                # Interpersonal Distance
+                df_event_rooms_phase = df_event_rooms.copy()
+                df_event_rooms_phase["time"] = pd.to_timedelta(df_event_rooms_phase["timestamp"] - start)
+                df_phase = pd.merge_asof(df_phase, df_event_rooms_phase[["time", "event"]], on="time", direction="backward").reset_index(drop=True)
 
-                df_phase["section"] = 0
-                section = 0
-                df_phase["delta_timestamp"] = (df_phase["timestamp"].shift(-1) - df_phase["timestamp"]).dt.total_seconds()
-                for idx_row, row in df_phase.iterrows():
-                    # idx_row = 0
-                    # row = df_phase.iloc[idx_row, :]
-                    df_phase.loc[idx_row, "section"] = section
-                    if row["delta_timestamp"] > 1:
-                        section += 1
-                df_phase = df_phase.drop(columns="delta_timestamp")
+                dict_room_cond = dict(df_roles[["Rooms", "Role"]].values)
 
-                for section in df_phase["section"].unique():
-                    # section = df_phase["section"].unique()[0]
-                    df_section = df_phase.loc[df_phase["section"] == section].reset_index(drop=True)
-                    condition = df_section.loc[0, "Condition"]
-                    room = df_roles.loc[df_roles["Role"] == condition, "Rooms"].item()
-                    vh_position = np.array([-870, 262]) if room == "Living" else np.array([-490, -1034])
+                df_phase[f"distance_to_{dict_room_cond['Living']}"] = df_phase.apply(
+                    lambda x: math.dist(x[["x", "y"]].to_numpy(), [-870, 262]), axis=1)
+                df_phase[f"distance_to_{dict_room_cond['Dining']}"] = df_phase.apply(
+                    lambda x: math.dist(x[["x", "y"]].to_numpy(), [-490, -1034]), axis=1)
 
-                    df_section["time"] = pd.to_timedelta(df_section["timestamp"] - start)
-                    df_section = df_section.set_index("time")
-                    df_section = df_section.resample("0.2S").mean(numeric_only=True)
-                    df_section = df_section.reset_index()
+                for condition in ["friendly", "unfriendly"]:
+                    # condition = "unfriendly"
+                    df_dist_vh_cond = df_phase.copy()
+                    df_dist_vh_cond[f"distance"] = df_dist_vh_cond[f"distance_to_{condition}"] / 100
+                    df_dist_vh_cond["Condition"] = condition
+                    df_dist_vh_cond = df_dist_vh_cond[['VP', 'time', 'phase', 'event', 'Condition', 'distance']]
 
-                    df_section = df_section.dropna(subset="VP")
-
-                    distance_to_vh = []
-                    for idx_row, row in df_section.iterrows():
-                        # idx_row = 600
-                        # row = df_section.iloc[idx_row, :]
-                        point = df_section.loc[idx_row, ["x", "y"]].to_numpy()
-                        distance_to_vh.append(math.dist(point, vh_position))
-                    df_section["distance"] = [distance / 100 for distance in distance_to_vh]
-                    df_section["phase"] = phase
-                    df_section["Condition"] = condition
-                    df_section["VP"] = df_section["VP"].astype("int")
-
-                    df_section = df_section[['VP', 'time', 'phase', 'Condition', 'distance']]
-
-                    df_dist_vh = pd.concat([df_dist_vh, df_section])
+                    # Add Conditions
+                    for idx_row, row in df_roles.iterrows():
+                        # idx_row = 0
+                        # row = df_roles.iloc[idx_row, :]
+                        room = row["Rooms"]
+                        role = row["Role"]
+                        character = row["Character"]
+                        df_dist_vh_cond["event"] = df_dist_vh_cond["event"].str.replace(room, role.capitalize())
+                        df_dist_vh_cond["event"] = df_dist_vh_cond["event"].str.replace(character, role.capitalize())
+                    df_dist_vh = pd.concat([df_dist_vh, df_dist_vh_cond])
 
         elif wave == 2:
             df["x"] = [float(position.split("=")[1].split(" ")[0]) for position in df["Position"]]
@@ -698,7 +686,7 @@ def get_distances(vps, filepath, wave, df_scores):
 
 
 if __name__ == '__main__':
-    wave = 2
+    wave = 1
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

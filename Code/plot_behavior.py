@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 import random
+import math
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -1012,7 +1013,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 # % ===========================================================================
 # Interpersonal Distance
 # =============================================================================
-def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI", only_visible=False):
+def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI", only_visible=False, only_in_room=False):
     # dist = "avg"
     # df = df_distance
     if dist == "avg":
@@ -1322,6 +1323,8 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
             p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
             ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
 
+
+
     df_crit = df_subset.copy()
     df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
 
@@ -1345,22 +1348,26 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
     print(f"Interaction Phase x Condition x {SA_score}, F({round(anova.loc[f'phase:Condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'phase:Condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'phase:Condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'phase:Condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'phase:Condition:{SA_score}', 'p_eta_2'].item(), 2)}")
 
     estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="phase", p_adjust="holm")
+    contrasts["d"] = contrasts.apply(lambda x: (2 * x[["T-stat"]])/math.sqrt(x[["DF"]]), axis=1)
 
-    p = anova.loc["Condition", "P-val"].item()
-    if p < 0.05:
-        ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
-        ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        ax.vlines(x=1.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
-        ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
+    # p = anova.loc["Condition", "P-val"].item()
+    # if p < 0.05:
+    #     ax.hlines(y=max*1.10, xmin=0.51, xmax=1.49, linewidth=0.7, color='k')
+    #     ax.vlines(x=0.51, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+    #     ax.vlines(x=1.49, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
+    #     p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+    #     ax.text(1, max*1.105, p_sign, color='k', horizontalalignment='center')
 
     p_test = contrasts.loc[contrasts["phase"] == "Test", "P-val"].item()
+    print(f"Habituation-Phase, t({round(contrasts.loc[contrasts['phase']=='Habituation', 'DF'].item(), 1)})={round(contrasts.loc[contrasts['phase']=='Habituation', 'T-stat'].item(), 2)}, p={round(contrasts.loc[contrasts['phase']=='Habituation', 'P-val'].item(), 3)}, d={round(contrasts.loc[contrasts['phase']=='Habituation', 'd'].item(), 2)}")
+    print(f"Test-Phase, t({round(contrasts.loc[contrasts['phase'] == 'Test', 'DF'].item(), 1)})={round(contrasts.loc[contrasts['phase'] == 'Test', 'T-stat'].item(), 2)}, p={round(contrasts.loc[contrasts['phase'] == 'Test', 'P-val'].item(), 3)}, d={round(contrasts.loc[contrasts['phase'] == 'Test', 'd'].item(), 2)}")
+
     max = df_subset["distance"].max()
     if p_test < 0.05:
         ax.hlines(y=max*1.10, xmin=2*boxWidth, xmax=1+2*boxWidth, linewidth=0.7, color='k')
         ax.vlines(x=2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
         ax.vlines(x=1+2*boxWidth, ymin=max*1.09, ymax=max*1.10, linewidth=0.7, color='k')
-        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
+        p_sign = "***" if p_test < 0.001 else "**" if p_test < 0.01 else "*" if p_test < 0.05 else f"." if p_test < 0.1 else ""
         ax.text(np.mean([2*boxWidth, 1+2*boxWidth]), max*1.105, p_sign, color='k', horizontalalignment='center')
 
     anova['NumDF'] = anova['NumDF'].round().astype("str")
@@ -1415,7 +1422,7 @@ def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
     df_diff = pd.melt(df_diff, id_vars=['VP', SA_score], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
     df_diff = df_diff.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     red = '#E2001A'
@@ -1465,7 +1472,7 @@ def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"Difference (Test - Habituation) Between\n{title} Distance to the Position of Virtual Agents [m]")
-    # ax.set_title(f"Interpersonal Distance", fontweight='bold')
+    ax.set_title(f"Interpersonal Distance", fontweight='bold')
     ax.legend(loc="upper right")
     plt.tight_layout()
 
@@ -2101,7 +2108,7 @@ def plot_walking_distance(df, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 2
+    wave = 1
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
