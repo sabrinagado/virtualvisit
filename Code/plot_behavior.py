@@ -523,7 +523,7 @@ def plot_time_test_rooms_agents_static_sad(df, SA_score="SPAI"):
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"Total Duration [s] in Test Phase")
-    # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
+    # ax.set_title(f"Time Spent Close to Virtual Agents (N={len(df['VP'].unique)})", fontweight='bold')
     ax.legend()
     plt.tight_layout()
 
@@ -576,11 +576,11 @@ def plot_time_rooms_agents_static_diff_sad(df, SA_score="SPAI"):
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        if idx_condition == 0:
-            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
-        else:
-            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
+        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        # if idx_condition == 0:
+        #     ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
+        # else:
+        #     ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
@@ -593,7 +593,7 @@ def plot_time_rooms_agents_static_diff_sad(df, SA_score="SPAI"):
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(
         f"Difference (Test - Habituation) Between\nTime Spent Close to the Position of the Virtual Agents [s]")
-    # ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Agents", fontweight='bold')
+    # ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Agents (N={len(df['VP'].unique())})", fontweight='bold')
     ax.legend(loc="upper right")
     plt.tight_layout()
 
@@ -1021,7 +1021,6 @@ def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI"
     elif dist == "min":
         title = "Minimum"
 
-    conditions = ["friendly", "unfriendly"]
     if wave == 1:
         df_test = df.loc[df["phase"].str.contains("Test")]
     elif wave == 2:
@@ -1031,6 +1030,7 @@ def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI"
         df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
         df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
 
+    conditions = ["friendly", "unfriendly"]
     df_test = df_test.loc[df_test["Condition"].isin(conditions)]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     if dist == "avg":

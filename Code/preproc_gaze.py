@@ -28,7 +28,7 @@ def get_gaze(vps, filepath, wave, df_scores):
     df_pupil = pd.DataFrame()
     df_pupil_interaction = pd.DataFrame()
     for vp in tqdm(vps):
-        # vp = vps[8]
+        # vp = vps[46]
         vp = f"0{vp}" if vp < 10 else f"{vp}"
         # print(f"VP: {vp}")
 
@@ -77,6 +77,7 @@ def get_gaze(vps, filepath, wave, df_scores):
 
         df_events_vp = df_events_vp.loc[df_events_vp["duration"] > 0]
 
+        # For the Test Phase: use the three minutes before the first room rating
         df_gaze_test = df_gaze_resampled.loc[(df_gaze_resampled["timestamp"] >= events["start_test"]) & (df_gaze_resampled["timestamp"] < events["start_roomrating2"])]
         df_gaze_test = drop_consecutive_duplicates(df_gaze_test, subset="timestamp", keep="first")
         df_gaze_test = df_gaze_test.loc[df_gaze_test["eye_openness"] == 1]
@@ -97,6 +98,40 @@ def get_gaze(vps, filepath, wave, df_scores):
                 # Save as dataframe
                 df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
                                              'Phase': ["Test"],
+                                             'Person': [character],
+                                             'Condition': [""],
+                                             'ROI': [roi],
+                                             'Gaze Proportion': [proportion],
+                                             'Number': [number],
+                                             'Switches': [switches_towards_roi]})
+                df_gazes_vp = pd.concat([df_gazes_vp, df_gaze_temp])
+
+        # For the Acquisition Phase: use the time between the closing of the "interaction widget" and the ending of the last interaction
+        df_gaze_acq = df_gaze_resampled.loc[(df_gaze_resampled["timestamp"] >= events["start_acq"]) & (df_gaze_resampled["timestamp"] < events["end_acq"])]
+        df_gaze_acq = drop_consecutive_duplicates(df_gaze_acq, subset="timestamp", keep="first")
+        df_gaze_acq = df_gaze_acq.loc[df_gaze_acq["eye_openness"] == 1]
+        df_gaze_acq = df_gaze_acq.reset_index(drop=True)
+        start_index_acq = df_gaze_acq.loc[df_gaze_acq["actor"].str.contains("InstructionInteraction")].last_valid_index() + 1
+        df_gaze_acq = df_gaze_acq.iloc[start_index_acq:,]
+        df_gaze_acq = df_gaze_acq.reset_index(drop=True)
+
+        for character in ["Bryan", "Emanuel", "Ettore", "Oskar"]:
+            # character = "Emanuel"
+            for roi, searchstring in zip(["head", "body"], ["Head", "_Char"]):
+                # roi = "head"
+                # searchstring = "Head"
+                number = len(df_gaze_acq.loc[df_gaze_acq['actor'].str.contains(f"{character}{searchstring}")])
+                proportion = 0 if number == 0 else number / len(df_gaze_acq)
+
+                if roi == "head":
+                    switches_towards_roi = (df_gaze_acq["actor"].str.contains(f"{character}Head") & (~(df_gaze_acq["actor"].shift(fill_value="").str.contains(f"{character}Head")))).sum(axis=0)
+                elif roi == "body":
+                    switches_towards_roi = ((df_gaze_acq["actor"].str.contains(f"{character}Head") | df_gaze_acq[
+                        "actor"].str.contains(f"{character}_Char")) &~((df_gaze_acq["actor"].shift().str.contains(f"{character}Head") | df_gaze_acq["actor"].shift().str.contains(f"{character}_Char")))).sum(axis=0)
+
+                # Save as dataframe
+                df_gaze_temp = pd.DataFrame({'VP': [int(vp)],
+                                             'Phase': ["Acquisition"],
                                              'Person': [character],
                                              'Condition': [""],
                                              'ROI': [roi],

@@ -137,7 +137,7 @@ def get_events(vp, filepath, wave, df_roles):
         if wave == 1:
             start_conditioning = df_event.loc[df_event["event"] == "EnterTerrace", "timestamp"].reset_index(drop=True)[0]
             start_test = start_roomrating2 - timedelta(seconds=180)
-            end_acq = df_event.loc[(df_event["event"] == "EnterOffice") & (df_event["timestamp"] > start_conditioning) & (df_event["timestamp"] < start_test), "timestamp"].reset_index(drop=True)[0]
+            end_acq = df_event.loc[(df_event["event"] == "AllInteractionsFinished") & (df_event["timestamp"] > start_conditioning) & (df_event["timestamp"] < start_test), "timestamp"].reset_index(drop=True)[0]
         elif wave == 2:
             start_conditioning = df_event.loc[df_event["event"] == "Player_EnterTerrace", "timestamp"].reset_index(drop=True)[0]
             start_test = start_roomrating2 - timedelta(seconds=180)
@@ -162,6 +162,9 @@ def get_events(vp, filepath, wave, df_roles):
     df_acq["duration"] = 5
     df_acq["event"] = [name[1] for name in df_acq["event"].str.split("Start")]
     df_acq = df_acq.drop_duplicates(subset="event")
+    df_acq = pd.concat([df_acq, pd.DataFrame({"timestamp": [start_conditioning], "event": [f"Start_Acquisition"], "duration": [(end_acq-start_conditioning).total_seconds()]})])
+    df_acq = pd.concat([df_acq, pd.DataFrame({"timestamp": [end_acq], "event": [f"End_Acquisition"]})])
+    df_acq = df_acq.sort_values(by="timestamp").reset_index(drop=True)
     dfs.append(df_acq)
 
     if wave == 1:
@@ -330,6 +333,8 @@ def get_events(vp, filepath, wave, df_roles):
               "start_habituation": start_habituation,
               "start_roomrating1": start_roomrating1,
               "start_roomrating2": start_roomrating2,
+              "start_acq": start_conditioning,
+              "end_acq": end_acq,
               "start_test": start_test}
 
     return df_event, events

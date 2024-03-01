@@ -141,8 +141,9 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     conditions = ["friendly", "unfriendly"]
     labels = ["Friendly\nAgent", "Unfriendly\nAgent"]
 
-    df_acq = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
-    df_acq.loc[df_acq["Phase"].str.contains("Interaction"), "Phase"] = "Acquisition"
+    # df_acq = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
+    # df_acq.loc[df_acq["Phase"].str.contains("Interaction"), "Phase"] = "Acquisition"
+    df_acq = df.loc[df["Phase"] == "Acquisition"]
     df_test = df.loc[df["Phase"] == "Test"]
     df = pd.concat([df_acq, df_test])
     df = df.loc[df["Condition"].isin(conditions)]
@@ -293,6 +294,9 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
     if phase == "Interaction":
         df = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
         df.loc[df["Phase"].str.contains("Interaction"), "Phase"] = "Acquisition"
+        title = "Interactions"
+    elif phase == "Acquisition":
+        df = df.loc[df["Phase"] == "Acquisition"]
         title = "Acquisition Phase"
     elif phase == "Test":
         df = df.loc[df["Phase"] == "Test"]
@@ -423,6 +427,9 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
     if phase == "Interaction":
         df = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
         df.loc[df["Phase"].str.contains("Interaction"), "Phase"] = "Acquisition"
+        title = "Interactions"
+    elif phase == "Acquisition":
+        df = df.loc[df["Phase"] == "Acquisition"]
         title = "Acquisition Phase"
     elif phase == "Test":
         df = df.loc[df["Phase"] == "Test"]
@@ -586,7 +593,7 @@ def plot_gaze_roi_sad(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI
 # Test, Relationship SPAI
 def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
     # df = df_gaze
-    # phase = "Interaction"
+    # phase = "Acquisition"
     if dv == "Gaze Proportion":
         y_label = "Proportional Dwell Time on Virtual Agent"
     elif dv == "Switches":
@@ -630,20 +637,20 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        # if idx_condition == 0:
-        #     ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_grouped[dv].max() - df_grouped[dv].min()) + df_grouped[dv].min(),
-        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #                          color=colors[idx_condition])
-        # else:
-        #     ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_grouped[dv].max() - df_grouped[dv].min()) + df_grouped[dv].min(),
-        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #                          color=colors[idx_condition])
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_grouped[dv].max() - df_grouped[dv].min()) + df_grouped[dv].min(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
+        else:
+            ax.text(df[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_grouped[dv].max() - df_grouped[dv].min()) + df_grouped[dv].min(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_title(f"{phase.replace('Interaction', 'Acquisition')} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
+    ax.set_title(f"{phase} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
     ax.set_xlabel(SA_score)
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
