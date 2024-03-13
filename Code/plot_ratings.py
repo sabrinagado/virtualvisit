@@ -22,24 +22,25 @@ from Code import preproc_scores, preproc_ratings
 # Ratings VR
 def plot_rating_vr(df):
     # df = df_ratings
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(6, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     phases = ['Orientation', 'Habituation', 'Test']
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
     boxWidth = 1
-    pos = [1]
 
     for idx_phase, phase in enumerate(phases):
-        # idx_phase = 2
+        # idx_phase = 0
         # phase = phases[idx_phase]
         df_phase = df.loc[(df["Phase"] == phase) & (df["Object"] == "VR")]
         df_phase = df_phase.dropna(subset="Value")
 
+        pos = idx_phase
+
         # Plot raw data points
         for i in range(len(df_phase)):
             # i = 0
-            x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
+            x = random.uniform(pos - (0.25 * boxWidth), pos + (0.25 * boxWidth))
             y = df_phase.reset_index().loc[i, "Value"].item()
-            axes[idx_phase].plot(x, y, marker='o', ms=5, mfc=colors[idx_phase], mec=colors[idx_phase], alpha=0.3)
+            ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_phase], mec=colors[idx_phase], alpha=0.3)
 
         # Plot boxplots
         meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -57,7 +58,7 @@ def plot_rating_vr(df):
                                                  as_dict=True,
                                                  func='mean')
 
-        axes[idx_phase].boxplot([df_phase.loc[:, "Value"].values],
+        ax.boxplot([df_phase.loc[:, "Value"].values],
                                 whiskerprops=whiskerprops,
                                 capprops=capprops,
                                 boxprops=boxprops,
@@ -69,28 +70,27 @@ def plot_rating_vr(df):
                                 # notch=True,  # bootstrap=5000,
                                 # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
                                 whis=[2.5, 97.5],
-                                positions=[pos[0]],
+                                positions=[pos],
                                 widths=0.8 * boxWidth)
 
-        axes[idx_phase].errorbar(x=pos[0], y=bootstrapping_dict['mean'],
+        ax.errorbar(x=pos, y=bootstrapping_dict['mean'],
                                  yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
                                  elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
-
-        axes[idx_phase].set_xticklabels([phase])
-        axes[idx_phase].set_ylim(-1, 101)
-        axes[idx_phase].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
         if phase == "Test":
             linreg = linregress(df_phase.loc[:, "Value"], df_phase.loc[:, "SSQ-diff"])
             print(f"Correlation between Wellbeing after Test-Phase and SSQ-diff r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
 
-    axes[0].set_ylabel("Subjective Wellbeing")
+    ax.set_xticklabels(phases)
+    ax.set_ylim(-1, 101)
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    ax.set_ylabel("Subjective Wellbeing")
     plt.tight_layout()
 
 
 # Ratings Rooms
 def plot_rating_rooms(df, wave):
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 6))
     rooms = ["Living", "Dining", "Office", "Terrace"]
     phases = ['Habituation', 'Test']
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
@@ -266,7 +266,7 @@ def plot_rating_rooms(df, wave):
 
 # Ratings Virtual Humans
 def plot_rating_agents(df):
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 6))
     labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
     conditions = ['Friendly', 'Unfriendly', 'Neutral', 'Unknown']
     colors = ['#B1C800', '#E2001A', '#1F82C0',  'lightgrey']
@@ -404,7 +404,7 @@ def corr_ratings(df):
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
 def plot_rating_agents_scale(df, save_path, scale="SPAI"):
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 4.5))
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
     labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
     conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
     colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
@@ -535,7 +535,7 @@ def plot_rating_agents_sad_clicks(df, df_events, SA_score="SPAI"):
     df = df.merge(df_clicks, on=["VP", "Condition"], how="outer")
     df["click_count"] = df["click_count"].fillna(0)
 
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(14, 5))
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
     labels = ["Likeability", "Fear", "Anger"]  # , "Attractiveness", "Behavior"]
     conditions = ['Friendly', 'Unfriendly']
     colors = [['#9baf00', '#6f7d00', '#424b00'], ['#e2001a', '#a90014', '#55000a']]

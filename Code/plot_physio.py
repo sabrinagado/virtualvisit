@@ -9,8 +9,12 @@ import pandas as pd
 import random
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from scipy.stats import linregress, t, ttest_rel, percentileofscore
+from scipy.stats import linregress, t, f, ttest_rel, percentileofscore
 from scipy import signal
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+import rle
+from collections import defaultdict
 from rpy2.situation import (get_r_home)
 
 os.environ["R_HOME"] = get_r_home()
@@ -19,1002 +23,343 @@ from tqdm import tqdm
 from Code.toolbox import utils
 
 
+def perform_lmm(df, dv, id, factors):
+    if len(factors) == 1:
+        formula = f"{dv} ~ {factors[0]} + (1 | {id})"
+    elif len(factors) == 2:
+        formula = f"{dv} ~ {factors[0]} + {factors[1]} + {factors[0]}:{factors[1]} + (1 | {id})"
+    elif len(factors) == 3:
+        formula = (f"{dv} ~ {factors[0]} + {factors[1]} + {factors[2]} + "
+                   f"{factors[0]}:{factors[1]} + {factors[0]}:{factors[2]} + {factors[1]}:{factors[2]} + "
+                   f"{factors[0]}:{factors[1]}:{factors[2]}+ (1 | {id})")
+    factor_dict = {}
+    for factor in factors:
+        if 1 < len(df[factor].unique()) < 10:
+            factor_dict[factor] = list(df[factor].unique())
+
+    model = pymer4.models.Lmer(formula, data=df)
+    model.fit(factors=factor_dict, summarize=False)
+    anova = model.anova()
+    return anova[["F-stat"]].transpose()
+
+
+def perform_rmANCOVA(df, dv, id, factor_cat, factor_cont):
+    """
+    Calculate Repeated Measures ANOVA for a dataset and return F-statistics as a DataFrame.
+
+    Parameters:
+    - df: pandas DataFrame containing the data.
+    - dv: String, name of the dependent variable column.
+    - id: String, name of the column with subject IDs.
+    - factor_cat: String, name of the column with the categorical factor.
+    - factor_cont: String, name of the column with the continuous factor.
+
+
+    Returns:
+    - DataFrame with F-statistics for the main effect of the categorical factor, the main effect of the continuous factor, and their interaction.
+    """
+    # Formula to include both main effects and their interaction
+    formula = f"{dv} ~ C({factor_cat}) * {factor_cont} + (1|{id})"
+
+    # Fit the model
+    model = ols(formula, data=df).fit()
+
+    # Perform ANOVA
+    aov_table = sm.stats.anova_lm(model, typ=2)
+
+    # Creating a DataFrame and return results
+    return pd.DataFrame({factor_cat: [aov_table['PR(>F)'].loc[[f'C({factor_cat})']].item()],
+                         factor_cont: [aov_table['PR(>F)'].loc[[f'{factor_cont}']].item()],
+                         f"{factor_cat}:{factor_cont}": [aov_table['PR(>F)'].loc[[f'C({factor_cat}):{factor_cont}']].item()]})
+
+
+# Calculate the statistic for each time point
+def Ftest_p(df, id, dv, factors, time, method="anova"):
+    if method == "anova":
+        df_stat = df.groupby(time).apply(lambda x: perform_rmANCOVA(x, dv, id, factors[0], factors[1])).reset_index()
+    elif method == "lmm":
+        utils.blockPrint()
+        df_stat = df.groupby(time).apply(lambda x: perform_lmm(x, dv, id, factors)).reset_index()
+        utils.enablePrint()
+    df_stat = df_stat.drop(columns="level_1")
+    return df_stat
+
+
+def perform_t_test(df, dv, id, factor):
+    # df_test = df.loc[df["time"] == 4]
+    factor_levels = list(df[factor].unique())
+    df_diff = df.pivot(index=id, columns=factor, values=dv).reset_index()
+    ttest = ttest_rel(df_diff[factor_levels[0]], df_diff[factor_levels[1]], nan_policy="omit")
+    return ttest.pvalue
+
+
+# Calculate the statistic for each time point
+def ttest_p(df, id, dv, factor, time):
+    utils.blockPrint()
+    df_stat = df.groupby(time).apply(lambda x: perform_t_test(x, dv, id, factor)).reset_index()
+    df_stat.columns = [time, factor]
+    return df_stat
+
+
+def calculate_cluster_length(x, p_value):
+    # Find clusters in the vector that are above/below the threshold
+    x = rle.encode(abs(x) < p_value)
+
+    # Extract only clusters that are above the threshold
+    cluster_lengths = [i for (i, v) in zip(x[1], x[0]) if v]
+
+    # Find the start and end of clusters via the cumsum of cluster lengths. For
+    # cluster start, we'll put a 0/FALSE in front, so that we don't run into
+    # indexing vec[0]
+    cluster_start = [i for (i, v) in zip([0] + list(np.cumsum(x[1])), x[0] + [False]) if v]
+    cluster_end = [i for (i, v) in zip(np.cumsum(x[1]), x[0]) if v]
+
+    cluster = pd.DataFrame({'cluster': list(np.arange(0, len(cluster_lengths))),
+                            'start': cluster_start,
+                            'end': cluster_end,
+                            'length': cluster_lengths})
+    return cluster
+
+
+# Calculation of the null distribution of cluster lengths
+def null_distribution_cluster_length(df, dv, factors, test, time, id, nperm=1000, method=None):
+    null_distribution = defaultdict(list)
+    n_columns = 39
+
+    # Create a random permutation of the conditions
+    for i in tqdm(np.arange(0, nperm)):
+        shuffled_factors = []
+        df = df.iloc[:, 0:n_columns]
+        for factor in factors:
+            # factor = factors[1]
+            df_shuffle = df.groupby([id, factor]).mean(numeric_only=True).reset_index()
+            df_shuffle = df_shuffle[[id, factor]]
+            if len(df_shuffle) > len(df_shuffle[id].unique()):
+                df_shuffle[f"shuffled_{factor}"] = df_shuffle.groupby(id)[factor].transform(np.random.permutation)
+            else:
+                df_shuffle[f"shuffled_{factor}"] = np.random.permutation(df_shuffle[factor])
+            df = df.merge(df_shuffle, on=[id, factor])
+            shuffled_factors.append(f"shuffled_{factor}")
+
+        if test == "F":
+            dist_statistics = Ftest_p(df, dv=dv, id=id, factors=shuffled_factors, time=time, method=method)
+        elif test == "t":
+            dist_statistics = ttest_p(df, dv=dv, id=id, factor=shuffled_factors[0], time=time)
+
+        for effect in np.arange(0, len(dist_statistics.columns) - 1):
+            # effect = 0
+            if effect < len(factors):
+                cluster = calculate_cluster_length(dist_statistics[f"shuffled_{factors[effect]}"], 0.05)
+                length = max(cluster["length"]) if len(cluster) > 0 else 0
+                null_distribution[factors[effect]].append(length)
+            else:
+                cluster = calculate_cluster_length(dist_statistics[f"shuffled_{factors[0]}:shuffled_{factors[1]}"], 0.05)
+                length = max(cluster["length"]) if len(cluster) > 0 else 0
+                null_distribution[f"{factors[0]}:{factors[1]}"].append(length)
+
+    return pd.DataFrame(null_distribution)
+
+
 # Acquisition
-def plot_physio_acq(filepath, split=False, median=None, SA_score="SPAI", permutations=1000):
+def plot_physio_acq(filepath, save_path, test="F", SA_score="SPAI", permutations=1000):
     physiologies = ["hr", "eda", "pupil", "hrv_hf"]
     ylabels = ["Heart Rate [BPM]", "Skin Conductance [µS]", "Pupil Diameter [mm]"]
     dvs = ["ECG", "EDA", "pupil"]
     red = '#E2001A'
     green = '#B1C800'
-    blue = '#1F82C0'
-    colors = [green, red, blue]
-    if split:
-        fig, axes = plt.subplots(nrows=2, ncols=len(dvs), figsize=(6*len(dvs), 6))
-        for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
-            # physio_idx = 0
-            # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
-            df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
-            for idx_group, SA_group in enumerate(["HSA", "LSA"]):
-                # idx_group = 0
-                # SA_group = "HSA"
-                if SA_group == "LSA":
-                    df_group = df.loc[df[SA_score] < median]
-                else:
-                    df_group = df.loc[df[SA_score] >= median]
-                print(f"{physiology.upper()}: N - {SA_group} = {len(df_group['VP'].unique())}")
-                if physiology == "eda":
-                    for vp in df_group["VP"].unique():
-                        # vp = 2
-                        df_vp = df_group.loc[df_group["VP"] == vp]
-                        for event in df_vp["event"].unique():
-                            # event = "FriendlyInteraction"
-                            df_event = df_vp.loc[df_vp["event"] == event]
-                            eda_signal = df_event["EDA"].to_numpy()
+    colors = [green, red]
+    sampling_rate = 10
+    sampling_rate_new = 2
 
-                            # Get local minima and maxima
-                            local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
-                            peak_values = list(eda_signal[local_maxima])
-                            peak_times = list(local_maxima)
+    fig, axes = plt.subplots(nrows=1, ncols=len(dvs), figsize=(6*len(dvs), 5))
+    for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
+        # physio_idx = 0
+        # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
+        df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
+        if not physiology == "pupil":
+            problematic_subjects = check_physio(filepath, physiology)
+            df = df.loc[~df["VP"].isin(problematic_subjects)]
+        df.loc[df["event"].str.contains("Friendly"), "condition"] = "friendly"
+        df.loc[df["event"].str.contains("Unfriendly"), "condition"] = "unfriendly"
+        df.loc[df["event"].str.contains("Neutral"), "condition"] = "neutral"
 
-                            local_minima = signal.argrelextrema(eda_signal, np.less)[0]
-                            onset_values = list(eda_signal[local_minima])
-                            onset_times = list(local_minima)
+        print(f"{physiology.upper()}: N = {len(df['VP'].unique())}")
+        if physiology == "eda":
+            for vp in df["VP"].unique():
+                # vp = 2
+                df_vp = df.loc[df["VP"] == vp]
+                for event in df_vp["event"].unique():
+                    # event = "FriendlyInteraction"
+                    df_event = df_vp.loc[df_vp["event"] == event]
+                    eda_signal = df_event["EDA"].to_numpy()
 
-                            scr_onsets = []
-                            scr_peaks = []
-                            scr_amplitudes = []
-                            scr_risetimes = []
-                            amplitude_min = 0.02
-                            for onset_idx, onset in enumerate(onset_times):
-                                # onset_idx = 0
-                                # onset = onset_times[onset_idx]
-                                subsequent_peak_times = [peak_time for peak_time in peak_times if (onset - peak_time) < 0]
-                                if len(subsequent_peak_times) > 0:
-                                    peak_idx = list(peak_times).index(
-                                        min(subsequent_peak_times, key=lambda x: abs(x - onset)))
-                                    rise_time = (peak_times[peak_idx] - onset) / 10
-                                    amplitude = peak_values[peak_idx] - onset_values[onset_idx]
-                                    if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
-                                        scr_onsets.append(onset)
-                                        scr_peaks.append(peak_times[peak_idx])
-                                        scr_amplitudes.append(amplitude)
-                                        scr_risetimes.append(rise_time)
-                            if len(scr_amplitudes) == 0:
-                                df_group = df_group.loc[~((df_group["VP"] == vp) & (df_group["event"] == event))]
+                    # Get local minima and maxima
+                    local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
+                    peak_values = list(eda_signal[local_maxima])
+                    peak_times = list(local_maxima)
 
-                phases = ["FriendlyInteraction", "UnfriendlyInteraction"]  # "NeutralInteraction",
-                titles = ["Friendly Interaction", "Unfriendly Interaction"]  # "Neutral Interaction",
-                for idx_phase, phase in enumerate(phases):
-                    # idx_phase = 0
-                    # phase = phases[idx_phase]
-                    df_phase = df_group.loc[df_group['event'] == phase]
+                    local_minima = signal.argrelextrema(eda_signal, np.less)[0]
+                    onset_values = list(eda_signal[local_minima])
+                    onset_times = list(local_minima)
 
-                    times = df_phase["time"].unique()
-                    mean = df_phase.groupby("time")[column_name].mean()
-                    sem = df_phase.groupby("time")[column_name].sem()
+                    scr_onsets = []
+                    scr_peaks = []
+                    scr_amplitudes = []
+                    scr_risetimes = []
+                    amplitude_min = 0.02
+                    for onset_idx, onset in enumerate(onset_times):
+                        # onset_idx = 0
+                        # onset = onset_times[onset_idx]
+                        subsequent_peak_times = [peak_time for peak_time in peak_times if (onset - peak_time) < 0]
+                        if len(subsequent_peak_times) > 0:
+                            peak_idx = list(peak_times).index(min(subsequent_peak_times, key=lambda x: abs(x - onset)))
+                            rise_time = (peak_times[peak_idx] - onset) / 10
+                            amplitude = peak_values[peak_idx] - onset_values[onset_idx]
+                            if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
+                                scr_onsets.append(onset)
+                                scr_peaks.append(peak_times[peak_idx])
+                                scr_amplitudes.append(amplitude)
+                                scr_risetimes.append(rise_time)
+                    if len(scr_amplitudes) == 0:
+                        df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
 
-                    # Plot line
-                    axes[idx_group, physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-                    axes[idx_group, physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
+        phases = ["FriendlyInteraction", "UnfriendlyInteraction"]
+        titles = ["Friendly Interaction", "Unfriendly Interaction"]
+        df = df.loc[df["event"].isin(phases)]
+        df = df.loc[df["time"] <= 5]
+        for idx_phase, phase in enumerate(phases):
+            # idx_phase = 0
+            # phase = phases[idx_phase]
+            df_phase = df.loc[df['event'] == phase]
 
-                # Calculate differences for values
-                df_diff = df_group.loc[df_group["event"].isin(phases)]
-                df_diff = df_diff.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
+            times = df_phase["time"].unique()
+            mean = df_phase.groupby("time")[column_name].mean()
+            sem = df_phase.groupby("time")[column_name].sem()
 
-                # Calculate t-values for pairwise comparisons
-                t_vals = pd.DataFrame()
-                t_vals["t"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff["FriendlyInteraction"], df_diff["UnfriendlyInteraction"], nan_policy="omit").statistic)
-                t_vals["df"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff["FriendlyInteraction"], df_diff["UnfriendlyInteraction"], nan_policy="omit").df)
-                t_vals["threshold"] = t_vals.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-                t_vals["t"] = t_vals["t"].abs()
-                t_vals["sig"] = t_vals["t"] > t_vals["threshold"]
-                t_vals = t_vals.reset_index()
+            # Plot line
+            axes[physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
+            axes[physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
 
-                # Add cluster IDs
-                t_vals["idx_cluster"] = 0
-                idx_cluster = 1
-                for idx_row, row in t_vals.iterrows():
-                    # idx_row = 0
-                    # row = t_vals.iloc[idx_row, ]
-                    if row["sig"]:
-                        t_vals.loc[idx_row, "idx_cluster"] = idx_cluster
-                        if (idx_row < len(t_vals) - 1) and not (t_vals.loc[idx_row + 1, "sig"]):
-                            idx_cluster += 1
+        if test == "t":
+            null_distribution = null_distribution_cluster_length(df, column_name, id="VP", factors=["condition"], test="t", time="time", nperm=permutations)
+            critical_lengths_null = null_distribution.quantile(.95, axis=0)
+            t_tests = ttest_p(df, dv=column_name, id="VP", factor="condition", time="time")
+            cluster_condition = calculate_cluster_length(t_tests["condition"], 0.05)
 
-                # Get "cluster mass" = sum of t-values per cluster
-                cluster_mass = t_vals.groupby("idx_cluster")["t"].sum().reset_index()
-                cluster_mass = cluster_mass.loc[cluster_mass["idx_cluster"] != 0].reset_index()
-
-                pd.options.mode.chained_assignment = None
-
-                # Create distribution of possible cluster masses using permutations
-                cluster_distribution = []
-                for i in tqdm(np.arange(0, permutations)):
-                    df_shuffle = pd.DataFrame()
-                    df_subset = df_group.loc[df_group["event"].isin(phases)]
-                    for vp in df_subset["VP"].unique():
-                        # vp = df_subset["VP"].unique()[0]
-                        df_vp = df_subset.loc[df_subset["VP"] == vp]
-                        rand_int = np.random.randint(0, 2)
-                        if rand_int == 0:
-                            df_vp["event"] = df_vp["event"].replace({"FriendlyInteraction": "UnfriendlyInteraction",
-                                                                     "UnfriendlyInteraction": "FriendlyInteraction"})
-                        df_shuffle = pd.concat([df_shuffle, df_vp])
-
-                    df_shuffle = df_shuffle.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-                    t_vals_shuffle = pd.DataFrame()
-                    t_vals_shuffle["t"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle["FriendlyInteraction"], df_shuffle["UnfriendlyInteraction"], nan_policy="omit").statistic)
-                    t_vals_shuffle["df"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle["FriendlyInteraction"], df_shuffle["UnfriendlyInteraction"], nan_policy="omit").df)
-                    t_vals_shuffle["threshold"] = t_vals_shuffle.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-                    t_vals_shuffle["t"] = t_vals_shuffle["t"].abs()
-                    t_vals_shuffle["sig"] = t_vals_shuffle["t"] > t_vals_shuffle["threshold"]
-                    t_vals_shuffle = t_vals_shuffle.reset_index()
-
-                    t_vals_shuffle["idx_cluster"] = 0
-                    idx_cluster = 1
-                    for idx_row, row in t_vals_shuffle.iterrows():
-                        # idx_row = 0
-                        # row = t_vals_shuffle.iloc[idx_row, ]
-                        if row["sig"]:
-                            t_vals_shuffle.loc[idx_row, "idx_cluster"] = idx_cluster
-                            if (idx_row < len(t_vals_shuffle) - 1) and not (t_vals_shuffle.loc[idx_row + 1, "sig"]):
-                                idx_cluster += 1
-
-                    cluster_mass_shuffle = t_vals_shuffle.groupby("idx_cluster")["t"].sum().reset_index()
-                    cluster_mass_shuffle = cluster_mass_shuffle.loc[cluster_mass_shuffle["idx_cluster"] != 0].reset_index()
-                    if len(cluster_mass_shuffle) > 0:
-                        cluster_distribution.append(cluster_mass_shuffle["t"].max())
-                    else:
-                        cluster_distribution.append(0)
-
-                # Find percentile of t-values of identified clusters and get corresponding p-value
-                cluster_mass["p-val"] = cluster_mass.apply(lambda x: 1 - percentileofscore(cluster_distribution, x["t"]) / 100, axis=1)
-                t_vals = t_vals.merge(cluster_mass[["idx_cluster", "p-val"]], on='idx_cluster', how="left")
-
-                # If p-value of cluster < .05 add cluster to plot
-                # y_pos = axes[idx_group, physio_idx].get_ylim()[0] + 0.02 * (
-                #         axes[idx_group, physio_idx].get_ylim()[1] - axes[idx_group, physio_idx].get_ylim()[0])
-                if physiology == "hr":
-                    y_pos = -4
-                elif physiology == "eda":
-                    y_pos = -0.4
-                elif physiology == "pupil":
-                    y_pos = -0.55
-                for timepoint in t_vals["time"].unique():
-                    # timepoint = 0
-                    p = t_vals.loc[(t_vals["time"] == timepoint), "p-val"].item()
-                    if p < 0.05:
-                        axes[idx_group, physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint + 0.1, linewidth=5, color='gold')
-
-                # Style Plot
-                axes[idx_group, physio_idx].set_xlim([0, 5])
-                if physiology == "hr":
-                    axes[idx_group, physio_idx].set_ylim([-4.5, 6])
-                elif physiology == "eda":
-                    axes[idx_group, physio_idx].set_ylim([-0.52, 1.3])
-                elif physiology == "pupil":
-                    axes[idx_group, physio_idx].set_ylim([-0.6, 0.45])
-                axes[idx_group, physio_idx].set_ylabel(ylabel)
-                if idx_group == 0:
-                    axes[idx_group, physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}",fontweight='bold')  # (N = {len(df['VP'].unique())})
-                elif idx_group == 1:
-                    axes[idx_group, physio_idx].set_xlabel("Seconds after Interaction Onset")
-                axes[idx_group, physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-
-        for idx_group, SA_group in enumerate(["HSA", "LSA"]):
-            axes[idx_group, 2].legend(loc="upper right")
-            axes[idx_group, 0].text(-0.7, np.mean(axes[idx_group, 0].get_ylim()), f"{SA_group}", color="k", fontweight="bold", fontsize="large", verticalalignment='center', rotation=90)
-    else:
-        fig, axes = plt.subplots(nrows=1, ncols=len(dvs), figsize=(6*len(dvs), 5))
-        for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
-            # physio_idx = 0
-            # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
-            df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
-            print(f"{physiology.upper()}: N = {len(df['VP'].unique())}")
-            if physiology == "eda":
-                for vp in df["VP"].unique():
-                    # vp = 2
-                    df_vp = df.loc[df["VP"] == vp]
-                    for event in df_vp["event"].unique():
-                        # event = "FriendlyInteraction"
-                        df_event = df_vp.loc[df_vp["event"] == event]
-                        eda_signal = df_event["EDA"].to_numpy()
-
-                        # Get local minima and maxima
-                        local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
-                        peak_values = list(eda_signal[local_maxima])
-                        peak_times = list(local_maxima)
-
-                        local_minima = signal.argrelextrema(eda_signal, np.less)[0]
-                        onset_values = list(eda_signal[local_minima])
-                        onset_times = list(local_minima)
-
-                        scr_onsets = []
-                        scr_peaks = []
-                        scr_amplitudes = []
-                        scr_risetimes = []
-                        amplitude_min = 0.02
-                        for onset_idx, onset in enumerate(onset_times):
-                            # onset_idx = 0
-                            # onset = onset_times[onset_idx]
-                            subsequent_peak_times = [peak_time for peak_time in peak_times if (onset - peak_time) < 0]
-                            if len(subsequent_peak_times) > 0:
-                                peak_idx = list(peak_times).index(min(subsequent_peak_times, key=lambda x: abs(x - onset)))
-                                rise_time = (peak_times[peak_idx] - onset) / 10
-                                amplitude = peak_values[peak_idx] - onset_values[onset_idx]
-                                if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
-                                    scr_onsets.append(onset)
-                                    scr_peaks.append(peak_times[peak_idx])
-                                    scr_amplitudes.append(amplitude)
-                                    scr_risetimes.append(rise_time)
-                        if len(scr_amplitudes) == 0:
-                            df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
-
-            phases = ["FriendlyInteraction", "UnfriendlyInteraction"]  # "NeutralInteraction",
-            titles = ["Friendly Interaction", "Unfriendly Interaction"]  # "Neutral Interaction",
-            for idx_phase, phase in enumerate(phases):
-                # idx_phase = 0
-                # phase = phases[idx_phase]
-                df_phase = df.loc[df['event'] == phase]
-
-                times = df_phase["time"].unique()
-                mean = df_phase.groupby("time")[column_name].mean()
-                sem = df_phase.groupby("time")[column_name].sem()
-
-                # Plot line
-                axes[physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-                axes[physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
-
-            y_pos = axes[physio_idx].get_ylim()[0] + 0.02 * (
-                        axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
-
-            # Calculate differences for values
-            df_diff = df.loc[df["event"].isin(phases)]
-            df_diff = df_diff.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-
-            # Calculate t-values for pairwise comparisons
-            t_vals = pd.DataFrame()
-            t_vals["t"] = df_diff.groupby("time").apply(
-                lambda df_diff: ttest_rel(df_diff["FriendlyInteraction"], df_diff["UnfriendlyInteraction"],
-                                          nan_policy="omit").statistic)
-            t_vals["df"] = df_diff.groupby("time").apply(
-                lambda df_diff: ttest_rel(df_diff["FriendlyInteraction"], df_diff["UnfriendlyInteraction"],
-                                          nan_policy="omit").df)
-            t_vals["threshold"] = t_vals.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-            t_vals["t"] = t_vals["t"].abs()
-            t_vals["sig"] = t_vals["t"] > t_vals["threshold"]
-            t_vals = t_vals.reset_index()
-
-            # Add cluster IDs
-            t_vals["idx_cluster"] = 0
-            idx_cluster = 1
-            for idx_row, row in t_vals.iterrows():
-                # idx_row = 0
-                # row = t_vals.iloc[idx_row, ]
-                if row["sig"]:
-                    t_vals.loc[idx_row, "idx_cluster"] = idx_cluster
-                    if (idx_row < len(t_vals) - 1) and not (t_vals.loc[idx_row + 1, "sig"]):
-                        idx_cluster += 1
-
-            # Get "cluster mass" = sum of t-values per cluster
-            cluster_mass = t_vals.groupby("idx_cluster")["t"].sum().reset_index()
-            cluster_mass = cluster_mass.loc[cluster_mass["idx_cluster"] != 0].reset_index()
-
-            pd.options.mode.chained_assignment = None
-
-            # Create distribution of possible cluster masses using permutations
-            cluster_distribution = []
-            for i in tqdm(np.arange(0, permutations)):
-                df_shuffle = pd.DataFrame()
-                df_subset = df.loc[df["event"].isin(phases)]
-                for vp in df_subset["VP"].unique():
-                    # vp = df_subset["VP"].unique()[0]
-                    df_vp = df_subset.loc[df_subset["VP"] == vp]
-                    rand_int = np.random.randint(0, 2)
-                    if rand_int == 0:
-                        df_vp["event"] = df_vp["event"].replace({"FriendlyInteraction": "UnfriendlyInteraction",
-                                                                 "UnfriendlyInteraction": "FriendlyInteraction"})
-                    df_shuffle = pd.concat([df_shuffle, df_vp])
-
-                df_shuffle = df_shuffle.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-                t_vals_shuffle = pd.DataFrame()
-                t_vals_shuffle["t"] = df_shuffle.groupby("time").apply(
-                    lambda df_shuffle: ttest_rel(df_shuffle["FriendlyInteraction"], df_shuffle["UnfriendlyInteraction"],
-                                                 nan_policy="omit").statistic)
-                t_vals_shuffle["df"] = df_shuffle.groupby("time").apply(
-                    lambda df_shuffle: ttest_rel(df_shuffle["FriendlyInteraction"], df_shuffle["UnfriendlyInteraction"],
-                                                 nan_policy="omit").df)
-                t_vals_shuffle["threshold"] = t_vals_shuffle.apply(lambda x: t.ppf(1 - 0.025, x["df"]),
-                                                                   axis=1)  # two-sided test
-                t_vals_shuffle["t"] = t_vals_shuffle["t"].abs()
-                t_vals_shuffle["sig"] = t_vals_shuffle["t"] > t_vals_shuffle["threshold"]
-                t_vals_shuffle = t_vals_shuffle.reset_index()
-
-                t_vals_shuffle["idx_cluster"] = 0
-                idx_cluster = 1
-                for idx_row, row in t_vals_shuffle.iterrows():
-                    # idx_row = 0
-                    # row = t_vals_shuffle.iloc[idx_row, ]
-                    if row["sig"]:
-                        t_vals_shuffle.loc[idx_row, "idx_cluster"] = idx_cluster
-                        if (idx_row < len(t_vals_shuffle) - 1) and not (t_vals_shuffle.loc[idx_row + 1, "sig"]):
-                            idx_cluster += 1
-
-                cluster_mass_shuffle = t_vals_shuffle.groupby("idx_cluster")["t"].sum().reset_index()
-                cluster_mass_shuffle = cluster_mass_shuffle.loc[cluster_mass_shuffle["idx_cluster"] != 0].reset_index()
-                if len(cluster_mass_shuffle) > 0:
-                    cluster_distribution.append(cluster_mass_shuffle["t"].max())
-                else:
-                    cluster_distribution.append(0)
-
-            # Find percentile of t-values of identified clusters and get corresponding p-value
-            cluster_mass["p-val"] = cluster_mass.apply(lambda x: 1 - percentileofscore(cluster_distribution, x["t"]) / 100,
-                                                       axis=1)
-            t_vals = t_vals.merge(cluster_mass[["idx_cluster", "p-val"]], on='idx_cluster', how="left")
+            cluster_condition["critical_length"] = critical_lengths_null["condition"]
+            cluster_condition["p-val"] = cluster_condition.apply(lambda x: 1 - percentileofscore(null_distribution["condition"], x["length"]) / 100, axis=1)
+            cluster_condition = cluster_condition.loc[cluster_condition["p-val"] < .05]
+            cluster_condition["times_start"] = cluster_condition["start"] / sampling_rate
+            cluster_condition["times_end"] = cluster_condition["end"] / sampling_rate
+            cluster_condition["effect"] = "condition"
+            cluster_condition = cluster_condition[["effect", "cluster", "times_start", "times_end", "p-val"]]
+            cluster_condition.to_csv(os.path.join(save_path, f'cluster_{physiology}_t_acq.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
             # If p-value of cluster < .05 add cluster to plot
-            for timepoint in t_vals["time"].unique():
-                # timepoint = 0
-                p = t_vals.loc[(t_vals["time"] == timepoint), "p-val"].item()
-                if p < 0.05:
-                    axes[physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint + 0.1, linewidth=5, color='gold')
+            y_condition = axes[physio_idx].get_ylim()[0] + 0.02 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
+            for idx_row, row in cluster_condition.iterrows():
+                axes[physio_idx].hlines(y=y_condition, xmin=row["times_start"], xmax=row["times_end"], linewidth=5, color='gold')
 
-            # Style Plot
-            axes[physio_idx].set_xlim([0, 5])
-            if physiology == "hr":
-                axes[physio_idx].set_ylim([-4.5, 5])
-            elif physiology == "eda":
-                axes[physio_idx].set_ylim([-0.5, 1.5])
-            elif physiology == "pupil":
-                axes[physio_idx].set_ylim([-0.5, 0.5])
-            axes[physio_idx].set_ylabel(ylabel)
-            axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}", fontweight='bold')  # (N = {len(df['VP'].unique())})
-            axes[physio_idx].set_xlabel("Seconds after Interaction Onset")
-            axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+        elif test == "F":
+            null_distribution = null_distribution_cluster_length(df, column_name, id="VP", factors=["condition", SA_score], test="F", method="anova", time="time", nperm=permutations)
+            critical_lengths_null = null_distribution.quantile(.95, axis=0)
 
-        axes[2].legend(loc="upper right")
+            F_tests = Ftest_p(df, dv=column_name, id="VP", factors=["condition", SA_score], time="time", method="anova")
+            cluster_condition = calculate_cluster_length(F_tests["condition"], 0.05)
+            cluster_condition["critical_length"] = critical_lengths_null["condition"]
+            cluster_condition["p-val"] = cluster_condition.apply(lambda x: 1 - percentileofscore(null_distribution["condition"], x["length"]) / 100, axis=1)
+            cluster_condition = cluster_condition.loc[cluster_condition["p-val"] < .05]
+            cluster_condition["times_start"] = cluster_condition["start"] / sampling_rate
+            cluster_condition["times_end"] = cluster_condition["end"] / sampling_rate
+            cluster_condition["effect"] = "condition"
+            cluster_condition = cluster_condition[["effect", "cluster", "times_start", "times_end", "p-val"]]
+
+            cluster_SA = calculate_cluster_length(F_tests["SPAI"], 0.05)
+            cluster_SA["critical_length"] = critical_lengths_null["SPAI"]
+            cluster_SA["p-val"] = cluster_SA.apply(lambda x: 1 - percentileofscore(null_distribution["SPAI"], x["length"]) / 100, axis=1)
+            cluster_SA = cluster_SA.loc[cluster_SA["p-val"] < .05]
+            cluster_SA["times_start"] = cluster_SA["start"] / sampling_rate
+            cluster_SA["times_end"] = cluster_SA["end"] / sampling_rate
+            cluster_SA["effect"] = SA_score
+            cluster_SA = cluster_SA[["effect", "cluster", "times_start", "times_end", "p-val"]]
+
+            cluster_int = calculate_cluster_length(F_tests[f"condition:{SA_score}"], 0.05)
+            cluster_int["critical_length"] = critical_lengths_null[f"condition:{SA_score}"]
+            cluster_int["p-val"] = cluster_int.apply(lambda x: 1 - percentileofscore(null_distribution[f"condition:{SA_score}"], x["length"]) / 100, axis=1)
+            cluster_int = cluster_int.loc[cluster_int["p-val"] < .05]
+            cluster_int["times_start"] = cluster_int["start"] / sampling_rate
+            cluster_int["times_end"] = cluster_int["end"] / sampling_rate
+            cluster_int["effect"] = f"condition:{SA_score}"
+            cluster_int = cluster_int[["effect", "cluster", "times_start", "times_end", "p-val"]]
+
+            cluster = pd.concat([cluster_condition, cluster_SA, cluster_int])
+            cluster.to_csv(os.path.join(save_path, f'cluster_{physiology}_acq.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
+            # If p-value of cluster < .05 add cluster to plot
+            y_condition = axes[physio_idx].get_ylim()[0] - 0.01 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
+            for idx_row, row in cluster_condition.iterrows():
+                axes[physio_idx].hlines(y=y_condition, xmin=row["times_start"], xmax=row["times_end"], linewidth=3, color='gold')
+
+            y_spai = axes[physio_idx].get_ylim()[0] - 0.015 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
+            for idx_row, row in cluster_SA.iterrows():
+                axes[physio_idx].hlines(y=y_spai, xmin=row["times_start"], xmax=row["times_end"], linewidth=3, color='dodgerblue')
+
+            y_int = axes[physio_idx].get_ylim()[0] - 0.02 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
+            for idx_row, row in cluster_int.iterrows():
+                axes[physio_idx].hlines(y=y_int, xmin=row["times_start"], xmax=row["times_end"], linewidth=3, color='darkviolet')
+
+            df_resample = df.copy()
+            df_resample["time"] = pd.to_timedelta(df_resample["time"], 's')
+            df_resample = df_resample.set_index("time")
+            df_resample = df_resample.groupby(["VP", "condition"]).resample("0.5S").mean(numeric_only=True)
+            df_resample = df_resample.drop(columns="VP")
+            df_resample = df_resample.reset_index()
+            df_resample["time"] = df_resample["time"].dt.total_seconds()
+
+            formula = (f"{column_name} ~ time + condition + {SA_score} + " \
+                       f"time:condition + time:{SA_score} + condition:{SA_score} + " \
+                       f"time:condition:{SA_score} + (1 | VP)")
+
+            model = pymer4.models.Lmer(formula, data=df_resample)
+            model.fit(factors={"condition": ["friendly", "unfriendly"]}, summarize=False)
+            anova = model.anova(force_orthogonal=True)
+            sum_sq_error = (sum(i * i for i in model.residuals))
+            anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+            print(f"ANOVA: Physio Test (Condition, Phase and {SA_score})")
+            print(f"Condition Main Effect, F({round(anova.loc['condition', 'NumDF'].item(), 1)}, {round(anova.loc['condition', 'DenomDF'].item(), 1)})={round(anova.loc['condition', 'F-stat'].item(), 2)}, p={round(anova.loc['condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['condition', 'p_eta_2'].item(), 2)}")
+            print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
+            print(f"Interaction Condition x {SA_score}, F({round(anova.loc[f'condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'condition:{SA_score}', 'p_eta_2'].item(), 2)}")
+            estimates, contrasts = model.post_hoc(marginal_vars="condition", p_adjust="holm")
+
+            anova['NumDF'] = anova['NumDF'].round().astype("str")
+            anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+            anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+            anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+            anova['P-val'] = anova['P-val'].round(3).astype("str")
+            anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+            anova['P-val'] = anova['P-val'].replace({"0.": "."})
+            anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+            anova = anova.reset_index(names=['factor'])
+            anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+            anova = anova.drop(columns="index")
+            anova.to_csv(os.path.join(save_path, f'lmms_{physiology}_acq.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
+        # Style Plot
+        axes[physio_idx].set_ylabel(ylabel)
+        axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}", fontweight='bold')  # (N = {len(df['VP'].unique())})
+        axes[physio_idx].set_xlabel("Seconds after Interaction Onset")
+        axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+
+    axes[2].legend(loc="upper right")
     plt.tight_layout()
-
-
-# Clicks
-def plot_physio_click(filepath, split=False, median=None, SA_score="SPAI", permutations=1000):
-    physiologies = ["hr", "eda", "pupil", "hrv_hf"]
-    ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
-    dvs = ["ECG", "EDA", "pupil"]
-    red = '#E2001A'
-    green = '#B1C800'
-    colors = [green, red]
-
-    if split:
-        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(18, 6))
-        for idx_group, SA_group in enumerate(["HSA", "LSA"]):
-            # idx_group = 0
-            # SA_group = "LSA"
-            for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
-                # physio_idx = 0
-                # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
-                df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
-                if SA_group == "LSA":
-                    df_group = df.loc[df[SA_score] < median]
-                else:
-                    df_group = df.loc[df[SA_score] >= median]
-                print(f"{physiology.upper()}: N - {SA_group} = {len(df_group['VP'].unique())}")
-                if physiology == "eda":
-                    for vp in df_group["VP"].unique():
-                        # vp = 2
-                        df_vp = df_group.loc[df_group["VP"] == vp]
-                        for event in df_vp["event"].unique():
-                            # event = "FriendlyInteraction"
-                            df_event = df_vp.loc[df_vp["event"] == event]
-                            eda_signal = df_event["EDA"].to_numpy()
-                            # Get local minima and maxima
-                            local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
-                            peak_values = list(eda_signal[local_maxima])
-                            peak_times = list(local_maxima)
-
-                            local_minima = signal.argrelextrema(eda_signal, np.less)[0]
-                            onset_values = list(eda_signal[local_minima])
-                            onset_times = list(local_minima)
-
-                            scr_onsets = []
-                            scr_peaks = []
-                            scr_amplitudes = []
-                            scr_risetimes = []
-                            amplitude_min = 0.02
-                            for onset_idx, onset in enumerate(onset_times):
-                                # onset_idx = 0
-                                # onset = onset_times[onset_idx]
-                                subsequent_peak_times = [peak_time for peak_time in peak_times if
-                                                         (onset - peak_time) < 0]
-                                if len(subsequent_peak_times) > 0:
-                                    peak_idx = list(peak_times).index(
-                                        min(subsequent_peak_times, key=lambda x: abs(x - onset)))
-                                    rise_time = (peak_times[peak_idx] - onset) / 10
-                                    amplitude = peak_values[peak_idx] - onset_values[onset_idx]
-                                    if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
-                                        scr_onsets.append(onset)
-                                        scr_peaks.append(peak_times[peak_idx])
-                                        scr_amplitudes.append(amplitude)
-                                        scr_risetimes.append(rise_time)
-                            if len(scr_amplitudes) == 0:
-                                df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
-
-                df_group = df_group.loc[df_group["time"] < 3]
-
-                phases = ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]
-                titles = ["Friendly Clicked", "Unfriendly Clicked"]
-                for idx_phase, phase in enumerate(phases):
-                    # idx_phase = 0
-                    # phase = phases[idx_phase]
-                    df_phase = df_group.loc[df_group['event'] == phase]
-
-                    times = df_phase["time"].unique()
-                    mean = df_phase.groupby("time")[column_name].mean()
-                    sem = df_phase.groupby("time")[column_name].sem()
-
-                    # Plot line
-                    axes[idx_group, physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-                    axes[idx_group, physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
-
-                y_pos = axes[idx_group, physio_idx].get_ylim()[0] + 0.02 * (
-                        axes[idx_group, physio_idx].get_ylim()[1] - axes[idx_group, physio_idx].get_ylim()[0])
-
-                df_diff = df_group.loc[df_group["event"].isin(phases)]
-                df_diff = df_diff.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-                df_diff = df_diff.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-                t_vals = pd.DataFrame()
-                t_vals["t"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff["Test_FriendlyWasClicked"], df_diff["Test_UnfriendlyWasClicked"], nan_policy="omit").statistic)
-                t_vals["df"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff["Test_FriendlyWasClicked"], df_diff["Test_UnfriendlyWasClicked"], nan_policy="omit").df)
-                t_vals["threshold"] = t_vals.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-                t_vals["t"] = t_vals["t"].abs()
-                t_vals["sig"] = t_vals["t"] > t_vals["threshold"]
-                t_vals = t_vals.reset_index()
-
-                t_vals["idx_cluster"] = 0
-                idx_cluster = 1
-                for idx_row, row in t_vals.iterrows():
-                    # idx_row = 0
-                    # row = t_vals.iloc[idx_row, ]
-                    if row["sig"]:
-                        t_vals.loc[idx_row, "idx_cluster"] = idx_cluster
-                        if (idx_row < len(t_vals) - 1) and not (t_vals.loc[idx_row + 1, "sig"]):
-                            idx_cluster += 1
-
-                cluster_mass = t_vals.groupby("idx_cluster")["t"].sum().reset_index()
-                cluster_mass = cluster_mass.loc[cluster_mass["idx_cluster"] != 0].reset_index()
-
-                pd.options.mode.chained_assignment = None
-                cluster_distribution = []
-                for i in tqdm(np.arange(0, permutations)):
-                    df_shuffle = pd.DataFrame()
-                    df_subset = df_group.loc[df_group["event"].isin(phases)]
-                    for vp in df_subset["VP"].unique():
-                        # vp = df_subset["VP"].unique()[0]
-                        df_vp = df_subset.loc[df_subset["VP"] == vp]
-                        rand_int = np.random.randint(0, 2)
-                        if rand_int == 0:
-                            df_vp["event"] = df_vp["event"].replace(
-                                {"Test_FriendlyWasClicked": "Test_UnfriendlyWasClicked",
-                                 "Test_UnfriendlyWasClicked": "Test_FriendlyWasClicked"})
-                        df_shuffle = pd.concat([df_shuffle, df_vp])
-
-                    df_shuffle = df_shuffle.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-                    df_shuffle = df_shuffle.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-                    t_vals_shuffle = pd.DataFrame()
-                    t_vals_shuffle["t"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle["Test_FriendlyWasClicked"], df_shuffle["Test_UnfriendlyWasClicked"], nan_policy="omit").statistic)
-                    t_vals_shuffle["df"] = df_shuffle.groupby("time").apply( lambda df_shuffle: ttest_rel(df_shuffle["Test_FriendlyWasClicked"], df_shuffle["Test_UnfriendlyWasClicked"], nan_policy="omit").df)
-                    t_vals_shuffle["threshold"] = t_vals_shuffle.apply(lambda x: t.ppf(1 - 0.025, x["df"]),
-                                                                       axis=1)  # two-sided test
-                    t_vals_shuffle["t"] = t_vals_shuffle["t"].abs()
-                    t_vals_shuffle["sig"] = t_vals_shuffle["t"] > t_vals_shuffle["threshold"]
-                    t_vals_shuffle = t_vals_shuffle.reset_index()
-
-                    t_vals_shuffle["idx_cluster"] = 0
-                    idx_cluster = 1
-                    for idx_row, row in t_vals_shuffle.iterrows():
-                        # idx_row = 0
-                        # row = t_vals_shuffle.iloc[idx_row, ]
-                        if row["sig"]:
-                            t_vals_shuffle.loc[idx_row, "idx_cluster"] = idx_cluster
-                            if (idx_row < len(t_vals_shuffle) - 1) and not (t_vals_shuffle.loc[idx_row + 1, "sig"]):
-                                idx_cluster += 1
-
-                    cluster_mass_shuffle = t_vals_shuffle.groupby("idx_cluster")["t"].sum().reset_index()
-                    cluster_mass_shuffle = cluster_mass_shuffle.loc[cluster_mass_shuffle["idx_cluster"] != 0].reset_index()
-                    if len(cluster_mass_shuffle) > 0:
-                        cluster_distribution.append(cluster_mass_shuffle["t"].max())
-                    else:
-                        cluster_distribution.append(0)
-
-                cluster_mass["p-val"] = cluster_mass.apply(lambda x: 1 - percentileofscore(cluster_distribution, x["t"]) / 100, axis=1)
-                t_vals = t_vals.merge(cluster_mass[["idx_cluster", "p-val"]], on='idx_cluster', how="left")
-
-                for timepoint in t_vals["time"].unique():
-                    # timepoint = 0
-                    p = t_vals.loc[(t_vals["time"] == timepoint), "p-val"].item()
-                    if p < 0.05:
-                        axes[idx_group, physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint + 0.1, linewidth=5, color='gold')
-
-                # Style Plot
-                axes[idx_group, physio_idx].set_xlim([0, 2.9])
-                axes[idx_group, physio_idx].set_ylabel(ylabel)
-                if idx_group == 0:
-                    axes[idx_group, physio_idx].set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
-                elif idx_group == 1:
-                    axes[idx_group, physio_idx].set_xlabel("Seconds after Click")
-                axes[idx_group, physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-
-            axes[idx_group, 2].legend(loc="upper right")
-            axes[idx_group, 0].text(-0.7, np.mean(axes[idx_group, 0].get_ylim()), f"{SA_group}", color="k", fontweight="bold", fontsize="large", verticalalignment='center', rotation=90)
-
-    else:
-        fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
-        for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
-            # physio_idx = 0
-            # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
-            df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
-            print(f"{physiology.upper()}: N = {len(df['VP'].unique())}")
-            if physiology == "eda":
-                for vp in df["VP"].unique():
-                    # vp = 2
-                    df_vp = df.loc[df["VP"] == vp]
-                    for event in df_vp["event"].unique():
-                        # event = "FriendlyInteraction"
-                        df_event = df_vp.loc[df_vp["event"] == event]
-                        eda_signal = df_event["EDA"].to_numpy()
-                        # Get local minima and maxima
-                        local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
-                        peak_values = list(eda_signal[local_maxima])
-                        peak_times = list(local_maxima)
-
-                        local_minima = signal.argrelextrema(eda_signal, np.less)[0]
-                        onset_values = list(eda_signal[local_minima])
-                        onset_times = list(local_minima)
-
-                        scr_onsets = []
-                        scr_peaks = []
-                        scr_amplitudes = []
-                        scr_risetimes = []
-                        amplitude_min = 0.02
-                        for onset_idx, onset in enumerate(onset_times):
-                            # onset_idx = 0
-                            # onset = onset_times[onset_idx]
-                            subsequent_peak_times = [peak_time for peak_time in peak_times if (onset - peak_time) < 0]
-                            if len(subsequent_peak_times) > 0:
-                                peak_idx = list(peak_times).index(min(subsequent_peak_times, key=lambda x: abs(x - onset)))
-                                rise_time = (peak_times[peak_idx] - onset) / 10
-                                amplitude = peak_values[peak_idx] - onset_values[onset_idx]
-                                if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
-                                    scr_onsets.append(onset)
-                                    scr_peaks.append(peak_times[peak_idx])
-                                    scr_amplitudes.append(amplitude)
-                                    scr_risetimes.append(rise_time)
-                        if len(scr_amplitudes) == 0:
-                            df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
-
-            df = df.loc[df["time"] < 3]
-
-            phases = ["Test_FriendlyWasClicked", "Test_UnfriendlyWasClicked"]
-            titles = ["Friendly Clicked", "Unfriendly Clicked"]
-            for idx_phase, phase in enumerate(phases):
-                # idx_phase = 0
-                # phase = phases[idx_phase]
-                df_phase = df.loc[df['event'] == phase]
-
-                times = df_phase["time"].unique()
-                mean = df_phase.groupby("time")[column_name].mean()
-                sem = df_phase.groupby("time")[column_name].sem()
-
-                # Plot line
-                axes[physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-                axes[physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
-
-            y_pos = axes[physio_idx].get_ylim()[0] + 0.02 * (
-                        axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
-
-            df_diff = df.loc[df["event"].isin(phases)]
-            df_diff = df_diff.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-            df_diff = df_diff.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-            t_vals = pd.DataFrame()
-            t_vals["t"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff["Test_FriendlyWasClicked"], df_diff["Test_UnfriendlyWasClicked"], nan_policy="omit").statistic)
-            t_vals["df"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff["Test_FriendlyWasClicked"], df_diff["Test_UnfriendlyWasClicked"], nan_policy="omit").df)
-            t_vals["threshold"] = t_vals.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-            t_vals["t"] = t_vals["t"].abs()
-            t_vals["sig"] = t_vals["t"] > t_vals["threshold"]
-            t_vals = t_vals.reset_index()
-
-            t_vals["idx_cluster"] = 0
-            idx_cluster = 1
-            for idx_row, row in t_vals.iterrows():
-                # idx_row = 0
-                # row = t_vals.iloc[idx_row, ]
-                if row["sig"]:
-                    t_vals.loc[idx_row, "idx_cluster"] = idx_cluster
-                    if (idx_row < len(t_vals) - 1) and not (t_vals.loc[idx_row + 1, "sig"]):
-                        idx_cluster += 1
-
-            cluster_mass = t_vals.groupby("idx_cluster")["t"].sum().reset_index()
-            cluster_mass = cluster_mass.loc[cluster_mass["idx_cluster"] != 0].reset_index()
-
-            pd.options.mode.chained_assignment = None
-            cluster_distribution = []
-            for i in tqdm(np.arange(0, permutations)):
-                df_shuffle = pd.DataFrame()
-                df_subset = df.loc[df["event"].isin(phases)]
-                for vp in df_subset["VP"].unique():
-                    # vp = df_subset["VP"].unique()[0]
-                    df_vp = df_subset.loc[df_subset["VP"] == vp]
-                    rand_int = np.random.randint(0, 2)
-                    if rand_int == 0:
-                        df_vp["event"] = df_vp["event"].replace({"Test_FriendlyWasClicked": "Test_UnfriendlyWasClicked",
-                                                                 "Test_UnfriendlyWasClicked": "Test_FriendlyWasClicked"})
-                    df_shuffle = pd.concat([df_shuffle, df_vp])
-
-                df_shuffle = df_shuffle.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-                df_shuffle = df_shuffle.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-                t_vals_shuffle = pd.DataFrame()
-                t_vals_shuffle["t"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle["Test_FriendlyWasClicked"], df_shuffle["Test_UnfriendlyWasClicked"], nan_policy="omit").statistic)
-                t_vals_shuffle["df"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle["Test_FriendlyWasClicked"], df_shuffle["Test_UnfriendlyWasClicked"], nan_policy="omit").df)
-                t_vals_shuffle["threshold"] = t_vals_shuffle.apply(lambda x: t.ppf(1 - 0.025, x["df"]),axis=1)  # two-sided test
-                t_vals_shuffle["t"] = t_vals_shuffle["t"].abs()
-                t_vals_shuffle["sig"] = t_vals_shuffle["t"] > t_vals_shuffle["threshold"]
-                t_vals_shuffle = t_vals_shuffle.reset_index()
-
-                t_vals_shuffle["idx_cluster"] = 0
-                idx_cluster = 1
-                for idx_row, row in t_vals_shuffle.iterrows():
-                    # idx_row = 0
-                    # row = t_vals_shuffle.iloc[idx_row, ]
-                    if row["sig"]:
-                        t_vals_shuffle.loc[idx_row, "idx_cluster"] = idx_cluster
-                        if (idx_row < len(t_vals_shuffle) - 1) and not (t_vals_shuffle.loc[idx_row + 1, "sig"]):
-                            idx_cluster += 1
-
-                cluster_mass_shuffle = t_vals_shuffle.groupby("idx_cluster")["t"].sum().reset_index()
-                cluster_mass_shuffle = cluster_mass_shuffle.loc[cluster_mass_shuffle["idx_cluster"] != 0].reset_index()
-                if len(cluster_mass_shuffle) > 0:
-                    cluster_distribution.append(cluster_mass_shuffle["t"].max())
-                else:
-                    cluster_distribution.append(0)
-
-            cluster_mass["p-val"] = cluster_mass.apply(lambda x: 1 - percentileofscore(cluster_distribution, x["t"]) / 100, axis=1)
-            t_vals = t_vals.merge(cluster_mass[["idx_cluster", "p-val"]], on='idx_cluster', how="left")
-
-            for timepoint in t_vals["time"].unique():
-                # timepoint = 0
-                p = t_vals.loc[(t_vals["time"] == timepoint), "p-val"].item()
-                if p < 0.05:
-                    axes[physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint + 0.1, linewidth=5, color='gold')
-
-            # Style Plot
-            axes[physio_idx].set_xlim([0, 2.9])
-            axes[physio_idx].set_ylabel(ylabel)
-            axes[physio_idx].set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
-            axes[physio_idx].set_xlabel("Seconds after Click")
-            axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-
-        axes[2].legend()
-    plt.tight_layout()
-
-
-def plot_physio_visible(filepath, split=False, median=None, SA_score="SPAI", permutations=1000):
-    physiologies = ["hr", "eda", "pupil", "hrv_hf"]
-    ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]"]
-    dvs = ["ECG", "EDA", "pupil"]
-    red = '#E2001A'
-    green = '#B1C800'
-    colors = [green, red]
-
-    if split:
-        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(18, 6))
-        for idx_group, SA_group in enumerate(["HSA", "LSA"]):
-            # idx_group = 0
-            # SA_group = "LSA"
-            for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
-                # physio_idx = 0
-                # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
-                df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
-                if SA_group == "LSA":
-                    df_group = df.loc[df[SA_score] < median]
-                else:
-                    df_group = df.loc[df[SA_score] >= median]
-                print(f"{physiology.upper()}: N - {SA_group} = {len(df_group['VP'].unique())}")
-                if physiology == "eda":
-                    for vp in df["VP"].unique():
-                        # vp = 2
-                        df_vp = df_group.loc[df_group["VP"] == vp]
-                        for event in df_vp["event"].unique():
-                            # event = "FriendlyInteraction"
-                            df_event = df_vp.loc[df_vp["event"] == event]
-                            eda_signal = df_event["EDA"].to_numpy()
-                            # Get local minima and maxima
-                            local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
-                            peak_values = list(eda_signal[local_maxima])
-                            peak_times = list(local_maxima)
-
-                            local_minima = signal.argrelextrema(eda_signal, np.less)[0]
-                            onset_values = list(eda_signal[local_minima])
-                            onset_times = list(local_minima)
-
-                            scr_onsets = []
-                            scr_peaks = []
-                            scr_amplitudes = []
-                            scr_risetimes = []
-                            amplitude_min = 0.02
-                            for onset_idx, onset in enumerate(onset_times):
-                                # onset_idx = 0
-                                # onset = onset_times[onset_idx]
-                                subsequent_peak_times = [peak_time for peak_time in peak_times if
-                                                         (onset - peak_time) < 0]
-                                if len(subsequent_peak_times) > 0:
-                                    peak_idx = list(peak_times).index(
-                                        min(subsequent_peak_times, key=lambda x: abs(x - onset)))
-                                    rise_time = (peak_times[peak_idx] - onset) / 10
-                                    amplitude = peak_values[peak_idx] - onset_values[onset_idx]
-                                    if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
-                                        scr_onsets.append(onset)
-                                        scr_peaks.append(peak_times[peak_idx])
-                                        scr_amplitudes.append(amplitude)
-                                        scr_risetimes.append(rise_time)
-                            if len(scr_amplitudes) == 0:
-                                df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
-
-                df_group = df_group.loc[df_group["time"] < 6]
-                df_group = df_group.loc[df_group["event"].str.contains("Visible") & ~(df_group["event"].str.contains("Actor"))]
-                df_group = df_group.loc[~(df_group['event'].str.contains("Friendly") & df_group['event'].str.contains("Unfriendly"))]
-
-                phases = ["Test_FriendlyVisible", "Test_UnfriendlyVisible"]
-                titles = ["Friendly Agent Visible", "Unfriendly Agent Visbile"]
-                for idx_phase, phase in enumerate(phases):
-                    # idx_phase = 0
-                    # phase = phases[idx_phase]
-                    df_phase = df_group.loc[df_group['event'] == phase]
-
-                    times = df_phase["time"].unique()
-                    mean = df_phase.groupby("time")[column_name].mean()
-                    sem = df_phase.groupby("time")[column_name].sem()
-
-                    # Plot line
-                    axes[idx_group, physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-                    axes[idx_group, physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
-
-                y_pos = axes[idx_group, physio_idx].get_ylim()[0] + 0.02 * (axes[idx_group, physio_idx].get_ylim()[1] - axes[idx_group, physio_idx].get_ylim()[0])
-
-                df_diff = df_group.loc[df_group["event"].isin(phases)]
-                df_diff = df_diff.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-                df_diff = df_diff.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-                t_vals = pd.DataFrame()
-                t_vals["t"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff[phases[0]], df_diff[phases[1]], nan_policy="omit").statistic)
-                t_vals["df"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff[phases[0]], df_diff[phases[1]], nan_policy="omit").df)
-                t_vals["threshold"] = t_vals.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-                t_vals["t"] = t_vals["t"].abs()
-                t_vals["sig"] = t_vals["t"] > t_vals["threshold"]
-                t_vals = t_vals.reset_index()
-
-                t_vals["idx_cluster"] = 0
-                idx_cluster = 1
-                for idx_row, row in t_vals.iterrows():
-                    # idx_row = 0
-                    # row = t_vals.iloc[idx_row, ]
-                    if row["sig"]:
-                        t_vals.loc[idx_row, "idx_cluster"] = idx_cluster
-                        if (idx_row < len(t_vals) - 1) and not (t_vals.loc[idx_row + 1, "sig"]):
-                            idx_cluster += 1
-
-                cluster_mass = t_vals.groupby("idx_cluster")["t"].sum().reset_index()
-                cluster_mass = cluster_mass.loc[cluster_mass["idx_cluster"] != 0].reset_index()
-
-                pd.options.mode.chained_assignment = None
-                cluster_distribution = []
-                for i in tqdm(np.arange(0, permutations)):
-                    df_shuffle = pd.DataFrame()
-                    df_subset = df_group.loc[df_group["event"].isin(phases)]
-                    for vp in df_subset["VP"].unique():
-                        # vp = df_subset["VP"].unique()[0]
-                        df_vp = df_subset.loc[df_subset["VP"] == vp]
-                        rand_int = np.random.randint(0, 2)
-                        if rand_int == 0:
-                            df_vp["event"] = df_vp["event"].replace({phases[0]: phases[1], phases[1]: phases[0]})
-                        df_shuffle = pd.concat([df_shuffle, df_vp])
-
-                    df_shuffle = df_shuffle.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-                    df_shuffle = df_shuffle.pivot(index=['VP', 'time'], columns=['event'],
-                                                  values=column_name).reset_index()
-                    t_vals_shuffle = pd.DataFrame()
-                    t_vals_shuffle["t"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle[phases[0]], df_shuffle[phases[1]], nan_policy="omit").statistic)
-                    t_vals_shuffle["df"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle[phases[0]], df_shuffle[phases[1]], nan_policy="omit").df)
-                    t_vals_shuffle["threshold"] = t_vals_shuffle.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-                    t_vals_shuffle["t"] = t_vals_shuffle["t"].abs()
-                    t_vals_shuffle["sig"] = t_vals_shuffle["t"] > t_vals_shuffle["threshold"]
-                    t_vals_shuffle = t_vals_shuffle.reset_index()
-
-                    t_vals_shuffle["idx_cluster"] = 0
-                    idx_cluster = 1
-                    for idx_row, row in t_vals_shuffle.iterrows():
-                        # idx_row = 0
-                        # row = t_vals_shuffle.iloc[idx_row, ]
-                        if row["sig"]:
-                            t_vals_shuffle.loc[idx_row, "idx_cluster"] = idx_cluster
-                            if (idx_row < len(t_vals_shuffle) - 1) and not (t_vals_shuffle.loc[idx_row + 1, "sig"]):
-                                idx_cluster += 1
-
-                    cluster_mass_shuffle = t_vals_shuffle.groupby("idx_cluster")["t"].sum().reset_index()
-                    cluster_mass_shuffle = cluster_mass_shuffle.loc[
-                        cluster_mass_shuffle["idx_cluster"] != 0].reset_index()
-                    if len(cluster_mass_shuffle) > 0:
-                        cluster_distribution.append(cluster_mass_shuffle["t"].max())
-                    else:
-                        cluster_distribution.append(0)
-
-                cluster_mass["p-val"] = cluster_mass.apply(lambda x: 1 - percentileofscore(cluster_distribution, x["t"]) / 100,axis=1)
-                t_vals = t_vals.merge(cluster_mass[["idx_cluster", "p-val"]], on='idx_cluster', how="left")
-
-                for timepoint in t_vals["time"].unique():
-                    # timepoint = 0
-                    p = t_vals.loc[(t_vals["time"] == timepoint), "p-val"].item()
-                    if p < 0.05:
-                        axes[idx_group, physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint + 0.1, linewidth=5, color='gold')
-
-                # Style Plot
-                axes[idx_group, physio_idx].set_xlim([0, 5])
-                axes[idx_group, physio_idx].set_ylabel(ylabel)
-                if idx_group == 0:
-                    axes[idx_group, physio_idx].set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
-                elif idx_group == 1:
-                    axes[idx_group, physio_idx].set_xlabel("Seconds after agent showed up")
-                axes[idx_group, physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-
-            axes[idx_group, 2].legend(loc="upper right")
-            axes[idx_group, 0].text(-0.7, np.mean(axes[idx_group, 0].get_ylim()), f"{SA_group}", color="k", fontweight="bold", fontsize="large", verticalalignment='center', rotation=90)
-    else:
-        fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
-        for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
-            # physio_idx = 0
-            # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
-            df = pd.read_csv(os.path.join(filepath, f'{physiology}_interaction.csv'), decimal='.', sep=';')
-            print(f"{physiology.upper()}: N = {len(df['VP'].unique())}")
-            if physiology == "eda":
-                for vp in df["VP"].unique():
-                    # vp = 2
-                    df_vp = df.loc[df["VP"] == vp]
-                    for event in df_vp["event"].unique():
-                        # event = "FriendlyInteraction"
-                        df_event = df_vp.loc[df_vp["event"] == event]
-                        eda_signal = df_event["EDA"].to_numpy()
-                        # Get local minima and maxima
-                        local_maxima = signal.argrelextrema(eda_signal, np.greater)[0]
-                        peak_values = list(eda_signal[local_maxima])
-                        peak_times = list(local_maxima)
-
-                        local_minima = signal.argrelextrema(eda_signal, np.less)[0]
-                        onset_values = list(eda_signal[local_minima])
-                        onset_times = list(local_minima)
-
-                        scr_onsets = []
-                        scr_peaks = []
-                        scr_amplitudes = []
-                        scr_risetimes = []
-                        amplitude_min = 0.02
-                        for onset_idx, onset in enumerate(onset_times):
-                            # onset_idx = 0
-                            # onset = onset_times[onset_idx]
-                            subsequent_peak_times = [peak_time for peak_time in peak_times if (onset - peak_time) < 0]
-                            if len(subsequent_peak_times) > 0:
-                                peak_idx = list(peak_times).index(min(subsequent_peak_times, key=lambda x: abs(x - onset)))
-                                rise_time = (peak_times[peak_idx] - onset) / 10
-                                amplitude = peak_values[peak_idx] - onset_values[onset_idx]
-                                if (rise_time > 0.1) & (rise_time < 10) & (amplitude >= amplitude_min):
-                                    scr_onsets.append(onset)
-                                    scr_peaks.append(peak_times[peak_idx])
-                                    scr_amplitudes.append(amplitude)
-                                    scr_risetimes.append(rise_time)
-                        if len(scr_amplitudes) == 0:
-                            df = df.loc[~((df["VP"] == vp) & (df["event"] == event))]
-
-            df = df.loc[df["time"] < 6]
-            df = df.loc[df["event"].str.contains("Visible")]
-            df = df.loc[~(df['event'].str.contains("Friendly") & df['event'].str.contains("Unfriendly"))]
-
-            phases = ["Test_FriendlyVisible", "Test_UnfriendlyVisible"]
-            titles = ["Friendly Agent Visible", "Unfriendly Agent Visbile"]
-            for idx_phase, phase in enumerate(phases):
-                # idx_phase = 0
-                # phase = phases[idx_phase]
-                df_phase = df.loc[df['event'] == phase]
-
-                times = df_phase["time"].unique()
-                mean = df_phase.groupby("time")[column_name].mean()
-                sem = df_phase.groupby("time")[column_name].sem()
-
-                # Plot line
-                axes[physio_idx].plot(times, mean, '-', color=colors[idx_phase], label=titles[idx_phase])
-                axes[physio_idx].fill_between(times, mean + sem, mean - sem, alpha=0.2, color=colors[idx_phase])
-
-            y_pos = axes[physio_idx].get_ylim()[0] + 0.02 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
-
-            df_diff = df.loc[df["event"].isin(phases)]
-            df_diff = df_diff.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-            df_diff = df_diff.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-            t_vals = pd.DataFrame()
-            t_vals["t"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff[phases[0]], df_diff[phases[1]], nan_policy="omit").statistic)
-            t_vals["df"] = df_diff.groupby("time").apply(lambda df_diff: ttest_rel(df_diff[phases[0]], df_diff[phases[1]], nan_policy="omit").df)
-            t_vals["threshold"] = t_vals.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-            t_vals["t"] = t_vals["t"].abs()
-            t_vals["sig"] = t_vals["t"] > t_vals["threshold"]
-            t_vals = t_vals.reset_index()
-
-            t_vals["idx_cluster"] = 0
-            idx_cluster = 1
-            for idx_row, row in t_vals.iterrows():
-                # idx_row = 0
-                # row = t_vals.iloc[idx_row, ]
-                if row["sig"]:
-                    t_vals.loc[idx_row, "idx_cluster"] = idx_cluster
-                    if (idx_row < len(t_vals) - 1) and not (t_vals.loc[idx_row + 1, "sig"]):
-                        idx_cluster += 1
-
-            cluster_mass = t_vals.groupby("idx_cluster")["t"].sum().reset_index()
-            cluster_mass = cluster_mass.loc[cluster_mass["idx_cluster"] != 0].reset_index()
-
-            pd.options.mode.chained_assignment = None
-            cluster_distribution = []
-            for i in tqdm(np.arange(0, permutations)):
-                df_shuffle = pd.DataFrame()
-                df_subset = df.loc[df["event"].isin(phases)]
-                for vp in df_subset["VP"].unique():
-                    # vp = df_subset["VP"].unique()[0]
-                    df_vp = df_subset.loc[df_subset["VP"] == vp]
-                    rand_int = np.random.randint(0, 2)
-                    if rand_int == 0:
-                        df_vp["event"] = df_vp["event"].replace({phases[0]: phases[1],
-                                                                 phases[1]: phases[0]})
-                    df_shuffle = pd.concat([df_shuffle, df_vp])
-
-                df_shuffle = df_shuffle.groupby(['VP', 'event', 'time']).mean(numeric_only=True).reset_index()
-                df_shuffle = df_shuffle.pivot(index=['VP', 'time'], columns=['event'], values=column_name).reset_index()
-                t_vals_shuffle = pd.DataFrame()
-                t_vals_shuffle["t"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle[phases[0]], df_shuffle[phases[1]], nan_policy="omit").statistic)
-                t_vals_shuffle["df"] = df_shuffle.groupby("time").apply(lambda df_shuffle: ttest_rel(df_shuffle[phases[0]], df_shuffle[phases[1]], nan_policy="omit").df)
-                t_vals_shuffle["threshold"] = t_vals_shuffle.apply(lambda x: t.ppf(1 - 0.025, x["df"]), axis=1)  # two-sided test
-                t_vals_shuffle["t"] = t_vals_shuffle["t"].abs()
-                t_vals_shuffle["sig"] = t_vals_shuffle["t"] > t_vals_shuffle["threshold"]
-                t_vals_shuffle = t_vals_shuffle.reset_index()
-
-                t_vals_shuffle["idx_cluster"] = 0
-                idx_cluster = 1
-                for idx_row, row in t_vals_shuffle.iterrows():
-                    # idx_row = 0
-                    # row = t_vals_shuffle.iloc[idx_row, ]
-                    if row["sig"]:
-                        t_vals_shuffle.loc[idx_row, "idx_cluster"] = idx_cluster
-                        if (idx_row < len(t_vals_shuffle) - 1) and not (t_vals_shuffle.loc[idx_row + 1, "sig"]):
-                            idx_cluster += 1
-
-                cluster_mass_shuffle = t_vals_shuffle.groupby("idx_cluster")["t"].sum().reset_index()
-                cluster_mass_shuffle = cluster_mass_shuffle.loc[cluster_mass_shuffle["idx_cluster"] != 0].reset_index()
-                if len(cluster_mass_shuffle) > 0:
-                    cluster_distribution.append(cluster_mass_shuffle["t"].max())
-                else:
-                    cluster_distribution.append(0)
-
-            cluster_mass["p-val"] = cluster_mass.apply(lambda x: 1 - percentileofscore(cluster_distribution, x["t"]) / 100,
-                                                       axis=1)
-            t_vals = t_vals.merge(cluster_mass[["idx_cluster", "p-val"]], on='idx_cluster', how="left")
-
-            for timepoint in t_vals["time"].unique():
-                # timepoint = 0
-                p = t_vals.loc[(t_vals["time"] == timepoint), "p-val"].item()
-                if p < 0.05:
-                    axes[physio_idx].hlines(y=y_pos, xmin=timepoint, xmax=timepoint + 0.1, linewidth=5, color='gold')
-
-            # Style Plot
-            axes[physio_idx].set_xlim([0, 5])
-            axes[physio_idx].set_ylabel(ylabel)
-            axes[physio_idx].set_title(f"{ylabel.split(' [')[0]}", fontweight='bold')
-            axes[physio_idx].set_xlabel("Seconds after agent showed up")
-            axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-        axes[2].legend()
-    plt.tight_layout()
+    fig.legend(
+        [Line2D([0], [0], color="gold", linewidth=3, alpha=.7),
+         Line2D([0], [0], color="dodgerblue", linewidth=3, alpha=.7),
+         Line2D([0], [0], color="darkviolet", linewidth=3, alpha=.7)],
+        ["Main Effect of Condition", "Main Effect of Social Anxiety", "Interaction of Condition and Social Anxiety"],
+        loc='lower center', ncols=3, frameon=False)
+    fig.subplots_adjust(bottom=0.17)
 
 
 # Test Phase
@@ -1031,8 +376,13 @@ def plot_physio_test(filepath, save_path, SA_score="SPAI"):
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
         if "hrv" in physiology:
             df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
+            problematic_subjects = check_physio(filepath, "hr")
+            df = df.loc[~df["VP"].isin(problematic_subjects)]
         else:
             df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+            if not "pupil" in physiology:
+                problematic_subjects = check_physio(filepath, physiology)
+                df = df.loc[~df["VP"].isin(problematic_subjects)]
         print(f"{physiology.upper()}: N = {len(df['VP'].unique())}")
         # Baseline Correction
         df_baseline = df.loc[df["Phase"].str.contains("Orientation")]
@@ -1182,8 +532,13 @@ def plot_physio_test_sad(filepath, SA_score="SPAI"):
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
         if "hrv" in physiology:
             df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
+            problematic_subjects = check_physio(filepath, "hr")
+            df = df.loc[~df["VP"].isin(problematic_subjects)]
         else:
             df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+            if not "pupil" in physiology:
+                problematic_subjects = check_physio(filepath, physiology)
+                df = df.loc[~df["VP"].isin(problematic_subjects)]
 
         df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
         df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
@@ -1256,12 +611,17 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
 
     fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
     for physio_idx, (physiology, ylabel, dv) in enumerate(zip(physiologies[0:3], ylabels[0:3], dvs[0:3])):  # , "hrv_hf", "hrv_rmssd"
-        # physio_idx = 0
+        # physio_idx = 3
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
         if "hrv" in physiology:
             df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
+            problematic_subjects = check_physio(filepath, "hr")
+            df = df.loc[~df["VP"].isin(problematic_subjects)]
         else:
             df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+            if not "pupil" in physiology:
+                problematic_subjects = check_physio(filepath, physiology)
+                df = df.loc[~df["VP"].isin(problematic_subjects)]
 
         print(f"{physiology.upper()}: N = {len(df['VP'].unique())}")
 
@@ -1574,9 +934,6 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
 
 # Correlation with SPAI (Test-Habituation)
 def plot_physio_diff_sad(filepath, SA_score="SPAI"):
-    if not "Wave1" in filepath:
-        return
-
     physiologies = ["hr", "eda", "pupil", "hrv_hf", "hrv_rmssd"]
     physiologies = physiologies[0:3]
     ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]",
@@ -1595,8 +952,13 @@ def plot_physio_diff_sad(filepath, SA_score="SPAI"):
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
         if "hrv" in physiology:
             df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
+            problematic_subjects = check_physio(filepath, "hr")
+            df = df.loc[~df["VP"].isin(problematic_subjects)]
         else:
             df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+            if not "pupil" in physiology:
+                problematic_subjects = check_physio(filepath, physiology)
+                df = df.loc[~df["VP"].isin(problematic_subjects)]
         df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
         df_spai = df_spai.sort_values(by=SA_score)
 
@@ -1667,6 +1029,26 @@ def plot_physio_diff_sad(filepath, SA_score="SPAI"):
                titles, loc='center right', bbox_to_anchor=(1, 0.5))
 
 
+def check_physio(filepath, physiology):
+    df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+    df = df.loc[~(df["Phase"].str.contains("Interaction") | df["Phase"].str.contains("Clicked") | df["Phase"].str.contains("resting") | df["Phase"].str.contains("Visible"))]
+    df.loc[df["Phase"].str.contains("Orientation"), "phase"] = "Orientation"
+    df.loc[df["Phase"].str.contains("Habituation"), "phase"] = "Habituation"
+    df.loc[df["Phase"].str.contains("Test"), "phase"] = "Test"
+
+    df_grouped = df.groupby(["VP", "phase"]).sum(numeric_only=True).reset_index()
+    df_grouped.loc[df_grouped["phase"].str.contains("Orientation"), "total_duration"] = 30
+    df_grouped.loc[df_grouped["phase"].str.contains("Habituation"), "total_duration"] = 180
+    df_grouped.loc[df_grouped["phase"].str.contains("Test"), "total_duration"] = 180
+    df_grouped["prop_duration"] = df_grouped["Duration"]/df_grouped["total_duration"]
+    df_grouped.loc[df_grouped["prop_duration"] > 1, "prop_duration"] = 1
+
+    df_grouped = df_grouped.groupby(["VP"]).mean(numeric_only=True).reset_index()
+
+    exclude_vp = list(df_grouped.loc[df_grouped["prop_duration"] < .75, "VP"].unique())
+    return exclude_vp
+
+
 if __name__ == '__main__':
     wave = 1
     dir_path = os.getcwd()
@@ -1676,10 +1058,5 @@ if __name__ == '__main__':
     if not os.path.exists(save_path):
         print('creating path for saving')
         os.makedirs(save_path)
-
-    for physiology in ("hr", "eda"):
-        df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
-        df_check = df.loc[df["Proportion Usable Data"] >= .75]
-        print(f"Participants included for {physiology}-analysis: {len(df_check['VP'].unique())}")
 
     SA_score = "SPAI"

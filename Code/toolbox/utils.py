@@ -1,8 +1,20 @@
 # =============================================================================
 # Toolbox by Katharina Lingelbach
 # =============================================================================
+import sys
+import os
 import numpy as np
 import random
+
+
+# Disable
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__
 
 
 def find_nearest_idx(array: list, value: float) -> int:

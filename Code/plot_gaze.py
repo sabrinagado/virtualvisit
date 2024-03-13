@@ -154,7 +154,7 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     if only_head:
         df = df.loc[df["ROI"] == "head"]
 
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(3.5 * len(conditions), 5))
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(3.5 * len(conditions), 6))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -310,7 +310,7 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
     if only_head:
         df = df.loc[df["ROI"] == "head"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -402,7 +402,7 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
 
     ax.set_xticklabels(labels)
 
-    ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
+    # ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
 
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     if (phase == "Interaction") & (dv == "Gaze Proportion"):
@@ -443,7 +443,7 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
     greens = ['#B1C800', '#3b8703']
     colors = [greens, reds]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
@@ -504,7 +504,7 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
     ax.set_xticklabels(labels)
 
-    ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
+    # ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
 
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     if (phase == "Interaction") & (dv == "Gaze Proportion"):
@@ -520,7 +520,7 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
          Line2D([0], [0], marker='o', markeredgecolor=colors[1][0], markeredgewidth=1, markerfacecolor=colors[1][0], alpha=.7, lw=0),
          Line2D([0], [0], marker='o', markeredgecolor=colors[1][1], markeredgewidth=1, markerfacecolor=colors[1][1], alpha=.7, lw=0)],
         ["Body Friendly Agent", "Head Friendly Agent", "Body Unfriendly Agent", "Head Unfriendly Agent"], loc="center right")
-    fig.subplots_adjust(right=0.6)
+    fig.subplots_adjust(right=0.63)
 
 
 # Test, Relationship SPAI, ROI
@@ -538,7 +538,7 @@ def plot_gaze_roi_sad(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI
     conditions = ["friendly", "unfriendly"]
     df = df.loc[df["Condition"].isin(conditions)]
     # titles = ["Spontaneous Fixations on\nFriendly Agent", "Spontaneous Fixations on\nUnfriendly Agent"]
-    fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(3.5 * len(conditions), 5))
+    fig, axes = plt.subplots(nrows=1, ncols=len(conditions), figsize=(3.5 * len(conditions), 6))
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = "friendly"
@@ -615,7 +615,7 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
 
     df_grouped = df_grouped.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -650,7 +650,7 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_title(f"{phase} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
+    # ax.set_title(f"{phase} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
     ax.set_xlabel(SA_score)
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
@@ -675,7 +675,7 @@ def plot_diff_gaze(df, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     df_diff = df_diff.sort_values(by=SA_score)
     colors = ['teal']
     x = df_diff[SA_score].to_numpy()

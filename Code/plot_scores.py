@@ -15,7 +15,6 @@ from Code.toolbox import utils
 from Code import preproc_scores, preproc_ratings
 
 
-
 def plot_scale(df, scale, colors, problematic_subjects):
     cutoff_ssq = df["SSQ-diff"].mean() + df["SSQ-diff"].std()  # .quantile(0.75)
     df_scale = df.filter(like=scale).dropna()
@@ -65,24 +64,28 @@ def plot_scale(df, scale, colors, problematic_subjects):
     n_subscales = len(df_scale.columns)
     if not titles_subscale:
         titles_subscale = df_scale.columns
-    if n_subscales > 1:
-        fig, axes = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 4))
+
+    if (scale == "IPQ") | ("SSQ" in scale) | (scale == "ASI") | (scale == "AQ"):
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(6, 6), sharex=False, sharey=False, gridspec_kw={'width_ratios': [1, n_subscales-1]})
+
         boxWidth = 1
-        pos = [1]
 
         for idx_subscale, (subscale, title_subscale) in enumerate(zip(df_scale.columns, titles_subscale)):
-            # idx_subscale = 0
+            # idx_subscale = 2
             # subscale = df_scale.columns[idx_subscale]
+
+            idx_axes = 0 if idx_subscale == 0 else 1
+            pos = idx_subscale - 1 if idx_subscale > 0 else 0
 
             # Plot raw data points
             for i in range(len(df_scale)):
                 # i = 0
-                x = random.uniform(pos[0] - (0.25 * boxWidth), pos[0] + (0.25 * boxWidth))
+                x = random.uniform(pos - (0.25 * boxWidth), pos + (0.25 * boxWidth))
                 y = df_scale.reset_index().loc[i, subscale].item()
                 if df.reset_index().loc[i, "ID"].item() in problematic_subjects:
-                    axes[idx_subscale].plot(x, y, marker='o', ms=5, mfc="grey", mec="grey", alpha=0.3)
+                    axes[idx_axes].plot(x, y, marker='o', ms=5, mfc="grey", mec="grey", alpha=0.3)
                 else:
-                    axes[idx_subscale].plot(x, y, marker='o', ms=5, mfc=colors[idx_subscale], mec=colors[idx_subscale], alpha=0.3)
+                    axes[idx_axes].plot(x, y, marker='o', ms=5, mfc=colors[idx_subscale], mec=colors[idx_subscale], alpha=0.3)
 
             # Plot boxplots
             meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
@@ -100,35 +103,98 @@ def plot_scale(df, scale, colors, problematic_subjects):
                                                      as_dict=True,
                                                      func='mean')
 
-            axes[idx_subscale].boxplot([df_scale.loc[:, subscale].values],
-                       whiskerprops=whiskerprops,
-                       capprops=capprops,
-                       boxprops=boxprops,
-                       medianprops=medianlineprops,
-                       showfliers=False, flierprops=fliermarkerprops,
-                       # meanline=True,
-                       # showmeans=True,
-                       # meanprops=meanprops,
-                       # notch=True,  # bootstrap=5000,
-                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
-                       whis=[2.5, 97.5],
-                       positions=[pos[0]],
-                       widths=0.8 * boxWidth)
+            axes[idx_axes].boxplot([df_scale.loc[:, subscale].values],
+                                       whiskerprops=whiskerprops,
+                                       capprops=capprops,
+                                       boxprops=boxprops,
+                                       medianprops=medianlineprops,
+                                       showfliers=False, flierprops=fliermarkerprops,
+                                       # meanline=True,
+                                       # showmeans=True,
+                                       # meanprops=meanprops,
+                                       # notch=True,  # bootstrap=5000,
+                                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                       whis=[2.5, 97.5],
+                                       positions=[pos],
+                                       widths=0.8 * boxWidth)
 
-            axes[idx_subscale].errorbar(x=pos[0], y=bootstrapping_dict['mean'],
-                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
-                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+            axes[idx_axes].errorbar(x=pos, y=bootstrapping_dict['mean'],
+                                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
-            axes[idx_subscale].set_xticklabels([title_subscale])
-            axes[idx_subscale].set_ylim(min, max)
-            axes[idx_subscale].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+            axes[idx_axes].set_ylim(min, max)
+            axes[idx_axes].grid(color='lightgrey', linestyle='-', linewidth=0.3)
             if subscale == "SSQ-diff":
-                axes[idx_subscale].axhline(cutoff_ssq, color="lightgrey", linewidth=0.8, linestyle="dashed")
+                axes[idx_axes].axhline(cutoff_ssq, color="lightgrey", linewidth=0.8, linestyle="dashed")
             elif subscale == "AQ-K":
-                axes[idx_subscale].axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
+                axes[idx_axes].axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
+
+        axes[0].set_xticks([0])
+        axes[0].set_xticklabels([titles_subscale[0]])
+        axes[1].set_xticks(np.arange(0, n_subscales - 1))
+        axes[1].set_xticklabels(titles_subscale[1:])
+
+    elif (scale == "MPS") | (scale == "ISK"):
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+        boxWidth = 1
+
+        for idx_subscale, (subscale, title_subscale) in enumerate(zip(df_scale.columns, titles_subscale)):
+            # idx_subscale = 1
+            # subscale = df_scale.columns[idx_subscale]
+
+            pos = idx_subscale
+
+            # Plot raw data points
+            for i in range(len(df_scale)):
+                # i = 0
+                x = random.uniform(pos - (0.25 * boxWidth), pos + (0.25 * boxWidth))
+                y = df_scale.reset_index().loc[i, subscale].item()
+                if df.reset_index().loc[i, "ID"].item() in problematic_subjects:
+                    ax.plot(x, y, marker='o', ms=5, mfc="grey", mec="grey", alpha=0.3)
+                else:
+                    ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_subscale], mec=colors[idx_subscale], alpha=0.3)
+
+            # Plot boxplots
+            meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_subscale])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_subscale])
+            whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_subscale])
+            capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_subscale])
+            boxprops = dict(color=colors[idx_subscale])
+
+            fwr_correction = True
+            alpha = (1 - (0.05))
+            bootstrapping_dict = utils.bootstrapping(df_scale.loc[:, subscale].values,
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
+
+            ax.boxplot([df_scale.loc[:, subscale].values],
+                                       whiskerprops=whiskerprops,
+                                       capprops=capprops,
+                                       boxprops=boxprops,
+                                       medianprops=medianlineprops,
+                                       showfliers=False, flierprops=fliermarkerprops,
+                                       # meanline=True,
+                                       # showmeans=True,
+                                       # meanprops=meanprops,
+                                       # notch=True,  # bootstrap=5000,
+                                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                       whis=[2.5, 97.5],
+                                       positions=[pos],
+                                       widths=0.8 * boxWidth)
+
+            ax.errorbar(x=pos, y=bootstrapping_dict['mean'],
+                                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+
+        ax.set_xticklabels(titles_subscale)
+        ax.set_ylim(min, max)
+        ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
     elif n_subscales == 1:
-        fig, ax = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 2, 4))
+        fig, ax = plt.subplots(nrows=1, ncols=n_subscales, figsize=(n_subscales * 3, 6))
         boxWidth = 1
         pos = [1]
         for idx_subscale, subscale in enumerate(df_scale.columns):
@@ -193,7 +259,7 @@ def plot_scale(df, scale, colors, problematic_subjects):
 def plot_sad(df):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 1.6))
     sns.histplot(df["SPAI"], color="#1B4C87", ax=ax, binwidth=0.2, binrange=(0, 5),
-                 kde=True, line_kws={"linewidth": 1, "color": "#173d6a"}, edgecolor='#f8f8f8',)
+                 kde=True, line_kws={"linewidth": 1, "color": "#173d6a"}, edgecolor='#f8f8f8', )
     ax.set_xlabel("SPAI (Social Anxiety)")
     ax.set_xlim([0, 6])
     # ax.set_ylim([0, 11])
@@ -201,8 +267,8 @@ def plot_sad(df):
     ax.axvline(x=df["SPAI"].median(), color="#FFC300")
     ax.axvline(x=2.79, color="#FF5733")
     ax.legend(
-            [Line2D([0], [0], color='#FFC300'), Line2D([0], [0], color='#FF5733')],
-            ['Median', 'Remission Cut-Off'], fontsize='xx-small', loc="best", frameon=False)
+        [Line2D([0], [0], color='#FFC300'), Line2D([0], [0], color='#FF5733')],
+        ['Median', 'Remission Cut-Off'], fontsize='xx-small', loc="best", frameon=False)
     ax.set_facecolor('#f8f8f8')
     plt.tight_layout()
 

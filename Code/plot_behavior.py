@@ -41,7 +41,7 @@ def plot_time_rooms(df, SA_score="SPAI"):
     df_subset = df_subset.drop(columns=SA_score)
     df_subset = df_subset.merge(df[["VP", SA_score]].drop_duplicates(subset="VP"), on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
     red = '#E2001A'
     green = '#B1C800'
@@ -199,7 +199,7 @@ def plot_time_rooms_agents_static(df, save_path, SA_score="SPAI"):
     conditions = ["friendly", "unfriendly"]
     df_test = df_test.loc[df_test["Condition"].isin(conditions)]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -304,6 +304,7 @@ def plot_time_rooms_agents_static(df, save_path, SA_score="SPAI"):
 
 # Time spent in the different rooms of the virtual agents
 def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
+    # df = df_events
     df_subset = df.loc[df["event"].str.contains("Habituation") | df["event"].str.contains("Test")]
     df_subset.loc[df_subset['event'].str.contains("Test"), "phase"] = "Test"
     df_subset.loc[df_subset['event'].str.contains("Habituation"), "phase"] = "Habituation"
@@ -317,7 +318,7 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
     phases = ['Habituation', 'Test']
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6.5, 6))
     boxWidth = 1 / (len(conditions) + 1)
 
     for idx_condition, condition in enumerate(conditions):
@@ -466,7 +467,7 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
          Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
         ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    fig.subplots_adjust(right=0.7)
+    fig.subplots_adjust(right=0.72)
 
 
 # Time spent in the different rooms: Correlation with SPAI
@@ -483,7 +484,7 @@ def plot_time_test_rooms_agents_static_sad(df, SA_score="SPAI"):
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -549,7 +550,7 @@ def plot_time_rooms_agents_static_diff_sad(df, SA_score="SPAI"):
     df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
     df_diff = df_diff.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -610,7 +611,7 @@ def plot_time_rooms_agents_dynamic(df, save_path, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -726,7 +727,7 @@ def plot_time_test_look_agents_dynamic(df, save_path, SA_score="SPAI", only_visi
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -839,7 +840,7 @@ def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -900,7 +901,7 @@ def plot_time_test_look_agents_dynamic_sad(df, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -966,7 +967,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     df_diff = df_diff.sort_values(by=SA_score)
     colors = ['teal']
     x = df_diff[SA_score].to_numpy()
@@ -1013,7 +1014,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 # % ===========================================================================
 # Interpersonal Distance
 # =============================================================================
-def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI", only_visible=False, only_in_room=False):
+def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI", only_visible=False):
     # dist = "avg"
     # df = df_distance
     if dist == "avg":
@@ -1049,7 +1050,7 @@ def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI"
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -1174,7 +1175,7 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
 
@@ -1226,6 +1227,7 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_
 
 # Distance to virtual agents (Comparison to Habituation)
 def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI"):
+    # df = df_distance
     if dist == "avg":
         df_subset = df.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
         title = "Average"
@@ -1240,7 +1242,7 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
     titles = ["Position of\nFriendly Agent", "Position of\nUnfriendly Agent"]
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6.5, 6))
     boxWidth = 1 / (len(conditions) + 1)
 
     for idx_condition, condition in enumerate(conditions):
@@ -1394,7 +1396,7 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
          Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
         ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    fig.subplots_adjust(right=0.7)
+    fig.subplots_adjust(right=0.72)
 
 
 # Interpersonal Distance: Correlation with SPAI
@@ -1472,7 +1474,7 @@ def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"Difference (Test - Habituation) Between\n{title} Distance to the Position of Virtual Agents [m]")
-    ax.set_title(f"Interpersonal Distance", fontweight='bold')
+    # ax.set_title(f"Interpersonal Distance", fontweight='bold')
     ax.legend(loc="upper right")
     plt.tight_layout()
 
@@ -1498,7 +1500,7 @@ def plot_diff_distance(df, wave, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     df_diff = df_diff.sort_values(by=SA_score)
     x = df_diff[SA_score].to_numpy()
     y = df_diff["difference"].to_numpy()
@@ -1565,7 +1567,7 @@ def plot_clicks(df, save_path, SA_score="SPAI"):
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -1686,7 +1688,7 @@ def plot_clicks_sad(df, SA_score="SPAI"):
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     df_subset = df_subset.sort_values(by=SA_score)
@@ -2041,7 +2043,7 @@ def animate_movement(df, vp, SA_score, save_path):
 # Walking Distance
 # =============================================================================
 def plot_walking_distance(df, SA_score="SPAI"):
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 5))
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
     phases = ["Habituation", "Test"]
     titles = ["Habituation", "Test"]
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
