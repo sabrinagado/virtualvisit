@@ -171,7 +171,7 @@ def plot_physio_acq(filepath, save_path, test="F", SA_score="SPAI", permutations
     sampling_rate = 10
     sampling_rate_new = 2
 
-    fig, axes = plt.subplots(nrows=1, ncols=len(dvs), figsize=(6*len(dvs), 5))
+    fig, axes = plt.subplots(nrows=1, ncols=len(dvs), figsize=(5*len(dvs), 6))
     for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
         # physio_idx = 0
         # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
@@ -370,7 +370,7 @@ def plot_physio_test(filepath, save_path, SA_score="SPAI"):
                "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
     dvs = ["HR (Mean)", "SCL (Mean)", "Pupil Dilation (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
 
-    fig, axes = plt.subplots(nrows=1, ncols=len(physiologies), figsize=(18, 5))
+    fig, axes = plt.subplots(nrows=1, ncols=len(physiologies), figsize=(15, 6))
     for physio_idx, (physiology, ylabel, dv) in enumerate(zip(physiologies, ylabels[0:len(physiologies)], dvs[0:len(physiologies)])):
         # physio_idx = 0
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
@@ -609,7 +609,7 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
                "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
     dvs = ["HR (Mean)", "SCL (Mean)", "Pupil Dilation (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
 
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
     for physio_idx, (physiology, ylabel, dv) in enumerate(zip(physiologies[0:3], ylabels[0:3], dvs[0:3])):  # , "hrv_hf", "hrv_rmssd"
         # physio_idx = 3
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
@@ -657,7 +657,8 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
 
             boxWidth = 1 / (len(conditions) + 1)
             pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
-            pos[0] = pos[0] - boxWidth/2
+            pos[0] = pos[0] - boxWidth
+            pos[2] = pos[2] + boxWidth / 1.5
 
             for idx_condition, condition in enumerate(conditions):
                 # idx_condition = 1
@@ -928,8 +929,9 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
         [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1,markerfacecolor='#1F82C0', alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
          Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    # fig.subplots_adjust(right=0.7)
+        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right')
+    fig.subplots_adjust(right=0.88)
+    fig.subplots_adjust(wspace=0.27)
 
 
 # Correlation with SPAI (Test-Habituation)
