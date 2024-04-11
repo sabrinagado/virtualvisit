@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 import random
+import math
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle
@@ -116,7 +117,7 @@ def plot_et_validation(vps, filepath):
         # points = points_start
         axes[idx_points].scatter(points["x"], points["y"], marker='+', s=20, color="black", linewidths=0.8)
         axes[idx_points].scatter(points_cal["x"], points_cal["y"], marker='+', s=100, color="blue", linewidths=1)
-        axes[idx_points].set_title(title)
+        axes[idx_points].set_title(title, fontsize="xx-large")
         axes[idx_points].set_ylim(points_cal["y"].min()-20, points_cal["y"].max()+20)
         axes[idx_points].set_xlim(points_cal["x"].min() - 20, points_cal["x"].max() + 20)
 
@@ -284,9 +285,9 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
 def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
     # df = df_gaze.copy()
     if dv == "Gaze Proportion":
-        y_label = "Proportional Dwell Time on Virtual Agents"
+        y_label = "Proportional Dwell Time on\nVirtual Agents"
     elif dv == "Switches":
-        y_label = "Shifts of Visual Attention Towards Virtual Agents"
+        y_label = "Shifts of Visual Attention Towards\nVirtual Agents"
 
     conditions = ["friendly", "unfriendly"]
     labels = ["Friendly\nAgent", "Unfriendly\nAgent"]
@@ -310,9 +311,9 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
     if only_head:
         df = df.loc[df["ROI"] == "head"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(3.8, 5))
     boxWidth = 1 / (len(conditions) + 1)
-    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
     df_grouped = df.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
     df_grouped = df_grouped.drop(columns=SA_score)
@@ -390,7 +391,6 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
     anova = model.anova(force_orthogonal=True)
     sum_sq_error = (sum(i * i for i in model.residuals))
     anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
-    # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
     p = anova.loc["Condition", "P-val"].item()
     if p < 0.05:
@@ -400,7 +400,7 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
         p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
         ax.text(np.mean([pos[0], pos[1]]), max * 1.105, p_sign, color='k', horizontalalignment='center')
 
-    ax.set_xticklabels(labels)
+    ax.set_xticklabels(labels, fontsize="x-large")
 
     # ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
 
@@ -411,18 +411,18 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
         ax.set_ylim(0, max * 1.17)
 
     if only_head:
-        ax.set_ylabel(f"{y_label}' Heads")
+        ax.set_ylabel(f"{y_label}' Heads in {phase.capitalize()} Phase", fontsize="x-large")
     else:
-        ax.set_ylabel(f"{y_label}")
+        ax.set_ylabel(f"{y_label} in {phase.capitalize()} Phase", fontsize="x-large")
     plt.tight_layout()
 
 
-def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
+def plot_gaze_roi(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
     # df = df_gaze.copy()
     if dv == "Gaze Proportion":
-        y_label = "Proportional Dwell Time on Virtual Agents"
+        y_label = "Proportional Dwell Time on\nVirtual Agents"
     elif dv == "Switches":
-        y_label = "Shifts of Visual Attention Towards Virtual Agents"
+        y_label = "Shifts of Visual Attention Towards\nVirtual Agents"
 
     if phase == "Interaction":
         df = df.loc[(df["Condition"].str.capitalize() == df["Phase"].str.replace("Interaction", ""))]
@@ -443,7 +443,9 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
     greens = ['#B1C800', '#3b8703']
     colors = [greens, reds]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    ticks = [x + 1 / 2 for x in range(len(conditions))]
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 5))
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
@@ -501,26 +503,62 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion"):
                         yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
-    ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-    ax.set_xticklabels(labels)
+    df_crit = df.reset_index(drop=True)
+    df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+    df_crit = df_crit.rename(columns={dv: "gaze"})
+
+    formula = f"gaze ~ Condition + {SA_score} + ROI + " \
+              f"Condition:{SA_score} + Condition:ROI + {SA_score}:ROI + " \
+              f"Condition:{SA_score}:ROI + (1 | VP)"
+
+    model = pymer4.models.Lmer(formula, data=df_crit)
+    model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["head", "body"]}, summarize=False)
+
+    anova = model.anova(force_orthogonal=True)
+    sum_sq_error = (sum(i * i for i in model.residuals))
+    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    estimates, contrasts = model.post_hoc(marginal_vars="ROI", grouping_vars="Condition", p_adjust="holm")
+    contrasts["d"] = contrasts.apply(lambda x: (2 * x[["T-stat"]]) / math.sqrt(x[["DF"]]), axis=1)
+    contrasts = contrasts.reset_index(drop=True)
+
+    max = df[dv].max()
+    p = anova.loc["Condition", "P-val"].item()
+    if p < 0.05:
+        ax.hlines(y=max * 1.10, xmin=ticks[0], xmax=ticks[1], linewidth=0.7, color='k')
+        ax.vlines(x=ticks[0], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+        ax.vlines(x=ticks[1], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+        p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "." if p < 0.1 else ""
+        ax.text(np.mean([ticks[0], ticks[1]]), max * 1.105, p_sign, color='k', horizontalalignment='center')
+
+    for idx_row, row in contrasts.iterrows():
+        p_test = row["P-val"]
+        if p_test < 0.05:
+            ax.hlines(y=max * 1.05, xmin=ticks[idx_row] - boxWidth/2, xmax=ticks[idx_row] + boxWidth/2, linewidth=0.7, color='k')
+            ax.vlines(x=ticks[idx_row] - boxWidth/2, ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+            ax.vlines(x=ticks[idx_row] + boxWidth/2, ymin=max * 1.04, ymax=max * 1.05, linewidth=0.7, color='k')
+            p_sign = "***" if p_test < 0.001 else "**" if p_test < 0.01 else "*" if p_test < 0.05 else "." if p_test < 0.1 else ""
+            ax.text(np.mean([ticks[idx_row] - boxWidth/2, ticks[idx_row] + boxWidth/2]), max * 1.055, p_sign, color='k', horizontalalignment='center')
 
     # ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
 
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(labels, fontsize="large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     if (phase == "Interaction") & (dv == "Gaze Proportion"):
         ax.set_ylim(0, 1)
     elif dv == "Switches":
-        ax.set_ylim(0, df[dv].max())
+        ax.set_ylim(0, df[dv].max() + 0.17 * df[dv].max())
 
-    ax.set_ylabel(f"{y_label}")
+    ax.set_ylabel(f"{y_label} in {phase.capitalize()} Phase", fontsize="large")
+    # ax.set_xlim(0, 3.25)
 
     fig.legend(
-        [Line2D([0], [0], marker='o', markeredgecolor=colors[0][0], markeredgewidth=1, markerfacecolor=colors[0][0], alpha=.7, lw=0),
-         Line2D([0], [0], marker='o', markeredgecolor=colors[0][1], markeredgewidth=1, markerfacecolor=colors[0][1], alpha=.7, lw=0),
-         Line2D([0], [0], marker='o', markeredgecolor=colors[1][0], markeredgewidth=1, markerfacecolor=colors[1][0], alpha=.7, lw=0),
-         Line2D([0], [0], marker='o', markeredgecolor=colors[1][1], markeredgewidth=1, markerfacecolor=colors[1][1], alpha=.7, lw=0)],
-        ["Body Friendly Agent", "Head Friendly Agent", "Body Unfriendly Agent", "Head Unfriendly Agent"], loc="center right")
-    fig.subplots_adjust(right=0.63)
+        [Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[0][0], markeredgewidth=1, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[0][1], markeredgewidth=1, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[1][0], markeredgewidth=1, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[1][1], markeredgewidth=1, markerfacecolor="white", lw=0)],
+        ["Body of\nFriendly\nAgent", "Head of\nFriendly\nAgent", "Body of\nUnfriendly\nAgent", "Head of\nUnfriendly\nAgent"], loc="center right", fontsize="large")
+    fig.subplots_adjust(right=0.72)
 
 
 # Test, Relationship SPAI, ROI
@@ -595,9 +633,9 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     # df = df_gaze
     # phase = "Acquisition"
     if dv == "Gaze Proportion":
-        y_label = "Proportional Dwell Time on Virtual Agent"
+        y_label = "Proportional Dwell Time on\nVirtual Agent"
     elif dv == "Switches":
-        y_label = "Shifts of Visual Attention Towards Virtual Agent"
+        y_label = "Shifts of Visual Attention Towards\nVirtual Agent"
 
     df = df.loc[df["Phase"].str.contains(phase)]
 
@@ -615,7 +653,7 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
 
     df_grouped = df_grouped.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -651,17 +689,17 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
     # ax.set_title(f"{phase} Phase", fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
         ax.set_xticks(range(5, 65, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     if only_head:
-        ax.set_ylabel(f"{y_label}' Heads")
+        ax.set_ylabel(f"{y_label}' Heads in {phase.capitalize()} Phase", fontsize="x-large")
     else:
-        ax.set_ylabel(f"{y_label}")
-    ax.legend(loc="upper right")
+        ax.set_ylabel(f"{y_label} in {phase.capitalize()} Phase", fontsize="x-large")
+    # ax.legend(loc="upper right")
     plt.tight_layout()
 
 
@@ -675,7 +713,7 @@ def plot_diff_gaze(df, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4.5, 5))
     df_diff = df_diff.sort_values(by=SA_score)
     colors = ['teal']
     x = df_diff[SA_score].to_numpy()
@@ -756,4 +794,4 @@ if __name__ == '__main__':
     SA_score = "SPAI"
     df_gaze = pd.read_csv(os.path.join(filepath, 'gaze.csv'), decimal='.', sep=';')
     dvs = ["Gaze Proportion", "Switches"]
-    dv = dvs[0]
+    dv = dvs[1]

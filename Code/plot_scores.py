@@ -66,7 +66,7 @@ def plot_scale(df, scale, colors, problematic_subjects):
         titles_subscale = df_scale.columns
 
     if (scale == "IPQ") | ("SSQ" in scale) | (scale == "ASI") | (scale == "AQ"):
-        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(6, 6), sharex=False, sharey=False, gridspec_kw={'width_ratios': [1, n_subscales-1]})
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(7, 6), sharex=False, sharey=False, gridspec_kw={'width_ratios': [1, n_subscales-1]})
 
         boxWidth = 1
 
@@ -125,17 +125,17 @@ def plot_scale(df, scale, colors, problematic_subjects):
             axes[idx_axes].set_ylim(min, max)
             axes[idx_axes].grid(color='lightgrey', linestyle='-', linewidth=0.3)
             if subscale == "SSQ-diff":
-                axes[idx_axes].axhline(cutoff_ssq, color="lightgrey", linewidth=0.8, linestyle="dashed")
+                axes[idx_axes].axhline(cutoff_ssq, color="darkgrey", linewidth=2, linestyle="dashed")
             elif subscale == "AQ-K":
                 axes[idx_axes].axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
 
         axes[0].set_xticks([0])
-        axes[0].set_xticklabels([titles_subscale[0]])
+        axes[0].set_xticklabels([titles_subscale[0]], fontsize="x-large")
         axes[1].set_xticks(np.arange(0, n_subscales - 1))
-        axes[1].set_xticklabels(titles_subscale[1:])
+        axes[1].set_xticklabels(titles_subscale[1:], fontsize="x-large")
 
     elif (scale == "MPS") | (scale == "ISK"):
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
         boxWidth = 1
 
         for idx_subscale, (subscale, title_subscale) in enumerate(zip(df_scale.columns, titles_subscale)):
@@ -189,7 +189,7 @@ def plot_scale(df, scale, colors, problematic_subjects):
                                         yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
                                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
-        ax.set_xticklabels(titles_subscale)
+        ax.set_xticklabels(titles_subscale, fontsize="x-large")
         ax.set_ylim(min, max)
         ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
@@ -246,10 +246,10 @@ def plot_scale(df, scale, colors, problematic_subjects):
                         yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
-            ax.set_xticklabels([subscale])
+            ax.set_xticklabels([subscale], fontsize="x-large")
             ax.set_ylim(min, max)
             ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-            ax.set_title(scale)
+            ax.set_title(scale, fontsize="xx-large")
             if cutoff:
                 ax.axhline(cutoff, color="tomato", linewidth=0.8, linestyle="dashed")
     # fig.suptitle(scale)
@@ -260,7 +260,8 @@ def plot_sad(df):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 1.6))
     sns.histplot(df["SPAI"], color="#1B4C87", ax=ax, binwidth=0.2, binrange=(0, 5),
                  kde=True, line_kws={"linewidth": 1, "color": "#173d6a"}, edgecolor='#f8f8f8', )
-    ax.set_xlabel("SPAI (Social Anxiety)")
+    ax.set_xlabel("SPAI (Social Anxiety)", fontsize="x-large")
+    ax.set_ylabel("Count", fontsize="x-large")
     ax.set_xlim([0, 6])
     # ax.set_ylim([0, 11])
     ax.set_yticks(range(0, 6, 2))
@@ -268,7 +269,7 @@ def plot_sad(df):
     ax.axvline(x=2.79, color="#FF5733")
     ax.legend(
         [Line2D([0], [0], color='#FFC300'), Line2D([0], [0], color='#FF5733')],
-        ['Median', 'Remission Cut-Off'], fontsize='xx-small', loc="best", frameon=False)
+        ['Median', 'Remission Cut-Off'], fontsize="x-small", loc="best", frameon=False)
     ax.set_facecolor('#f8f8f8')
     plt.tight_layout()
 

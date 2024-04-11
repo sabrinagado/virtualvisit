@@ -160,6 +160,26 @@ def null_distribution_cluster_length(df, dv, factors, test, time, id, nperm=1000
     return pd.DataFrame(null_distribution)
 
 
+def check_physio(filepath, physiology):
+    df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+    df = df.loc[~(df["Phase"].str.contains("Interaction") | df["Phase"].str.contains("Clicked") | df["Phase"].str.contains("resting") | df["Phase"].str.contains("Visible"))]
+    df.loc[df["Phase"].str.contains("Orientation"), "phase"] = "Orientation"
+    df.loc[df["Phase"].str.contains("Habituation"), "phase"] = "Habituation"
+    df.loc[df["Phase"].str.contains("Test"), "phase"] = "Test"
+
+    df_grouped = df.groupby(["VP", "phase"]).sum(numeric_only=True).reset_index()
+    df_grouped.loc[df_grouped["phase"].str.contains("Orientation"), "total_duration"] = 30
+    df_grouped.loc[df_grouped["phase"].str.contains("Habituation"), "total_duration"] = 180
+    df_grouped.loc[df_grouped["phase"].str.contains("Test"), "total_duration"] = 180
+    df_grouped["prop_duration"] = df_grouped["Duration"]/df_grouped["total_duration"]
+    df_grouped.loc[df_grouped["prop_duration"] > 1, "prop_duration"] = 1
+
+    df_grouped = df_grouped.groupby(["VP"]).mean(numeric_only=True).reset_index()
+
+    exclude_vp = list(df_grouped.loc[df_grouped["prop_duration"] < .75, "VP"].unique())
+    return exclude_vp
+
+
 # Acquisition
 def plot_physio_acq(filepath, save_path, test="F", SA_score="SPAI", permutations=1000):
     physiologies = ["hr", "eda", "pupil", "hrv_hf"]
@@ -171,7 +191,12 @@ def plot_physio_acq(filepath, save_path, test="F", SA_score="SPAI", permutations
     sampling_rate = 10
     sampling_rate_new = 2
 
-    fig, axes = plt.subplots(nrows=1, ncols=len(dvs), figsize=(5*len(dvs), 6))
+    wave = 1 if "Wave1" in save_path else 2
+
+    figure_heigth = 5.25 if wave == 2 else 5
+    legend = True if wave == 2 else False
+
+    fig, axes = plt.subplots(nrows=1, ncols=len(dvs), figsize=(16, figure_heigth))
     for physio_idx, (physiology, column_name, ylabel) in enumerate(zip(physiologies, dvs, ylabels)):
         # physio_idx = 0
         # physiology, column_name, ylabel = physiologies[physio_idx], dvs[physio_idx], ylabels[physio_idx]
@@ -298,15 +323,15 @@ def plot_physio_acq(filepath, save_path, test="F", SA_score="SPAI", permutations
             # If p-value of cluster < .05 add cluster to plot
             y_condition = axes[physio_idx].get_ylim()[0] - 0.01 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
             for idx_row, row in cluster_condition.iterrows():
-                axes[physio_idx].hlines(y=y_condition, xmin=row["times_start"], xmax=row["times_end"], linewidth=3, color='gold')
+                axes[physio_idx].hlines(y=y_condition, xmin=row["times_start"], xmax=row["times_end"], linewidth=5, color='gold')
 
             y_spai = axes[physio_idx].get_ylim()[0] - 0.015 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
             for idx_row, row in cluster_SA.iterrows():
-                axes[physio_idx].hlines(y=y_spai, xmin=row["times_start"], xmax=row["times_end"], linewidth=3, color='dodgerblue')
+                axes[physio_idx].hlines(y=y_spai, xmin=row["times_start"], xmax=row["times_end"], linewidth=5, color='dodgerblue')
 
             y_int = axes[physio_idx].get_ylim()[0] - 0.02 * (axes[physio_idx].get_ylim()[1] - axes[physio_idx].get_ylim()[0])
             for idx_row, row in cluster_int.iterrows():
-                axes[physio_idx].hlines(y=y_int, xmin=row["times_start"], xmax=row["times_end"], linewidth=3, color='darkviolet')
+                axes[physio_idx].hlines(y=y_int, xmin=row["times_start"], xmax=row["times_end"], linewidth=5, color='darkviolet')
 
             df_resample = df.copy()
             df_resample["time"] = pd.to_timedelta(df_resample["time"], 's')
@@ -346,20 +371,21 @@ def plot_physio_acq(filepath, save_path, test="F", SA_score="SPAI", permutations
             anova.to_csv(os.path.join(save_path, f'lmms_{physiology}_acq.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
         # Style Plot
-        axes[physio_idx].set_ylabel(ylabel)
-        axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}", fontweight='bold')  # (N = {len(df['VP'].unique())})
-        axes[physio_idx].set_xlabel("Seconds after Interaction Onset")
+        axes[physio_idx].set_ylabel(ylabel, fontsize="x-large")
+        axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}", fontweight='bold', fontsize="xx-large")  # (N = {len(df['VP'].unique())})
+        axes[physio_idx].set_xlabel("Seconds after Interaction Onset", fontsize="x-large")
         axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
-    axes[2].legend(loc="upper right")
+    # axes[2].legend(loc="upper right")
     plt.tight_layout()
-    fig.legend(
-        [Line2D([0], [0], color="gold", linewidth=3, alpha=.7),
-         Line2D([0], [0], color="dodgerblue", linewidth=3, alpha=.7),
-         Line2D([0], [0], color="darkviolet", linewidth=3, alpha=.7)],
-        ["Main Effect of Condition", "Main Effect of Social Anxiety", "Interaction of Condition and Social Anxiety"],
-        loc='lower center', ncols=3, frameon=False)
-    fig.subplots_adjust(bottom=0.17)
+    if legend:
+        fig.legend(
+            [(Line2D([0], [0], color=green, linewidth=2, alpha=1), Line2D([0], [0], color=green, linewidth=15, alpha=0.2)),
+             (Line2D([0], [0], color=red, linewidth=2, alpha=1), Line2D([0], [0], color=red, linewidth=15, alpha=0.2)),
+             Line2D([0], [0], color="gold", linewidth=5, alpha=.7)],
+            ["Interaction with Friendly Agent", "Interaction with Unfriendly Agent", "Main Effect of Condition"],
+            loc='lower center', ncols=3, frameon=False, fontsize="xx-large")
+        fig.subplots_adjust(bottom=0.22)
 
 
 # Test Phase
@@ -370,9 +396,9 @@ def plot_physio_test(filepath, save_path, SA_score="SPAI"):
                "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
     dvs = ["HR (Mean)", "SCL (Mean)", "Pupil Dilation (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
 
-    fig, axes = plt.subplots(nrows=1, ncols=len(physiologies), figsize=(15, 6))
+    fig, axes = plt.subplots(nrows=1, ncols=len(physiologies), figsize=(18, 5))
     for physio_idx, (physiology, ylabel, dv) in enumerate(zip(physiologies, ylabels[0:len(physiologies)], dvs[0:len(physiologies)])):
-        # physio_idx = 0
+        # physio_idx = 2
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
         if "hrv" in physiology:
             df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
@@ -380,7 +406,10 @@ def plot_physio_test(filepath, save_path, SA_score="SPAI"):
             df = df.loc[~df["VP"].isin(problematic_subjects)]
         else:
             df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
-            if not "pupil" in physiology:
+            if "pupil" in physiology:
+                df_check = df.loc[df["Phase"].str.contains("Orientation") | df["Phase"].str.contains("Habituation") | (df["Phase"].str.contains("Test") & ~df["Phase"].str.contains("Clicked") & ~df["Phase"].str.contains("Visible"))]
+                print(f"Mean Usable Data = {df_check.groupby('VP')['Proportion'].mean().mean()}, SD = {df_check.groupby('VP')['Proportion'].mean().std()}")
+            else:
                 problematic_subjects = check_physio(filepath, physiology)
                 df = df.loc[~df["VP"].isin(problematic_subjects)]
         print(f"{physiology.upper()}: N = {len(df['VP'].unique())}")
@@ -603,15 +632,20 @@ def plot_physio_test_sad(filepath, SA_score="SPAI"):
 
 
 # Test-Habituation
-def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
+def plot_physio_diff(filepath, save_path, SA_score="SPAI", visibility=False):
     physiologies = ["hr", "eda", "pupil", "hrv_hf", "hrv_rmssd"]
     ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]",
                "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
     dvs = ["HR (Mean)", "SCL (Mean)", "Pupil Dilation (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
 
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
+    wave = 1 if "Wave1" in save_path else 2
+
+    figure_heigth = 5.5 if wave == 2 else 5
+    legend = True if wave == 2 else False
+
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, figure_heigth))
     for physio_idx, (physiology, ylabel, dv) in enumerate(zip(physiologies[0:3], ylabels[0:3], dvs[0:3])):  # , "hrv_hf", "hrv_rmssd"
-        # physio_idx = 3
+        # physio_idx = 1
         # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
         if "hrv" in physiology:
             df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
@@ -640,7 +674,7 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
 
         phases = ['Habituation', 'Test']
 
-        if df_subset['Phase'].str.contains("Visible").any():
+        if visibility:
             df_subset = df_subset.loc[(df_subset['Phase'].str.contains("Visible") & ~df_subset['Phase'].str.contains("Actor")) | df_subset['Phase'].str.contains("Habituation")]
             titles = ["Habituation", "Friendly Agent\nVisible", "Unfriendly Agent\nVisible"]
             df_subset = df_subset.loc[~(df_subset['Phase'].str.contains("Friendly") & df_subset['Phase'].str.contains("Unfriendly"))]
@@ -649,6 +683,13 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
             df_subset.loc[df_subset["Phase"].str.contains("Habituation"), "Condition"] = "neutral"
         else:
             titles = ["Room with\nFriendly Agent", "Room with\nUnfriendly Agent"]
+            if df_subset['Phase'].str.contains("Visible").any():
+                df_subset = df_subset.loc[~(df_subset['Phase'].str.contains("Visible")) | df_subset['Phase'].str.contains("Habituation")]
+                df_subset = df_subset.loc[~(df_subset['Phase'].str.contains("Friendly") & df_subset['Phase'].str.contains("Unfriendly"))]
+                df_subset = df_subset.loc[~(df_subset['Phase'].str.contains("Neutral") | df_subset['Phase'].str.contains("Unknown"))]
+                # df_subset.loc[df_subset["Phase"].str.contains("Test"), "phase"] = df_subset["Phase"]
+                df_subset.loc[df_subset["Phase"].str.contains("Habituation"), "Condition"] = "neutral"
+                df_subset.loc[df_subset["Phase"].str.contains("Alone"), "Condition"] = "alone"
         df_subset = df_subset.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
         df_subset = df_subset.dropna(subset=dv)
 
@@ -784,10 +825,153 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
             anova.to_csv(os.path.join(save_path, f'lmms_{physiology}.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
             axes[physio_idx].set_xticks(pos)
-            axes[physio_idx].set_xticklabels([title.replace(" Agent", "\nAgent") for title in titles])
+            axes[physio_idx].set_xticklabels([title.replace(" Agent", "\nAgent") for title in titles], fontsize="x-large")
             axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-            axes[physio_idx].set_ylabel(ylabel)
-            axes[physio_idx].set_title(f"{ylabel.split('[')[0]}", fontweight='bold')  # (N = {len(df_subset['VP'].unique())})
+            axes[physio_idx].set_ylabel(ylabel, fontsize="x-large")
+            axes[physio_idx].set_title(f"{ylabel.split('[')[0]}", fontweight='bold', fontsize="xx-large")  # (N = {len(df_subset['VP'].unique())})
+
+        elif df_subset['Condition'].str.contains("alone").any():
+            conditions = ["neutral", "alone", "friendly", "unfriendly"]
+            titles = ["Habituation", "Alone", "Room with\nFriendly Agent", "Room with\nUnfriendly Agent"]
+
+            boxWidth = 1 / (len(conditions) + 1)
+            pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+            pos[0] = -0.15
+            pos[1:] = [item + idx_item/0.5 * boxWidth for idx_item, item in enumerate(pos[1:])]
+
+            boxWidth = boxWidth*1.8
+
+            for idx_condition, condition in enumerate(conditions):
+                # idx_condition = 1
+                # condition = conditions[idx_condition]
+                df_cond = df_subset.loc[df_subset['Condition'] == condition].reset_index(drop=True)
+
+                blue = '#1F82C0'
+                red = '#E2001A'
+                green = '#B1C800'
+                colors = [blue, blue, green, red]
+
+                # Plot raw data points
+                for i in range(len(df_cond)):
+                    # i = 0
+                    x = random.uniform(pos[idx_condition] - (0.25 * boxWidth), pos[idx_condition] + (0.25 * boxWidth))
+                    y = df_cond.reset_index().loc[i, dv].item()
+                    axes[physio_idx].plot(x, y, marker='o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition],
+                                          alpha=0.3)
+
+                # Plot boxplots
+                meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+                medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_condition])
+                fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_condition])
+                whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+                capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_condition])
+                boxprops = dict(color=colors[idx_condition])
+
+                fwr_correction = True
+                alpha = (1 - (0.05))
+                bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, dv].values,
+                                                         numb_iterations=5000,
+                                                         alpha=alpha,
+                                                         as_dict=True,
+                                                         func='mean')
+
+                axes[physio_idx].boxplot([df_cond.loc[:, dv].values],
+                                         whiskerprops=whiskerprops,
+                                         capprops=capprops,
+                                         boxprops=boxprops,
+                                         medianprops=medianlineprops,
+                                         showfliers=False, flierprops=fliermarkerprops,
+                                         # meanline=True,
+                                         # showmeans=True,
+                                         # meanprops=meanprops,
+                                         # notch=True,  # bootstrap=5000,
+                                         # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                                         whis=[2.5, 97.5],
+                                         positions=[pos[idx_condition]],
+                                         widths=0.8 * boxWidth)
+
+                axes[physio_idx].errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
+                                          yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                                          elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+
+            df_crit = df_subset.copy()
+            df_crit.loc[df_crit["phase"].str.contains("Test"), "phase"] = "Test"
+            df_crit = df_crit.groupby(["VP", "phase"]).mean(numeric_only=True).reset_index()
+            df_crit = df_crit.rename(columns={dv: physiology})
+            df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+            formula = f"{physiology} ~ phase + (1 | VP)"
+
+            model = pymer4.models.Lmer(formula, data=df_crit)
+            model.fit(factors={"phase": ['Habituation', 'Test']}, summarize=False)
+            anova = model.anova(force_orthogonal=True)
+            sum_sq_error = (sum(i * i for i in model.residuals))
+            anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+
+            anova['NumDF'] = anova['NumDF'].round().astype("str")
+            anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+            anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+            anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+            anova['P-val'] = anova['P-val'].round(3).astype("str")
+            anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+            anova['P-val'] = anova['P-val'].replace({"0.": "."})
+            anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+            anova = anova.reset_index(names=['factor'])
+            anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+            anova = anova.drop(columns="index")
+            anova1 = anova.copy()
+
+            df_crit = df_subset.loc[df_subset["phase"].str.contains("Test")]
+            df_crit = df_crit.loc[df_crit["Condition"].isin(conditions)]
+            df_crit = df_crit.rename(columns={dv: physiology})
+            df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
+
+            formula = f"{physiology} ~ Condition + {SA_score} + " \
+                      f"Condition:{SA_score} + (1 | VP)"
+
+            model = pymer4.models.Lmer(formula, data=df_crit)
+            model.fit(factors={"Condition": ['alone', 'friendly', 'unfriendly']}, summarize=False)
+            anova = model.anova(force_orthogonal=True)
+            sum_sq_error = (sum(i * i for i in model.residuals))
+            anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+            print(f"ANOVA: Physio ({physiology}) Test (Condition and {SA_score})")
+            print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
+            print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
+            print(f"Interaction Condition x {SA_score}, F({round(anova.loc[f'Condition:{SA_score}', 'NumDF'].item(), 1)}, {round(anova.loc[f'Condition:{SA_score}', 'DenomDF'].item(), 1)})={round(anova.loc[f'Condition:{SA_score}', 'F-stat'].item(), 2)}, p={round(anova.loc[f'Condition:{SA_score}', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[f'Condition:{SA_score}', 'p_eta_2'].item(), 2)}")
+            estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
+
+            p = contrasts.loc[contrasts["Contrast"] == "friendly - unfriendly", "P-val"].item()
+            max = df_subset[dv].max()
+            if p < 0.05:
+                axes[physio_idx].hlines(y=max * 1.10, xmin=pos[1], xmax=pos[2], linewidth=0.7, color='k')
+                axes[physio_idx].vlines(x=pos[1], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+                axes[physio_idx].vlines(x=pos[2], ymin=max * 1.09, ymax=max * 1.10, linewidth=0.7, color='k')
+                p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+                axes[physio_idx].text(np.mean([pos[1], pos[2]]), max * 1.105, p_sign, color='k',
+                                      horizontalalignment='center')
+
+            anova['NumDF'] = anova['NumDF'].round().astype("str")
+            anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+            anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+            anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+            anova['P-val'] = anova['P-val'].round(3).astype("str")
+            anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+            anova['P-val'] = anova['P-val'].replace({"0.": "."})
+            anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+            anova = anova.reset_index(names=['factor'])
+            anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+            anova = anova.drop(columns="index")
+            anova = pd.concat([anova1, anova])
+            anova.to_csv(os.path.join(save_path, f'lmms_{physiology}.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+
+            axes[physio_idx].set_xticks(pos)
+            axes[physio_idx].set_ylim(axes[physio_idx].get_ylim()[0] - 0.2, axes[physio_idx].get_ylim()[1] + 0.2)
+            axes[physio_idx].set_xticklabels([title.replace(" Agent", "\nAgent").replace(" with", "\nwith").replace("Habituation", "Habitu-\nation") for title in titles], fontsize="x-large")
+            axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+            axes[physio_idx].set_ylabel(ylabel, fontsize="x-large")
+            axes[physio_idx].set_title(f"{ylabel.split('[')[0]}", fontweight='bold', fontsize="xx-large")  # (N = {len(df_subset['VP'].unique())})
 
         else:
             conditions = ["friendly", "unfriendly"]
@@ -920,18 +1104,27 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI"):
             anova.to_csv(os.path.join(save_path, f'lmms_{physiology}.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
             axes[physio_idx].set_xticks([x + 1 / 2 for x in range(len(conditions))])
-            axes[physio_idx].set_xticklabels(titles)
+            axes[physio_idx].set_xticklabels(titles, fontsize="x-large")
             axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-            axes[physio_idx].set_ylabel(ylabel)
-            axes[physio_idx].set_title(f"{ylabel.split('[')[0]}", fontweight='bold')  # (N = {len(df_subset['VP'].unique())})
+            axes[physio_idx].set_ylabel(ylabel, fontsize="x-large")
+            axes[physio_idx].set_title(f"{ylabel.split('[')[0]}", fontweight='bold', fontsize="xx-large")  # (N = {len(df_subset['VP'].unique())})
 
-    fig.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1,markerfacecolor='#1F82C0', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right')
-    fig.subplots_adjust(right=0.88)
-    fig.subplots_adjust(wspace=0.27)
+    # fig.legend(
+    #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1,markerfacecolor='#1F82C0', alpha=.7),
+    #      Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
+    #      Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
+    #     ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right')
+    # fig.subplots_adjust(right=0.90)
+    # fig.subplots_adjust(wspace=0.25)
+
+    plt.tight_layout()
+    if legend:
+        fig.legend(
+            [Line2D([0], [0], color="white", marker='s', ms=15, markeredgecolor='#1F82C0', markeredgewidth=2,markerfacecolor="white"),
+             Line2D([0], [0], color="white", marker='s', ms=15, markeredgecolor=green, markeredgewidth=2, markerfacecolor="white"),
+             Line2D([0], [0], color="white", marker='s', ms=15, markeredgecolor=red, markeredgewidth=2, markerfacecolor="white")],
+            ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='lower center', ncols=3, frameon=False, fontsize="xx-large")
+        fig.subplots_adjust(bottom=0.3)
 
 
 # Correlation with SPAI (Test-Habituation)
@@ -964,7 +1157,13 @@ def plot_physio_diff_sad(filepath, SA_score="SPAI"):
         df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
         df_spai = df_spai.sort_values(by=SA_score)
 
+        # Baseline Correction
+        df_baseline = df.loc[df["Phase"].str.contains("Orientation")]
+        df_baseline["Baseline"] = df_baseline[dv]
         df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+        df_subset = df_subset.merge(df_baseline[["VP", "Baseline"]], on="VP", how="left")
+        df_subset[dv] = df_subset[dv] - df_subset["Baseline"]
+
         df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
         df_subset.loc[df_subset['Phase'].str.contains("Habituation"), "phase"] = "Habituation"
         df_subset.loc[df_subset['Phase'].str.contains("Office"), "room"] = "Office"
@@ -1031,28 +1230,104 @@ def plot_physio_diff_sad(filepath, SA_score="SPAI"):
                titles, loc='center right', bbox_to_anchor=(1, 0.5))
 
 
-def check_physio(filepath, physiology):
-    df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
-    df = df.loc[~(df["Phase"].str.contains("Interaction") | df["Phase"].str.contains("Clicked") | df["Phase"].str.contains("resting") | df["Phase"].str.contains("Visible"))]
-    df.loc[df["Phase"].str.contains("Orientation"), "phase"] = "Orientation"
-    df.loc[df["Phase"].str.contains("Habituation"), "phase"] = "Habituation"
-    df.loc[df["Phase"].str.contains("Test"), "phase"] = "Test"
+def plot_physio_phase_sad(filepath, SA_score="SPAI"):
+    physiologies = ["hr", "eda", "pupil", "hrv_hf", "hrv_rmssd"]
+    physiologies = physiologies[0:3]
+    ylabels = ["Heart Rate [BPM]", "Skin Conductance Level [µS]", "Pupil Diameter [mm]",
+               "Heart Rate Variability\n(High Frequency)", "Heart Rate Variability (RMSSD)"]
+    dvs = ["HR (Mean)", "SCL (Mean)", "Pupil Dilation (Mean)", "HRV (HF_nu)", "HRV (RMSSD)"]
+    blue = '#1F82C0'
+    orange = '#F29400'
+    colors = [blue, orange]
 
-    df_grouped = df.groupby(["VP", "phase"]).sum(numeric_only=True).reset_index()
-    df_grouped.loc[df_grouped["phase"].str.contains("Orientation"), "total_duration"] = 30
-    df_grouped.loc[df_grouped["phase"].str.contains("Habituation"), "total_duration"] = 180
-    df_grouped.loc[df_grouped["phase"].str.contains("Test"), "total_duration"] = 180
-    df_grouped["prop_duration"] = df_grouped["Duration"]/df_grouped["total_duration"]
-    df_grouped.loc[df_grouped["prop_duration"] > 1, "prop_duration"] = 1
+    phases = ["Habituation", "Test"]
+    titles = ["Habituation Phase", "Test Phase"]
 
-    df_grouped = df_grouped.groupby(["VP"]).mean(numeric_only=True).reset_index()
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
+    for physio_idx, (physiology, ylabel, dv) in enumerate(zip(physiologies, ylabels[0:len(physiologies)], dvs[0:len(physiologies)])):
+        # physio_idx = 1
+        # physiology, ylabel, dv = physiologies[physio_idx], ylabels[physio_idx], dvs[physio_idx]
+        if "hrv" in physiology:
+            df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
+            problematic_subjects = check_physio(filepath, "hr")
+            df = df.loc[~df["VP"].isin(problematic_subjects)]
+        else:
+            df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
+            if not "pupil" in physiology:
+                problematic_subjects = check_physio(filepath, physiology)
+                df = df.loc[~df["VP"].isin(problematic_subjects)]
 
-    exclude_vp = list(df_grouped.loc[df_grouped["prop_duration"] < .75, "VP"].unique())
-    return exclude_vp
+        df_spai = df[["VP", SA_score]].drop_duplicates(subset="VP")
+        df_spai = df_spai.sort_values(by=SA_score)
+
+        # Baseline Correction
+        df_baseline = df.loc[df["Phase"].str.contains("Orientation")]
+        df_baseline["Baseline"] = df_baseline[dv]
+        df_subset = df.loc[df["Phase"].str.contains("Habituation") | df["Phase"].str.contains("Test") & ~(df["Phase"].str.contains("Clicked"))]
+        df_subset = df_subset.merge(df_baseline[["VP", "Baseline"]], on="VP", how="left")
+        df_subset[dv] = df_subset[dv] - df_subset["Baseline"]
+
+        df_subset.loc[df_subset['Phase'].str.contains("Test"), "phase"] = "Test"
+        df_subset.loc[df_subset['Phase'].str.contains("Habituation"), "phase"] = "Habituation"
+        df_subset.loc[df_subset['Phase'].str.contains("Office"), "room"] = "Office"
+        df_subset.loc[df_subset['Phase'].str.contains("Living"), "room"] = "Living"
+        df_subset.loc[df_subset['Phase'].str.contains("Dining"), "room"] = "Dining"
+
+        df_subset = df_subset.groupby(["VP", "phase"]).mean(numeric_only=True).reset_index()
+        df_subset = df_subset.dropna(subset=dv)
+        df_subset = df_subset.merge(df_spai, on="VP")
+        df_subset = df_subset[["VP", "phase", dv]]
+        df_subset = df_subset.merge(df_spai)
+        df_subset = df_subset.sort_values(by=SA_score)
+
+        for idx_phase, phase in enumerate(phases):
+            # idx_phase = 1
+            # phase = phases[idx_phase]
+            df_phase = df_subset.loc[df_subset['phase'] == phase].reset_index(drop=True)
+            df_phase = df_phase.dropna(subset=dv)
+            df_phase = df_phase.sort_values(by=SA_score)
+
+            x = df_phase[SA_score].to_numpy()
+            y = df_phase[dv].to_numpy()
+            linreg = linregress(x, y)
+            all_x = df_spai[SA_score].to_numpy()
+            all_y = df_phase[dv].to_numpy()
+            all_y_est = linreg.slope * all_x + linreg.intercept
+            all_y_err = np.sqrt(np.sum((all_y - np.mean(all_y)) ** 2) / (len(all_y) - 2)) * np.sqrt(
+                1 / len(all_x) + (all_x - np.mean(all_x)) ** 2 / np.sum((all_x - np.mean(all_x)) ** 2))
+
+            # Plot regression line
+            axes[physio_idx].plot(all_x, all_y_est, '-', color=colors[idx_phase])
+            axes[physio_idx].fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_phase])
+
+            p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+            if idx_phase == 0:
+                axes[physio_idx].text(df_subset[SA_score].min() + 0.01 * np.max(x),
+                        0.95 * (df_subset[dv].max() - df_subset[dv].min()) + df_subset[dv].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                        color=colors[idx_phase])
+            else:
+                axes[physio_idx].text(df_subset[SA_score].min() + 0.01 * np.max(x),
+                        0.91 * (df_subset[dv].max() - df_subset[dv].min()) + df_subset[dv].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                        color=colors[idx_phase])
+
+            # Plot raw data points
+            axes[physio_idx].plot(x, y, 'o', ms=5, mfc=colors[idx_phase], mec=colors[idx_phase], alpha=0.6, label=titles[idx_phase])
+
+        axes[physio_idx].set_xlabel(SA_score)
+        if "SPAI" in SA_score:
+            axes[physio_idx].set_xticks(range(0, 6))
+        elif "SIAS" in SA_score:
+            axes[physio_idx].set_xticks(range(5, 65, 5))
+        axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+        axes[physio_idx].set_ylabel(ylabel)
+        axes[physio_idx].set_title(ylabel.split("[")[0], fontweight='bold')
+    fig.legend([Line2D([0], [0], color="white", marker='o', markeredgecolor=blue, markeredgewidth=1, markerfacecolor=blue, alpha=.7),
+                Line2D([0], [0], color="white", marker='o', markeredgecolor=orange, markeredgewidth=1, markerfacecolor=orange, alpha=.7)],
+               titles, loc='center right', bbox_to_anchor=(1.006, 0.5))
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

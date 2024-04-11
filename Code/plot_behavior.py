@@ -199,13 +199,13 @@ def plot_time_rooms_agents_static(df, save_path, SA_score="SPAI"):
     conditions = ["friendly", "unfriendly"]
     df_test = df_test.loc[df_test["Condition"].isin(conditions)]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(3.5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
 
     boxWidth = 1 / (len(conditions) + 1)
-    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
@@ -296,9 +296,9 @@ def plot_time_rooms_agents_static(df, save_path, SA_score="SPAI"):
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
-    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles], fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    ax.set_ylabel(f"Total Duration [s] in Test Phase", fontsize="x-large")
     plt.tight_layout()
 
 
@@ -318,7 +318,7 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
     phases = ['Habituation', 'Test']
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6.5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 5))
     boxWidth = 1 / (len(conditions) + 1)
 
     for idx_condition, condition in enumerate(conditions):
@@ -457,17 +457,19 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
     anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-    ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
+    ax.set_xticklabels([title.replace("with", "with\n") for title in titles], fontsize="large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration in the Rooms [s]")
+    ax.set_ylabel(f"Total Duration in the Rooms [s]", fontsize="large")
     # ax.set_title("Time Spent Close to Virtual Agents", fontweight='bold')
 
+    # ax.set_xlim(0, 3.25)
     fig.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    fig.subplots_adjust(right=0.72)
+        [Line2D([0], [0], marker='s', ms=12,  markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=12, markeredgecolor=green, markeredgewidth=1, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=12, markeredgecolor=red, markeredgewidth=1, markerfacecolor="white", lw=0)],
+        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', fontsize="large")
+    fig.subplots_adjust(right=0.64)
+    # plt.tight_layout()
 
 
 # Time spent in the different rooms: Correlation with SPAI
@@ -484,7 +486,7 @@ def plot_time_test_rooms_agents_static_sad(df, SA_score="SPAI"):
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4.8, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -517,15 +519,15 @@ def plot_time_test_rooms_agents_static_sad(df, SA_score="SPAI"):
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    ax.set_ylabel(f"Total Duration [s] in Test Phase", fontsize="x-large")
     # ax.set_title(f"Time Spent Close to Virtual Agents (N={len(df['VP'].unique)})", fontweight='bold')
-    ax.legend()
+    # ax.legend()
     plt.tight_layout()
 
 
@@ -550,7 +552,7 @@ def plot_time_rooms_agents_static_diff_sad(df, SA_score="SPAI"):
     df_diff = pd.melt(df_diff, id_vars=['VP', 'SPAI'], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
     df_diff = df_diff.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4.8, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -577,25 +579,25 @@ def plot_time_rooms_agents_static_diff_sad(df, SA_score="SPAI"):
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        # if idx_condition == 0:
-        #     ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
-        # else:
-        #     ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
+        else:
+            ax.text(df_diff[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_diff["difference"].max() - df_diff["difference"].min()) + df_diff["difference"].min(), r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}", color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(
-        f"Difference (Test - Habituation) Between\nTime Spent Close to the Position of the Virtual Agents [s]")
+        f"Difference (Test - Habituation)\nBetween Time Spent Close to\nPositions of the Virtual Agents [s]", fontsize="x-large")
     # ax.set_title(f"Time Spent Close to the \nPosition of the Virtual Agents (N={len(df['VP'].unique())})", fontweight='bold')
-    ax.legend(loc="upper right")
+    #ax.legend(loc="upper right")
     plt.tight_layout()
 
 
@@ -611,13 +613,13 @@ def plot_time_rooms_agents_dynamic(df, save_path, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4.5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
 
     boxWidth = 1 / (len(conditions) + 1)
-    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
@@ -708,9 +710,9 @@ def plot_time_rooms_agents_dynamic(df, save_path, SA_score="SPAI"):
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
-    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles], fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    ax.set_ylabel(f"Total Duration [s] in Test Phase", fontsize="x-large")
     plt.tight_layout()
 
 
@@ -727,13 +729,13 @@ def plot_time_test_look_agents_dynamic(df, save_path, SA_score="SPAI", only_visi
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4.5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
 
     boxWidth = 1 / (len(conditions) + 1)
-    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
@@ -823,9 +825,9 @@ def plot_time_test_look_agents_dynamic(df, save_path, SA_score="SPAI", only_visi
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_look.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
-    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles], fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    ax.set_ylabel(f"Total Duration [s] in Test Phase", fontsize="x-large")
     plt.tight_layout()
 
 
@@ -840,7 +842,7 @@ def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Room with Friendly Agent", "Room with Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -863,28 +865,28 @@ def plot_time_test_rooms_agents_dynamic_sad(df, SA_score="SPAI"):
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        # if idx_condition == 0:
-        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
-        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #                          color=colors[idx_condition])
-        # else:
-        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
-        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #                          color=colors[idx_condition])
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
+        else:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    ax.set_ylabel(f"Total Duration [s] in Test Phase", fontsize="x-large")
     # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
-    ax.legend()
+    # ax.legend()
     plt.tight_layout()
 
 
@@ -901,7 +903,7 @@ def plot_time_test_look_agents_dynamic_sad(df, SA_score="SPAI"):
 
     conditions = ["friendly", "unfriendly"]
     titles = ["Look at Friendly Agent", "Look at Unfriendly Agent"]
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
     red = '#E2001A'
     green = '#B1C800'
     colors = [green, red]
@@ -924,28 +926,28 @@ def plot_time_test_look_agents_dynamic_sad(df, SA_score="SPAI"):
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        # if idx_condition == 0:
-        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
-        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #                          color=colors[idx_condition])
-        # else:
-        #     ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
-        #                          r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #                          color=colors[idx_condition])
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.95 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
+        else:
+            ax.text(df_test[SA_score].min() + 0.01 * np.max(x), 0.91 * df_test["duration"].max(),
+                                 r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                                 color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration [s] in Test Phase")
+    ax.set_ylabel(f"Total Duration [s] in Test Phase", fontsize="x-large")
     # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
-    ax.legend()
+    # ax.legend()
     plt.tight_layout()
 
 
@@ -967,7 +969,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
     df_diff = df_diff.sort_values(by=SA_score)
     colors = ['teal']
     x = df_diff[SA_score].to_numpy()
@@ -993,7 +995,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.set_xlabel(SA_score)
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.axhline(0, linewidth=0.8, color="k", linestyle="dashed")
@@ -1014,7 +1016,7 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 # % ===========================================================================
 # Interpersonal Distance
 # =============================================================================
-def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI", only_visible=False):
+def plot_interpersonal_distance(df, save_path, wave, dist="min", SA_score="SPAI", only_visible=False):
     # dist = "avg"
     # df = df_distance
     if dist == "avg":
@@ -1050,9 +1052,9 @@ def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI"
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(3.5, 5))
     boxWidth = 1 / (len(conditions) + 1)
-    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 1
@@ -1139,11 +1141,22 @@ def plot_interpersonal_distance(df, save_path, wave, dist="avg", SA_score="SPAI"
     anova = anova.reset_index(names=['factor'])
     anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
     anova = anova.drop(columns="index")
-    anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+    if only_visible:
+        anova.to_csv(os.path.join(save_path, f'lmms_{dist}_vis_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+    else:
+        anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance.csv'), index=False, decimal='.', sep=';',
+                     encoding='utf-8-sig')
 
-    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles], fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{title} Distance to the Virtual Agents [m]")
+
+    if dist == "min":
+        y_max = ax.get_ylim()[1]
+        ax.set_ylim(0, y_max)
+    if only_visible:
+        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in Test Phase", fontsize="x-large")
+    else:
+        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in Test Phase", fontsize="x-large")
     # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
     plt.tight_layout()
     # plt.savefig(os.path.join(save_path, f"distance_{dist}_test_BA.png"), dpi=300)
@@ -1175,7 +1188,7 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
 
@@ -1199,28 +1212,36 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_
         ax.plot(all_x, all_y_est, '-', color=colors[idx_condition])
         ax.fill_between(all_x, all_y_est + all_y_err, all_y_est - all_y_err, alpha=0.2, color=colors[idx_condition])
 
-        # p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
-        # if idx_condition == 0:
-        #     ax.text(df_grouped[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_grouped["distance"].max() - df_grouped["distance"].min()) + df_grouped["distance"].min(),
-        #             r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #             color=colors[idx_condition])
-        # else:
-        #     ax.text(df_grouped[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_grouped["distance"].max() - df_grouped["distance"].min()) + df_grouped["distance"].min(),
-        #             r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
-        #             color=colors[idx_condition])
+        p_sign = "***" if linreg.pvalue < 0.001 else "**" if linreg.pvalue < 0.01 else "*" if linreg.pvalue < 0.05 else ""
+        if idx_condition == 0:
+            ax.text(df_grouped[SA_score].min() + 0.01 * np.max(x), 0.95 * (df_grouped["distance"].max() - df_grouped["distance"].min()) + df_grouped["distance"].min(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
+        else:
+            ax.text(df_grouped[SA_score].min() + 0.01 * np.max(x), 0.91 * (df_grouped["distance"].max() - df_grouped["distance"].min()) + df_grouped["distance"].min(),
+                    r"$\it{r}$ = " + f"{round(linreg.rvalue, 2)}{p_sign}",
+                    color=colors[idx_condition])
 
         # Plot raw data points
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{title} Distance to the Virtual Agents [m]")
+
+    if dist == "min":
+        y_max = ax.get_ylim()[1]
+        ax.set_ylim(0, y_max*1.05)
+    if only_visible:
+        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in Test Phase", fontsize="x-large")
+    else:
+        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in Test Phase", fontsize="x-large")
+
     # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
-    ax.legend(loc='upper right')
+    # ax.legend(loc='upper right')
     plt.tight_layout()
     # plt.savefig(os.path.join(save_path, f"distance_{dist}_test_SPAI_BA.png"), dpi=300)
 
@@ -1242,7 +1263,7 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
     titles = ["Position of\nFriendly Agent", "Position of\nUnfriendly Agent"]
     df_subset = df_subset.loc[df_subset["Condition"].isin(conditions)]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6.5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 5))
     boxWidth = 1 / (len(conditions) + 1)
 
     for idx_condition, condition in enumerate(conditions):
@@ -1325,8 +1346,6 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
             p_sign = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else f"." if p < 0.1 else ""
             ax.text(np.mean([pos[0], pos[1]]), max * 1.055, p_sign, color='k', horizontalalignment='center')
 
-
-
     df_crit = df_subset.copy()
     df_crit[SA_score] = (df_crit[SA_score] - df_crit[SA_score].mean()) / df_crit[SA_score].std()
 
@@ -1387,20 +1406,22 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
     anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance_diff.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-    ax.set_xticklabels([title.replace("with", "with\n") for title in titles])
+    ax.set_xticklabels([title.replace("with", "with\n") for title in titles], fontsize="large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"{title} Distance to Position of Virtual Agents [m]")
+    ax.set_ylabel(f"{title} Distance to\nPositions of Virtual Agents [m]", fontsize="large")
 
-    fig.legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=green, markeredgewidth=1, markerfacecolor=green, alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor=red, markeredgewidth=1, markerfacecolor=red, alpha=.7)],
-        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', bbox_to_anchor=(1, 0.5))
-    fig.subplots_adjust(right=0.72)
+    # ax.set_xlim(0, 3.25)
+    fig.legend([Line2D([0], [0], marker='s', ms=12, markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=12, markeredgecolor=green, markeredgewidth=1, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=12, markeredgecolor=red, markeredgewidth=1, markerfacecolor="white", lw=0)],
+        ["Habituation", "Test (friendly)", "Test (unfriendly)"], loc='center right', fontsize="large")
+    fig.subplots_adjust(right=0.64)
+    # plt.tight_layout()
 
 
 # Interpersonal Distance: Correlation with SPAI
 def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
+    # df = df_distance
     if dist == "avg":
         df_subset = df.groupby(["VP", "phase", "Condition"]).mean(numeric_only=True).reset_index()
         title = "Average"
@@ -1424,7 +1445,7 @@ def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
     df_diff = pd.melt(df_diff, id_vars=['VP', SA_score], value_vars=['friendly', 'unfriendly'], var_name="Condition", value_name="difference")
     df_diff = df_diff.sort_values(by=SA_score)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     red = '#E2001A'
@@ -1467,15 +1488,15 @@ def plot_interpersonal_distance_diff_sad(df, dist="avg", SA_score="SPAI"):
         ax.plot(x, y, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3,
                 label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Difference (Test - Habituation) Between\n{title} Distance to the Position of Virtual Agents [m]")
+    ax.set_ylabel(f"Difference (Test - Habituation)\nBetween {title} Distance to\nPositions of Virtual Agents [m]", fontsize="x-large")
     # ax.set_title(f"Interpersonal Distance", fontweight='bold')
-    ax.legend(loc="upper right")
+    # ax.legend(loc="upper right")
     plt.tight_layout()
 
 
@@ -1500,7 +1521,7 @@ def plot_diff_distance(df, wave, SA_score="SPAI"):
 
     df_diff = df_diff[["VP", "difference"]].merge(df_spai, on="VP")
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
     df_diff = df_diff.sort_values(by=SA_score)
     x = df_diff[SA_score].to_numpy()
     y = df_diff["difference"].to_numpy()
@@ -1525,7 +1546,7 @@ def plot_diff_distance(df, wave, SA_score="SPAI"):
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.set_xlabel(SA_score)
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.axhline(0, linewidth=0.8, color="k", linestyle="dashed")
@@ -1567,9 +1588,9 @@ def plot_clicks(df, save_path, SA_score="SPAI"):
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(3.8, 5))
     boxWidth = 1 / (len(conditions) + 1)
-    pos = [0 + x * boxWidth for x in np.arange(1, len(conditions) + 1)]
+    pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 1
@@ -1660,9 +1681,9 @@ def plot_clicks(df, save_path, SA_score="SPAI"):
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_clicks.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
-    ax.set_xticklabels([title.replace(" ", "\n") for title in titles])
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles], fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Number of Clicks on the Virtual Agents")
+    ax.set_ylabel(f"Number of Clicks\non the Virtual Agents in Test-Phase", fontsize="x-large")
     # ax.set_title("Additional Interaction Attempts", fontweight='bold')
     plt.tight_layout()
 
@@ -1688,7 +1709,7 @@ def plot_clicks_sad(df, SA_score="SPAI"):
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
     conditions = ["friendly", "unfriendly"]
     titles = ["Friendly Agent", "Unfriendly Agent"]
     df_subset = df_subset.sort_values(by=SA_score)
@@ -1727,15 +1748,15 @@ def plot_clicks_sad(df, SA_score="SPAI"):
         y_jittered = [random.uniform(value - 0.1, value + 0.1) for value in y]
         ax.plot(x, y_jittered, 'o', ms=5, mfc=colors[idx_condition], mec=colors[idx_condition], alpha=0.3, label=titles[idx_condition])
 
-    ax.set_xlabel(SA_score)
+    ax.set_xlabel(SA_score, fontsize="x-large")
     if "SPAI" in SA_score:
         ax.set_xticks(range(0, 6))
     elif "SIAS" in SA_score:
-        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Number of Clicks on the Virtual Agents (Test-Phase)")
+    ax.set_ylabel(f"Number of Clicks\non the Virtual Agents in Test-Phase", fontsize="x-large")
     # ax.set_title(f"Additional Interaction Attempts", fontweight="bold")
-    ax.legend()
+    # ax.legend()
     plt.tight_layout()
 
 
@@ -1925,22 +1946,24 @@ def plot_movement_sad(df, filepath, SA_score="SPAI", cutoff=None):
     # axes[1, 0].text(580, np.mean([-954, -409]), f"LSA (N = {lsa})", color="k", verticalalignment='center', rotation=90)
     for idx_group, SA_group in enumerate(["HSA", "LSA"]):
         axes[idx_group, 0].text(510, np.mean(axes[idx_group, 0].get_ylim()), f"{SA_group}", color="k",
-                                fontweight="bold", fontsize="large", verticalalignment='center', rotation=90)
+                                fontweight="bold", fontsize="x-large", verticalalignment='center', rotation=90)
     print(f"N HSA: {hsa}")
     print(f"N LSA: {lsa}")
 
-    axes[0, 0].set_title("Habituation", fontweight="bold")
-    axes[0, 1].set_title("Test (Option 1)", fontweight="bold")
-    axes[0, 2].set_title("Test (Option 2)", fontweight="bold")
+    axes[0, 0].set_title("Habituation", fontweight="bold", fontsize="xx-large")
+    axes[0, 1].set_title("Test (Option 1)", fontweight="bold", fontsize="xx-large")
+    axes[0, 2].set_title("Test (Option 2)", fontweight="bold", fontsize="xx-large")
     plt.subplots_adjust(right=0.98)
     cax = plt.axes([0.98, 0.25, 0.01, 0.5])
 
     if SA_score == "SPAI":
-        cb = plt.colorbar(scalarMap, cax=cax, ticks=[0, 1, 2, 3, 4, 5], label="SPAI")
+        cb = plt.colorbar(scalarMap, cax=cax, ticks=[0, 1, 2, 3, 4, 5])
+        cb.set_label("SPAI", fontsize="x-large")
         cax.set_ylim([-0.2, 5.2])
     elif SA_score == "SIAS":
-        cb = plt.colorbar(scalarMap, cax=cax, ticks=range(10, 65, 10), label="SIAS")
-        cax.set_ylim([5, 65])
+        cb = plt.colorbar(scalarMap, cax=cax, ticks=range(10, 65, 10))
+        cb.set_label("SIAS", fontsize="x-large")
+        cax.set_ylim([5.5, 55])
     cb.outline.set_visible(False)
 
     fig.subplots_adjust(wspace=-0.05, hspace=-0.4)
@@ -2097,14 +2120,14 @@ def plot_walking_distance(df, SA_score="SPAI"):
             # Plot raw data points
             axes[idx_dv].plot(x, y, 'o', ms=5, mfc=colors[idx_phase], mec=colors[idx_phase], alpha=0.3, label=titles[idx_phase])
 
-        axes[idx_dv].set_xlabel(SA_score)
+        axes[idx_dv].set_xlabel(SA_score, fontsize="x-large")
         if "SPAI" in SA_score:
             axes[idx_dv].set_xticks(range(0, 6))
         elif "SIAS" in SA_score:
-            axes[idx_dv].set_xticks(range(5, 65, 5))
+            axes[idx_dv].set_xticks(range(5.5, 55, 5))
         axes[idx_dv].grid(color='lightgrey', linestyle='-', linewidth=0.3)
-        axes[idx_dv].set_ylabel(f"{dv.replace('_', ' ').title()} [m]")
-        axes[idx_dv].set_title(f"{dv.replace('_', ' ').title()}", fontweight="bold")
+        axes[idx_dv].set_ylabel(f"{dv.replace('_', ' ').title()} [m]", fontsize="x-large")
+        axes[idx_dv].set_title(f"{dv.replace('_', ' ').title()}", fontweight="bold", fontsize="xx-large")
     axes[2].legend()
     plt.tight_layout()
 

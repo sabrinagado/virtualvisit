@@ -188,7 +188,7 @@ def calculate_ipq(df_ipq):
 # % ===========================================================================
 # Create Summary
 # =============================================================================
-def create_scores(df, problematic_subjects=None):
+def create_scores(df, df_labbook, problematic_subjects=None):
     # df = df_scores
     df_demo = df[['ID', 'age', 'gender', 'handedness', 'motivation', 'tiredness', 'purpose', 'variables']]
     # Recode variables from numeric to string
@@ -218,6 +218,14 @@ def create_scores(df, problematic_subjects=None):
     df_summary['ID'] = df_summary['ID'].astype('string')
     df_summary = df_summary.loc[~(df_summary['ID'].str.contains('test'))]
     df_summary['ID'] = df_summary['ID'].astype('int32')
+
+    df_labbook = df_labbook[["VP", "Raumtemperatur", "Luftfeuchtigkeit"]]
+    df_labbook.columns = ["VP", "temperature", "humidity"]
+
+    df_summary = df_summary.merge(df_labbook, left_on="ID", right_on="VP")
+
+    df_summary = df_summary.drop(columns="VP")
+
     if problematic_subjects:
         return df_summary, problematic_subjects
     else:
@@ -232,13 +240,16 @@ if __name__ == '__main__':
     df = pd.read_excel(os.path.join(file_path, file_name))
     df = df.loc[df["FINISHED"] == 1]
 
+    file_name_labbook = [item for item in os.listdir(file_path) if (item.endswith(".xlsx") and "Labbook" in item)][0]
+    df_labbook = pd.read_excel(os.path.join(file_path, file_name_labbook), sheet_name=f"Wave{wave}")
+
     # ToDo: Adapt problematic subject list
     if wave == 1:
         problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
     elif wave == 2:
         problematic_subjects = [1, 2, 3, 4, 20, 29, 64]
 
-    df_summary, problematic_subjects = create_scores(df, problematic_subjects)
+    df_summary, problematic_subjects = create_scores(df, df_labbook, problematic_subjects)
 
     df_summary.to_csv(os.path.join(file_path, 'scores_summary.csv'), index=False, decimal=',', sep=';', encoding='utf-8-sig')
 

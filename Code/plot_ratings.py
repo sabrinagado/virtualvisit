@@ -81,16 +81,16 @@ def plot_rating_vr(df):
             linreg = linregress(df_phase.loc[:, "Value"], df_phase.loc[:, "SSQ-diff"])
             print(f"Correlation between Wellbeing after Test-Phase and SSQ-diff r = {round(linreg.rvalue, 2)}, p = {round(linreg.pvalue, 3)}")
 
-    ax.set_xticklabels(phases)
+    ax.set_xticklabels(phases, fontsize="x-large")
     ax.set_ylim(-1, 101)
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel("Subjective Wellbeing")
+    ax.set_ylabel("Subjective Wellbeing", fontsize="x-large")
     plt.tight_layout()
 
 
 # Ratings Rooms
 def plot_rating_rooms(df, wave):
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 5))
     rooms = ["Living", "Dining", "Office", "Terrace"]
     phases = ['Habituation', 'Test']
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
@@ -245,9 +245,9 @@ def plot_rating_rooms(df, wave):
                 ax.text(np.mean([pos[0], pos[1]]), max * 1.105, p_sign, color='k', horizontalalignment='center')
 
     ax.set_xticks([x + 1 / 2 for x in range(len(rooms))])
-    ax.set_xticklabels(rooms)
+    ax.set_xticklabels(rooms, fontsize="x-large")
     ax.set_yticks(np.arange(0, 101, 10))
-    ax.set_ylabel("Subjective Wellbeing")
+    ax.set_ylabel("Subjective Wellbeing", fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     if wave == 1:
         fig.legend(
@@ -266,7 +266,7 @@ def plot_rating_rooms(df, wave):
 
 # Ratings Virtual Humans
 def plot_rating_agents(df):
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(18, 5))
     labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
     conditions = ['Friendly', 'Unfriendly', 'Neutral', 'Unknown']
     colors = ['#B1C800', '#E2001A', '#1F82C0',  'lightgrey']
@@ -365,16 +365,16 @@ def plot_rating_agents(df):
                 ax.text(np.mean([pos[1], pos[2]]), max*1.055, p_sign, color='k', horizontalalignment='center',)
 
     ax.set_xticks([x + 1 / 2 for x in range(len(labels))])
-    ax.set_xticklabels(labels)
+    ax.set_xticklabels(labels, fontsize="x-large")
     ax.set_yticks(np.arange(0, 101, 10))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     fig.legend(
-        [Line2D([0], [0], marker='o', markeredgecolor=colors[0], markeredgewidth=1, markerfacecolor=colors[0], alpha=.7, lw=0),
-         Line2D([0], [0], marker='o', markeredgecolor=colors[1], markeredgewidth=1, markerfacecolor=colors[1], alpha=.7, lw=0),
-         Line2D([0], [0], marker='o', markeredgecolor=colors[2], markeredgewidth=1, markerfacecolor=colors[2], alpha=.7, lw=0),
-         Line2D([0], [0], marker='o', markeredgecolor=colors[3], markeredgewidth=1, markerfacecolor=colors[3], alpha=.7, lw=0)],
-        conditions, loc="center right")
-    fig.subplots_adjust(right=0.89)
+        [Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[0], markeredgewidth=2, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[1], markeredgewidth=2, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[2], markeredgewidth=2, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[3], markeredgewidth=2, markerfacecolor="white", lw=0)],
+        ["Friendly\nAgent", "Unfriendly\nAgent", "Neutral\nAgent", "Unknown\nAgent"], loc="center right", fontsize="x-large")
+    fig.subplots_adjust(right=0.87)
     # plt.tight_layout()
 
 
@@ -404,7 +404,12 @@ def corr_ratings(df):
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
 def plot_rating_agents_scale(df, save_path, scale="SPAI"):
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
+    wave = 1 if "Wave1" in save_path else 2
+
+    figure_heigth = 5.25 if wave == 2 else 5
+    legend = True if wave == 2 else False
+
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, figure_heigth))
     labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
     conditions = ['Unknown', 'Neutral', 'Friendly', 'Unfriendly']
     colors = ['lightgrey', '#1F82C0', '#B1C800', '#E2001A']
@@ -502,8 +507,8 @@ def plot_rating_agents_scale(df, save_path, scale="SPAI"):
 
         # Style Plot
         axes[idx_label].set_ylim([-2, df_crit["Value"].max()+2])
-        axes[idx_label].set_title(f"{label}", fontweight='bold')  # (N = {len(df_cond['VP'].unique())})
-        axes[idx_label].set_ylabel(label)
+        axes[idx_label].set_title(f"{label}", fontweight='bold', fontsize="xx-large")  # (N = {len(df_cond['VP'].unique())})
+        axes[idx_label].set_ylabel(label, fontsize="x-large")
         if "SPAI" in scale:
             axes[idx_label].set_xticks(range(0, 6))
         elif "SIAS" in scale:
@@ -512,16 +517,25 @@ def plot_rating_agents_scale(df, save_path, scale="SPAI"):
             axes[idx_label].set_xticks(range(0, 7))
         elif "MPS" in scale:
             axes[idx_label].set_xticks(range(1, 6))
-        axes[idx_label].set_xlabel(scale)
+        axes[idx_label].set_xlabel(scale, fontsize="x-large")
         axes[idx_label].grid(color='lightgrey', linestyle='-', linewidth=0.3)
     # axes[2].legend(loc="upper right")
-    axes[2].legend(
-        [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
-         Line2D([0], [0], color="white", marker='o', markeredgecolor='lightgrey', markeredgewidth=1, markerfacecolor='lightgrey', alpha=.7)],
-        ["Friendly", "Unfriendly", "Neutral", "Unknown"], loc="upper right")
+    # axes[2].legend(
+    #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
+    #      Line2D([0], [0], color="white", marker='o', markeredgecolor='#E2001A', markeredgewidth=1, markerfacecolor='#E2001A', alpha=.7),
+    #      Line2D([0], [0], color="white", marker='o', markeredgecolor='#1F82C0', markeredgewidth=1, markerfacecolor='#1F82C0', alpha=.7),
+    #      Line2D([0], [0], color="white", marker='o', markeredgecolor='lightgrey', markeredgewidth=1, markerfacecolor='lightgrey', alpha=.7)],
+    #     ["Friendly", "Unfriendly", "Neutral", "Unknown"], loc="upper right")
     plt.tight_layout()
+    if legend:
+        fig.legend(
+            [(Line2D([0], [0], color='#B1C800', linewidth=2, alpha=1), Line2D([0], [0], color='#B1C800', linewidth=15, alpha=0.2)),
+             (Line2D([0], [0], color='#E2001A', linewidth=2, alpha=1), Line2D([0], [0], color='#E2001A', linewidth=15, alpha=0.2)),
+             (Line2D([0], [0], color='#1F82C0', linewidth=2, alpha=1), Line2D([0], [0], color='#1F82C0', linewidth=15, alpha=0.2)),
+             (Line2D([0], [0], color='lightgrey', linewidth=2, alpha=1), Line2D([0], [0], color='lightgrey', linewidth=15, alpha=0.2)),],
+            ["Friendly Agent", "Unfriendly Agent", "Neutral Agent", "Unknown Agent"],
+            loc='lower center', ncols=4, frameon=False, fontsize="xx-large")
+        fig.subplots_adjust(bottom=0.22)
 
     anovas.to_csv(os.path.join(save_path, f'lmms_ratings_{scale}.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
@@ -535,7 +549,7 @@ def plot_rating_agents_sad_clicks(df, df_events, SA_score="SPAI"):
     df = df.merge(df_clicks, on=["VP", "Condition"], how="outer")
     df["click_count"] = df["click_count"].fillna(0)
 
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 5))
     labels = ["Likeability", "Fear", "Anger"]  # , "Attractiveness", "Behavior"]
     conditions = ['Friendly', 'Unfriendly']
     colors = [['#9baf00', '#6f7d00', '#424b00'], ['#e2001a', '#a90014', '#55000a']]

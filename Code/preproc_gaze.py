@@ -77,7 +77,7 @@ def get_gaze(vps, filepath, wave, df_scores):
 
         df_events_vp = df_events_vp.loc[df_events_vp["duration"] > 0]
 
-        # For the Test Phase: use the three minutes before the first room rating
+        # For the Test Phase: Use the three minutes before the first room rating
         df_gaze_test = df_gaze_resampled.loc[(df_gaze_resampled["timestamp"] >= events["start_test"]) & (df_gaze_resampled["timestamp"] < events["start_roomrating2"])]
         df_gaze_test = drop_consecutive_duplicates(df_gaze_test, subset="timestamp", keep="first")
         df_gaze_test = df_gaze_test.loc[df_gaze_test["eye_openness"] == 1]
@@ -160,6 +160,8 @@ def get_gaze(vps, filepath, wave, df_scores):
             df_gaze_subset = drop_consecutive_duplicates(df_gaze_subset, subset="timestamp", keep="first")
             df_gaze_subset = df_gaze_subset.reset_index(drop=True)
 
+            percent_missing = (df_gaze_subset["pupil_left"].isnull().sum() + df_gaze_subset["pupil_right"].isnull().sum()) / (len(df_gaze_subset) + len(df_gaze_subset))
+
             df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == -1), "pupil_left"] = np.nan
             df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == 0), "pupil_left"] = np.nan
             df_gaze_subset.loc[(df_gaze_subset["pupil_left"] < df_gaze_subset["pupil_left"].mean() - 2 * df_gaze_subset["pupil_left"].std()), "pupil_left"] = np.nan
@@ -177,9 +179,10 @@ def get_gaze(vps, filepath, wave, df_scores):
                 pupil = df_gaze_subset[["pupil_left", "pupil_right"]].mean(axis=1).to_numpy()
                 rolloff = 12
                 lpfreq = 5
+                sampling_rate = 50
                 pupil_filtered = np.concatenate((np.repeat(pupil[0], 100), pupil, np.repeat(pupil[-1], 100)))  # zero padding
                 pupil_filtered[np.isnan(pupil_filtered)] = np.nanmean(pupil_filtered)
-                b, a = signal.butter(int(rolloff / 6), lpfreq * (1 / (sr / 2)))  # low-pass filter
+                b, a = signal.butter(int(rolloff / 6), lpfreq * (1 / (sampling_rate / 2)))  # low-pass filter
                 pupil_filtered = signal.filtfilt(b, a, pupil_filtered)  # apply filter
                 pupil_filtered = pupil_filtered[100:-100]
                 df_gaze_subset["pupil_filtered"] = pupil_filtered
@@ -187,7 +190,8 @@ def get_gaze(vps, filepath, wave, df_scores):
                 # Save Pupil
                 df_pupil_temp = pd.DataFrame({'VP': [int(vp)],
                                               'Phase': [row["event"]],
-                                              'Pupil Dilation (Mean)': [df_gaze_subset['pupil_filtered'].mean()]})
+                                              'Pupil Dilation (Mean)': [df_gaze_subset['pupil_filtered'].mean()],
+                                              'Proportion': [1-percent_missing]})
                 df_pupil_vp = pd.concat([df_pupil_vp, df_pupil_temp])
 
             # Save continuous data for interactions and clicks
@@ -302,7 +306,9 @@ if __name__ == '__main__':
     file_name = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "raw" in item)][0]
     df_scores_raw = pd.read_excel(os.path.join(filepath, file_name))
     df_scores_raw = df_scores_raw.loc[df_scores_raw["FINISHED"] == 1]
-    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, problematic_subjects)
+    file_name_labbook = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "Labbook" in item)][0]
+    df_labbook = pd.read_excel(os.path.join(filepath, file_name_labbook), sheet_name=f"Wave{wave}")
+    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, df_labbook, problematic_subjects)
 
     start = 1
     vp_folder = [int(item.split("_")[1]) for item in os.listdir(filepath) if ("VP" in item)]
