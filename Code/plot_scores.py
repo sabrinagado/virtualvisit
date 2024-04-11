@@ -292,7 +292,9 @@ if __name__ == '__main__':
     file_name = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "raw" in item)][0]
     df_scores_raw = pd.read_excel(os.path.join(filepath, file_name))
     df_scores_raw = df_scores_raw.loc[df_scores_raw["FINISHED"] == 1]
-    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, problematic_subjects)
+    file_name_labbook = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "Labbook" in item)][0]
+    df_labbook = pd.read_excel(os.path.join(filepath, file_name_labbook), sheet_name=f"Wave{wave}")
+    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, df_labbook, problematic_subjects)
 
     start = 1
     vp_folder = [int(item.split("_")[1]) for item in os.listdir(filepath) if ("VP" in item)]

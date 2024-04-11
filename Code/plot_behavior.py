@@ -114,8 +114,8 @@ def plot_time_rooms(df, SA_score="SPAI"):
         model = pymer4.models.Lmer(formula, data=df_room)
         model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i * i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
         estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
         p = anova.loc["phase", "P-val"].item()
 
@@ -265,8 +265,9 @@ def plot_time_rooms_agents_static(df, save_path, SA_score="SPAI"):
     model = pymer4.models.Lmer(formula, data=df_crit)
     model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
     print(f"ANOVA: Duration in Rooms (Condition and {SA_score})")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
     print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
@@ -292,7 +293,7 @@ def plot_time_rooms_agents_static(df, save_path, SA_score="SPAI"):
     anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
     anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
@@ -388,8 +389,9 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
         model = pymer4.models.Lmer(formula, data=df_cond)
         model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i * i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
         estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
         p = anova.loc["phase", "P-val"].item()
 
@@ -412,8 +414,9 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
     model = pymer4.models.Lmer(formula, data=df_crit)
     model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
     print(f"ANOVA: Duration in Rooms (Phase, Condition and {SA_score})")
     print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
@@ -452,7 +455,7 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
     anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
     anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
@@ -679,8 +682,9 @@ def plot_time_rooms_agents_dynamic(df, save_path, SA_score="SPAI"):
     model = pymer4.models.Lmer(formula, data=df_crit)
     model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
     print(f"ANOVA: Duration in Rooms (Condition and {SA_score})")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
     print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
@@ -706,7 +710,7 @@ def plot_time_rooms_agents_dynamic(df, save_path, SA_score="SPAI"):
     anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
     anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
@@ -795,8 +799,9 @@ def plot_time_test_look_agents_dynamic(df, save_path, SA_score="SPAI", only_visi
     model = pymer4.models.Lmer(formula, data=df_crit)
     model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
     print(f"ANOVA: Look at Agents (Condition and {SA_score})")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
     print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
@@ -821,7 +826,7 @@ def plot_time_test_look_agents_dynamic(df, save_path, SA_score="SPAI", only_visi
     anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
     anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_look.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
@@ -1113,8 +1118,9 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", SA_score="SPAI"
     model = pymer4.models.Lmer(formula, data=df_crit)
     model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
     print(f"ANOVA: {title} Interpersonal Distance (Condition and {SA_score})")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
     print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
@@ -1139,7 +1145,7 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", SA_score="SPAI"
     anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
     anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     if only_visible:
         anova.to_csv(os.path.join(save_path, f'lmms_{dist}_vis_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
@@ -1333,8 +1339,9 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
         model = pymer4.models.Lmer(formula, data=df_cond)
         model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i * i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
         estimates, contrasts = model.post_hoc(marginal_vars="phase", p_adjust="holm")
         p = anova.loc["phase", "P-val"].item()
 
@@ -1357,8 +1364,9 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
     model = pymer4.models.Lmer(formula, data=df_crit)
     model.fit(factors={"phase": ["Habituation", "Test"], "Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
     print(f"ANOVA: {title} Interpersonal Distance (Phase, Condition and {SA_score})")
     print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
@@ -1401,7 +1409,7 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
     anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
     anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance_diff.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
@@ -1650,8 +1658,8 @@ def plot_clicks(df, save_path, SA_score="SPAI"):
     model = pymer4.models.Lmer(formula, data=df_crit)
     model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
     print(f"ANOVA: Clicks (Condition and {SA_score})")
     print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
     print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
@@ -1677,7 +1685,7 @@ def plot_clicks(df, save_path, SA_score="SPAI"):
     anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
 
     anova = anova.reset_index(names=['factor'])
-    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     anova.to_csv(os.path.join(save_path, f'lmms_clicks.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
@@ -2079,8 +2087,8 @@ def plot_walking_distance(df, SA_score="SPAI"):
         model = pymer4.models.Lmer(formula, data=df)
         model.fit(factors={"phase": ["Habituation", "Test"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i * i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
         print(f"ANOVA: {dv.replace('_', ' ').title()} (Phase and {SA_score})")
         print(f"{SA_score} Main Effect, F({round(anova.loc[SA_score, 'NumDF'].item(), 1)}, {round(anova.loc[SA_score, 'DenomDF'].item(), 1)})={round(anova.loc[SA_score, 'F-stat'].item(), 2)}, p={round(anova.loc[SA_score, 'P-val'].item(), 3)}, p_eta_2={round(anova.loc[SA_score, 'p_eta_2'].item(), 2)}")
         print(f"Phase Main Effect, F({round(anova.loc['phase', 'NumDF'].item(), 1)}, {round(anova.loc['phase', 'DenomDF'].item(), 1)})={round(anova.loc['phase', 'F-stat'].item(), 2)}, p={round(anova.loc['phase', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['phase', 'p_eta_2'].item(), 2)}")

@@ -223,8 +223,8 @@ def plot_rating_rooms(df, wave):
                 estimates, contrasts = model.post_hoc(marginal_vars="Condition", grouping_vars="Phase", p_adjust="holm")
 
             anova = model.anova(force_orthogonal=True)
-            sum_sq_error = (sum(i * i for i in model.residuals))
-            anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+            anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+            anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
 
             max = df_crit["Value"].max()
             if not room == "Office":
@@ -332,8 +332,9 @@ def plot_rating_agents(df):
         model = pymer4.models.Lmer(formula, data=df_crit)
         model.fit(factors={"Condition": ["friendly", "neutral", "unfriendly"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i*i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
         estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
         p = anova.loc["Condition", "P-val"].item()
 
@@ -404,6 +405,7 @@ def corr_ratings(df):
 
 # Ratings Virtual Humans, Relationship with Social Anxiety
 def plot_rating_agents_scale(df, save_path, scale="SPAI"):
+    # df = df_ratings
     wave = 1 if "Wave1" in save_path else 2
 
     figure_heigth = 5.25 if wave == 2 else 5
@@ -434,8 +436,8 @@ def plot_rating_agents_scale(df, save_path, scale="SPAI"):
         model = pymer4.models.Lmer(formula, data=df_lmm)
         model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i*i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
         # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
         print(f"Condition Main Effect, F({round(anova.loc['Condition', 'NumDF'].item(), 1)}, {round(anova.loc['Condition', 'DenomDF'].item(), 1)})={round(anova.loc['Condition', 'F-stat'].item(), 2)}, p={round(anova.loc['Condition', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Condition', 'p_eta_2'].item(), 2)}")
@@ -453,7 +455,7 @@ def plot_rating_agents_scale(df, save_path, scale="SPAI"):
 
         anova["label"] = label
         anova = anova.reset_index(names=['factor'])
-        anova = anova[["label", "factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
+        anova = anova[["label", "factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
         anova = anova.drop(columns="index")
         anovas = pd.concat([anovas, anova])
 
@@ -519,6 +521,8 @@ def plot_rating_agents_scale(df, save_path, scale="SPAI"):
             axes[idx_label].set_xticks(range(1, 6))
         axes[idx_label].set_xlabel(scale, fontsize="x-large")
         axes[idx_label].grid(color='lightgrey', linestyle='-', linewidth=0.3)
+
+
     # axes[2].legend(loc="upper right")
     # axes[2].legend(
     #     [Line2D([0], [0], color="white", marker='o', markeredgecolor='#B1C800', markeredgewidth=1, markerfacecolor='#B1C800', alpha=.7),
@@ -570,8 +574,9 @@ def plot_rating_agents_sad_clicks(df, df_events, SA_score="SPAI"):
         model = pymer4.models.Lmer(formula, data=df_ancova)
         model.fit(factors={"Condition": ["friendly", "unfriendly"]}, summarize=False)
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i*i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
         estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
         for idx_condition, condition in enumerate(conditions):
@@ -660,7 +665,9 @@ if __name__ == '__main__':
     file_name = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "raw" in item)][0]
     df_scores_raw = pd.read_excel(os.path.join(filepath, file_name))
     df_scores_raw = df_scores_raw.loc[df_scores_raw["FINISHED"] == 1]
-    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, problematic_subjects)
+    file_name_labbook = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "Labbook" in item)][0]
+    df_labbook = pd.read_excel(os.path.join(filepath, file_name_labbook), sheet_name=f"Wave{wave}")
+    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, df_labbook, problematic_subjects)
 
     start = 1
     vp_folder = [int(item.split("_")[1]) for item in os.listdir(filepath) if ("VP" in item)]

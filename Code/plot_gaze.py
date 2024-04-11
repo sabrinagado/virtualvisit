@@ -238,8 +238,8 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
             model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["head", "body"]}, summarize=False)
 
         anova = model.anova(force_orthogonal=True)
-        sum_sq_error = (sum(i * i for i in model.residuals))
-        anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
         # estimates, contrasts = model.post_hoc(marginal_vars="Condition", p_adjust="holm")
 
         p = anova.loc["Condition", "P-val"].item()
@@ -260,21 +260,6 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
         else:
             axes[idx_phase].set_ylim(0, max * 1.17)
 
-        anova['NumDF'] = anova['NumDF'].round().astype("str")
-        anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
-        anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
-        anova['F-stat'] = anova['F-stat'].round(2).astype("str")
-        anova['P-val'] = anova['P-val'].round(3).astype("str")
-        anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
-        anova['P-val'] = anova['P-val'].replace({"0.": "."})
-        anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
-
-        anova = anova.reset_index(names=['factor'])
-        anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2"]].reset_index()
-        anova = anova.drop(columns="index")
-        if not only_head:
-            anova.to_csv(os.path.join(save_path, f"lmms_gaze_{dv.replace(' ', '_').lower()}_{phase.lower()}.csv"), index=False, decimal='.', sep=';')
-
     if only_head:
         axes[0].set_ylabel(f"{y_label}' Heads")
     else:
@@ -282,7 +267,7 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     plt.tight_layout()
 
 
-def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
+def plot_gaze_phase(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=False):
     # df = df_gaze.copy()
     if dv == "Gaze Proportion":
         y_label = "Proportional Dwell Time on\nVirtual Agents"
@@ -389,8 +374,8 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
         model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["head", "body"]}, summarize=False)
 
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
 
     p = anova.loc["Condition", "P-val"].item()
     if p < 0.05:
@@ -401,9 +386,7 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
         ax.text(np.mean([pos[0], pos[1]]), max * 1.105, p_sign, color='k', horizontalalignment='center')
 
     ax.set_xticklabels(labels, fontsize="x-large")
-
     # ax.set_title(title, fontweight='bold')  # (N = {len(df_grouped['VP'].unique())})
-
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     if (phase == "Interaction") & (dv == "Gaze Proportion"):
         ax.set_ylim(0, 1)
@@ -415,6 +398,21 @@ def plot_gaze_phase(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=
     else:
         ax.set_ylabel(f"{y_label} in {phase.capitalize()} Phase", fontsize="x-large")
     plt.tight_layout()
+
+    anova['NumDF'] = anova['NumDF'].round().astype("str")
+    anova['DenomDF'] = anova['DenomDF'].round(2).astype("str")
+    anova["df"] = anova['NumDF'].str.cat(anova['DenomDF'], sep=', ')
+    anova['F-stat'] = anova['F-stat'].round(2).astype("str")
+    anova['P-val'] = anova['P-val'].round(3).astype("str")
+    anova.loc[anova['P-val'] == "0.0", "P-val"] = "< .001"
+    anova['P-val'] = anova['P-val'].replace({"0.": "."})
+    anova['p_eta_2'] = anova['p_eta_2'].round(2).astype("str")
+
+    anova = anova.reset_index(names=['factor'])
+    anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
+    anova = anova.drop(columns="index")
+    if not only_head:
+        anova.to_csv(os.path.join(save_path, f"lmms_gaze_{dv.replace(' ', '_').lower()}_{phase.lower()}.csv"), index=False, decimal='.', sep=';')
 
 
 def plot_gaze_roi(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
@@ -515,8 +513,8 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
     model.fit(factors={"Condition": ["friendly", "unfriendly"], "ROI": ["head", "body"]}, summarize=False)
 
     anova = model.anova(force_orthogonal=True)
-    sum_sq_error = (sum(i * i for i in model.residuals))
-    anova["p_eta_2"] = anova["SS"] / (anova["SS"] + sum_sq_error)
+    anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+    anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
     estimates, contrasts = model.post_hoc(marginal_vars="ROI", grouping_vars="Condition", p_adjust="holm")
     contrasts["d"] = contrasts.apply(lambda x: (2 * x[["T-stat"]]) / math.sqrt(x[["DF"]]), axis=1)
     contrasts = contrasts.reset_index(drop=True)
