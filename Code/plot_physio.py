@@ -162,21 +162,31 @@ def null_distribution_cluster_length(df, dv, factors, test, time, id, nperm=1000
 
 def check_physio(filepath, physiology):
     df = pd.read_csv(os.path.join(filepath, f'{physiology}.csv'), decimal='.', sep=';')
-    df = df.loc[~(df["Phase"].str.contains("Interaction") | df["Phase"].str.contains("Clicked") | df["Phase"].str.contains("resting") | df["Phase"].str.contains("Visible"))]
-    df.loc[df["Phase"].str.contains("Orientation"), "phase"] = "Orientation"
-    df.loc[df["Phase"].str.contains("Habituation"), "phase"] = "Habituation"
-    df.loc[df["Phase"].str.contains("Test"), "phase"] = "Test"
 
-    df_grouped = df.groupby(["VP", "phase"]).sum(numeric_only=True).reset_index()
-    df_grouped.loc[df_grouped["phase"].str.contains("Orientation"), "total_duration"] = 30
-    df_grouped.loc[df_grouped["phase"].str.contains("Habituation"), "total_duration"] = 180
-    df_grouped.loc[df_grouped["phase"].str.contains("Test"), "total_duration"] = 180
-    df_grouped["prop_duration"] = df_grouped["Duration"]/df_grouped["total_duration"]
-    df_grouped.loc[df_grouped["prop_duration"] > 1, "prop_duration"] = 1
+    if physiology == "pupil":
+        df = df.loc[~(df["Phase"].str.contains("Interaction") | df["Phase"].str.contains("Clicked") | df["Phase"].str.contains("resting") | df["Phase"].str.contains("Visible") | df["Phase"].str.contains("Acquisition"))]
+        df_grouped = df.groupby(["VP"]).mean(numeric_only=True).reset_index()
+        exclude_vp = list(df_grouped.loc[df_grouped["Proportion"] < .75, "VP"].unique())
+        df_check = df_grouped.loc[df_grouped["Proportion"] >= .75]
+        print(f"Participants included for {physiology}-analysis: {len(df_check['VP'].unique())}, remaining participants had {round(df_check['Proportion'].mean() * 100, 2)}% (SD={round(df_check['Proportion'].std() * 100, 2)}%) usable data")
 
-    df_grouped = df_grouped.groupby(["VP"]).mean(numeric_only=True).reset_index()
+    else:
+        df = df.loc[~(df["Phase"].str.contains("Interaction") | df["Phase"].str.contains("Clicked") | df["Phase"].str.contains("resting") | df["Phase"].str.contains("Visible"))]
+        df.loc[df["Phase"].str.contains("Orientation"), "phase"] = "Orientation"
+        df.loc[df["Phase"].str.contains("Habituation"), "phase"] = "Habituation"
+        df.loc[df["Phase"].str.contains("Test"), "phase"] = "Test"
 
-    exclude_vp = list(df_grouped.loc[df_grouped["prop_duration"] < .75, "VP"].unique())
+        df_grouped = df.groupby(["VP", "phase"]).sum(numeric_only=True).reset_index()
+        df_grouped.loc[df_grouped["phase"].str.contains("Orientation"), "total_duration"] = 30
+        df_grouped.loc[df_grouped["phase"].str.contains("Habituation"), "total_duration"] = 180
+        df_grouped.loc[df_grouped["phase"].str.contains("Test"), "total_duration"] = 180
+        df_grouped["prop_duration"] = df_grouped["Duration"]/df_grouped["total_duration"]
+        df_grouped.loc[df_grouped["prop_duration"] > 1, "prop_duration"] = 1
+        df_grouped = df_grouped.groupby(["VP"]).mean(numeric_only=True).reset_index()
+        exclude_vp = list(df_grouped.loc[df_grouped["prop_duration"] < .75, "VP"].unique())
+        df_check = df_grouped.loc[df_grouped["prop_duration"] >= .75]
+        print(f"Participants included for {physiology}-analysis: {len(df_check['VP'].unique())}, remaining participants had {round(df_check['prop_duration'].mean() * 100, 2)}% (SD={round(df_check['prop_duration'].std() * 100, 2)}%) usable data")
+
     return exclude_vp
 
 
@@ -1331,7 +1341,7 @@ def plot_physio_phase_sad(filepath, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 2
+    wave = 1
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
@@ -1341,3 +1351,26 @@ if __name__ == '__main__':
         os.makedirs(save_path)
 
     SA_score = "SPAI"
+
+    check_physio(filepath, "hr")
+
+    # # Meta-Analyse
+    # df = pd.read_csv(os.path.join(filepath, f'hr.csv'), decimal='.', sep=';')
+    # cutoff_spai = 2.79
+    # df.loc[df["SPAI"] >= cutoff_spai, "group"] = "HSA"
+    # df.loc[df["SPAI"] < cutoff_spai, "group"] = "LSA"
+    # df.drop_duplicates("VP").groupby(["group"])[['age']].agg(['count', 'mean', 'std'])
+    # df.drop_duplicates("VP")["age"].agg(['count', 'mean', 'std'])
+    #
+    # round(df.loc[df["Phase"].str.contains("FriendlyInteraction")].groupby(["group"])[['HR (Mean)']].agg(['count', 'mean', 'std']), 2)
+    # round(df.loc[df["Phase"].str.contains("UnfriendlyInteraction")].groupby(["group"])[['HR (Mean)']].agg(['count', 'mean', 'std']), 2)
+    #
+    # df = pd.read_csv(os.path.join(filepath, f'eda.csv'), decimal='.', sep=';')
+    # cutoff_spai = 2.79
+    # df.loc[df["SPAI"] >= cutoff_spai, "group"] = "HSA"
+    # df.loc[df["SPAI"] < cutoff_spai, "group"] = "LSA"
+    # df.drop_duplicates("VP").groupby(["group"])[['age']].agg(['count', 'mean', 'std'])
+    # df.drop_duplicates("VP")["age"].agg(['count', 'mean', 'std'])
+    #
+    # round(df.loc[df["Phase"].str.contains("FriendlyInteraction")].groupby(["group"])[['SCL (Mean)']].agg(['count', 'mean', 'std']), 2)
+    # round(df.loc[df["Phase"].str.contains("UnfriendlyInteraction")].groupby(["group"])[['SCL (Mean)']].agg(['count', 'mean', 'std']), 2)

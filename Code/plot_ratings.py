@@ -686,3 +686,15 @@ if __name__ == '__main__':
     # df_fear_wide = df_ratings_fear.pivot(index=['VP', 'SPAI'], columns="Condition", values='Rating').reset_index()
     # df_fear_wide.columns = ["VP", "SPAI", "Condition_friendly", "Condition_neutral", "Condition_unfriendly", "Condition_unknown"]
     # df_fear_wide.to_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'fear_ratings_wide.csv'), decimal='.', sep=';', index=False)
+
+    # # Meta-Analyse
+    # df = df_ratings.loc[~(df_ratings["VP"].isin(problematic_subjects))]
+    # df = df.loc[df["Criterion"] == "Fear"]
+    # cutoff_spai = 2.79
+    # df.loc[df["SPAI"] >= cutoff_spai, "group"] = "HSA"
+    # df.loc[df["SPAI"] < cutoff_spai, "group"] = "LSA"
+    # df.drop_duplicates("VP").groupby(["group"])[['age']].agg(['count', 'mean', 'std'])
+    # df.drop_duplicates("VP")["age"].agg(['count', 'mean', 'std'])
+    #
+    # round(df.loc[df["Condition"] == "friendly"].groupby(["group"])[['Value']].agg(['count', 'mean', 'std']), 2)
+    # round(df.loc[df["Condition"] == "unfriendly"].groupby(["group"])[['Value']].agg(['count', 'mean', 'std']), 2)

@@ -160,18 +160,18 @@ def get_gaze(vps, filepath, wave, df_scores):
             df_gaze_subset = drop_consecutive_duplicates(df_gaze_subset, subset="timestamp", keep="first")
             df_gaze_subset = df_gaze_subset.reset_index(drop=True)
 
-            percent_missing = (df_gaze_subset["pupil_left"].isnull().sum() + df_gaze_subset["pupil_right"].isnull().sum()) / (len(df_gaze_subset) + len(df_gaze_subset))
-
             df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == -1), "pupil_left"] = np.nan
             df_gaze_subset.loc[(df_gaze_subset["pupil_left"] == 0), "pupil_left"] = np.nan
             df_gaze_subset.loc[(df_gaze_subset["pupil_left"] < df_gaze_subset["pupil_left"].mean() - 2 * df_gaze_subset["pupil_left"].std()), "pupil_left"] = np.nan
-            percent_missing_left = df_gaze_subset["pupil_left"].isnull().sum() / len(df_gaze_subset)
-            df_gaze_subset["pupil_left"] = df_gaze_subset["pupil_left"].interpolate(method="linear", limit_direction="both")
-
             df_gaze_subset.loc[(df_gaze_subset["pupil_right"] == -1), "pupil_right"] = np.nan
             df_gaze_subset.loc[(df_gaze_subset["pupil_right"] == 0), "pupil_right"] = np.nan
             df_gaze_subset.loc[(df_gaze_subset["pupil_right"] < df_gaze_subset["pupil_right"].mean() - 2 * df_gaze_subset["pupil_right"].std()), "pupil_right"] = np.nan
+
+            percent_missing = (df_gaze_subset["pupil_left"].isnull().sum() + df_gaze_subset["pupil_right"].isnull().sum()) / (len(df_gaze_subset) + len(df_gaze_subset))
+            percent_missing_left = df_gaze_subset["pupil_left"].isnull().sum() / len(df_gaze_subset)
             percent_missing_right = df_gaze_subset["pupil_right"].isnull().sum() / len(df_gaze_subset)
+
+            df_gaze_subset["pupil_left"] = df_gaze_subset["pupil_left"].interpolate(method="linear", limit_direction="both")
             df_gaze_subset["pupil_right"] = df_gaze_subset["pupil_right"].interpolate(method="linear", limit_direction="both")
 
             if (percent_missing_left < 0.25) and (percent_missing_right < 0.25):

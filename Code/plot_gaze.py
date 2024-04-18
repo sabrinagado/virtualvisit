@@ -17,7 +17,6 @@ os.environ["R_HOME"] = get_r_home()
 import pymer4
 
 from Code.toolbox import utils
-from Code import preproc_scores, preproc_ratings
 
 
 # Visualize ET Validation
@@ -289,9 +288,12 @@ def plot_gaze_phase(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI",
         title = "Test Phase"
 
     df = df.loc[df["Condition"].isin(conditions)]
-    red = '#E2001A'
-    green = '#B1C800'
-    colors = [green, red]
+    reds = ['#E2001A', '#89003e']
+    greens = ['#B1C800', '#3b8703']
+    if only_head:
+        colors = [greens[1], reds[1]]
+    else:
+        colors = [greens[0], reds[0]]
 
     if only_head:
         df = df.loc[df["ROI"] == "head"]
@@ -642,8 +644,14 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
 
     df = df.loc[df["Condition"].isin(conditions)]
 
+    reds = ['#E2001A', '#89003e']
+    greens = ['#B1C800', '#3b8703']
+
     if only_head:
         df = df.loc[df["ROI"] == "head"]
+        colors = [greens[1], reds[1]]
+    else:
+        colors = [greens[0], reds[0]]
 
     df_grouped = df.groupby(["VP", "Condition"]).sum(numeric_only=True).reset_index()
     df_grouped = df_grouped.drop(columns=SA_score)
@@ -652,9 +660,6 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     df_grouped = df_grouped.sort_values(by=SA_score)
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5.5, 5))
-    red = '#E2001A'
-    green = '#B1C800'
-    colors = [green, red]
     for idx_condition, condition in enumerate(conditions):
         # idx_condition = 0
         # condition = conditions[idx_condition]
@@ -699,6 +704,13 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
         ax.set_ylabel(f"{y_label} in {phase.capitalize()} Phase", fontsize="x-large")
     # ax.legend(loc="upper right")
     plt.tight_layout()
+
+    # fig.legend(
+    #     [(Line2D([0], [0], color=colors[0], linewidth=2, alpha=1), Line2D([0], [0], color=colors[0], linewidth=15, alpha=0.2)),
+    #      (Line2D([0], [0], color=colors[1], linewidth=2, alpha=1), Line2D([0], [0], color=colors[1], linewidth=15, alpha=0.2))],
+    #     ["Interaction with Friendly Agent", "Interaction with Unfriendly Agent"],
+    #     loc='lower center', ncols=1, frameon=False, fontsize="x-large")
+    # fig.subplots_adjust(bottom=0.3)
 
 
 # Difference
@@ -766,30 +778,18 @@ if __name__ == '__main__':
         print('creating path for saving')
         os.makedirs(save_path)
 
-    if wave == 1:
-        problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
-    elif wave == 2:
-        problematic_subjects = [1, 2, 3, 4, 20, 29, 64]
-
-    file_name = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "raw" in item)][0]
-    df_scores_raw = pd.read_excel(os.path.join(filepath, file_name))
-    df_scores_raw = df_scores_raw.loc[df_scores_raw["FINISHED"] == 1]
-    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, problematic_subjects)
-
-    start = 1
-    vp_folder = [int(item.split("_")[1]) for item in os.listdir(filepath) if ("VP" in item)]
-    end = np.max(vp_folder)
-    vps = np.arange(start, end + 1)
-    vps = [vp for vp in vps if not vp in problematic_subjects]
-
-    df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
-    vps = [vp for vp in vps if not vp in problematic_subjects]
-
-    # plot_et_validation(vps, filepath)
-    # plt.savefig(os.path.join(save_path, f"et_calibration.png"), dpi=300)
-    # plt.close()
-
     SA_score = "SPAI"
     df_gaze = pd.read_csv(os.path.join(filepath, 'gaze.csv'), decimal='.', sep=';')
     dvs = ["Gaze Proportion", "Switches"]
     dv = dvs[1]
+
+    # # Meta-Analyse
+    # df = pd.read_csv(os.path.join(filepath, 'gaze.csv'), decimal='.', sep=';')
+    # cutoff_spai = 2.79
+    # df.loc[df["SPAI"] >= cutoff_spai, "group"] = "HSA"
+    # df.loc[df["SPAI"] < cutoff_spai, "group"] = "LSA"
+    # df.drop_duplicates("VP").groupby(["group"])[['age']].agg(['count', 'mean', 'std'])
+    # df.drop_duplicates("VP")["age"].agg(['count', 'mean', 'std'])
+    #
+    # round(df.loc[(df["Phase"].str.contains("Acquisition")) & (df["ROI"].str.contains("head")) & (df["Condition"] == "friendly")].groupby(["group"])[['Gaze Proportion']].agg(['count', 'mean', 'std']), 3)
+    # round(df.loc[(df["Phase"].str.contains("Acquisition")) & (df["ROI"].str.contains("head")) & (df["Condition"] == "unfriendly")].groupby(["group"])[['Gaze Proportion']].agg(['count', 'mean', 'std']), 3)

@@ -460,7 +460,7 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
     anova.to_csv(os.path.join(save_path, f'lmms_duration.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-    ax.set_xticklabels([title.replace("with", "with\n") for title in titles], fontsize="large")
+    ax.set_xticklabels([title.replace("with", "with\n").replace(" Agent", "\nAgent") for title in titles], fontsize="large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"Total Duration in the Rooms [s]", fontsize="large")
     # ax.set_title("Time Spent Close to Virtual Agents", fontweight='bold')
@@ -950,7 +950,7 @@ def plot_time_test_look_agents_dynamic_sad(df, SA_score="SPAI"):
     elif "SIAS" in SA_score:
         ax.set_xticks(range(5.5, 55, 5))
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
-    ax.set_ylabel(f"Total Duration [s] in Test Phase", fontsize="x-large")
+    ax.set_ylabel(f"Total Duration [s] in Test Phase\n(Looking)", fontsize="x-large")
     # ax.set_title(f"Time Spent Close to Virtual Agents", fontweight='bold')
     # ax.legend()
     plt.tight_layout()
@@ -1414,7 +1414,7 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
     anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance_diff.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
     ax.set_xticks([x + 1 / 2 for x in range(len(conditions))])
-    ax.set_xticklabels([title.replace("with", "with\n") for title in titles], fontsize="large")
+    ax.set_xticklabels([title.replace("with", "with\n").replace(" Agent", "\nAgent") for title in titles], fontsize="large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
     ax.set_ylabel(f"{title} Distance to\nPositions of Virtual Agents [m]", fontsize="large")
 
