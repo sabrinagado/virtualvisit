@@ -459,6 +459,9 @@ def get_distances(vps, filepath, wave, df_scores):
 
         df.loc[(events["start_habituation"] <= df["timestamp"]) & (df["timestamp"] < events["start_roomrating1"]), "phase"] = "Habituation"
         df.loc[(events["start_test"] <= df["timestamp"]) & (df["timestamp"] < events["start_roomrating2"]), "phase"] = "Test"
+        df.loc[df["event"].str.contains("NeutralInteraction"), "phase"] = "NeutralInteraction"
+        df.loc[df["event"].str.contains("FriendlyInteraction"), "phase"] = "FriendlyInteraction"
+        df.loc[df["event"].str.contains("UnfriendlyInteraction"), "phase"] = "UnfriendlyInteraction"
 
         if wave == 1:
             df["x"] = [float(position.split("=")[1].split(" ")[0]) for position in df["Position"]]
@@ -562,7 +565,7 @@ def get_distances(vps, filepath, wave, df_scores):
             df = df.dropna(subset="phase").reset_index(drop=True)
 
             for phase in df["phase"].unique():
-                # phase = "Test"
+                # phase = "FriendlyInteraction"
                 df_phase = df.loc[df["phase"] == phase].reset_index(drop=True)
 
                 start = df_phase.loc[0, "timestamp"]
@@ -636,7 +639,7 @@ def get_distances(vps, filepath, wave, df_scores):
 
                 df_movement = pd.concat([df_movement, df_phase])
 
-                if phase == "Test":
+                if phase != "Habituation":
                     df_phase["distance_to_friendly"] = df_phase.apply(lambda x: math.dist(x[["x_player", "y_player"]].to_numpy().flatten(),
                                                                                           x[["x_friendly", "y_friendly"]].to_numpy().flatten()), axis=1)
                     df_phase["distance_to_unfriendly"] = df_phase.apply(lambda x: math.dist(x[["x_player", "y_player"]].to_numpy().flatten(),
@@ -691,7 +694,7 @@ def get_distances(vps, filepath, wave, df_scores):
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
@@ -703,7 +706,9 @@ if __name__ == '__main__':
     file_name = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "raw" in item)][0]
     df_scores_raw = pd.read_excel(os.path.join(filepath, file_name))
     df_scores_raw = df_scores_raw.loc[df_scores_raw["FINISHED"] == 1]
-    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, problematic_subjects)
+    file_name_labbook = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "Labbook" in item)][0]
+    df_labbook = pd.read_excel(os.path.join(filepath, file_name_labbook), sheet_name=f"Wave{wave}")
+    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, df_labbook, problematic_subjects)
 
     start = 1
     vp_folder = [int(item.split("_")[1]) for item in os.listdir(filepath) if ("VP" in item)]
@@ -711,8 +716,7 @@ if __name__ == '__main__':
     vps = np.arange(start, end + 1)
     vps = [vp for vp in vps if not vp in problematic_subjects]
 
-    df_ratings, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
-
+    df_ratings_total, problematic_subjects = preproc_ratings.create_ratings(vps, filepath, problematic_subjects, df_scores)
     vps = [vp for vp in vps if not vp in problematic_subjects]
 
     df_events = get_phases(vps, filepath, wave, df_scores)

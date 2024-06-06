@@ -381,7 +381,7 @@ def plot_physio_acq(filepath, save_path, test="F", SA_score="SPAI", permutations
             anova.to_csv(os.path.join(save_path, f'lmms_{physiology}_acq.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
         # Style Plot
-        axes[physio_idx].set_ylabel(ylabel, fontsize="x-large")
+        axes[physio_idx].set_ylabel(f"Δ {ylabel}", fontsize="x-large")
         axes[physio_idx].set_title(f"{ylabel.split(' [')[0].replace(' (BPM)', '')}", fontweight='bold', fontsize="xx-large")  # (N = {len(df['VP'].unique())})
         axes[physio_idx].set_xlabel("Seconds after Interaction Onset", fontsize="x-large")
         axes[physio_idx].grid(color='lightgrey', linestyle='-', linewidth=0.3)

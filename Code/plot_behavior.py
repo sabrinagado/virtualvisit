@@ -1021,8 +1021,9 @@ def plot_diff_duration(df, wave, SA_score="SPAI"):
 # % ===========================================================================
 # Interpersonal Distance
 # =============================================================================
-def plot_interpersonal_distance(df, save_path, wave, dist="min", SA_score="SPAI", only_visible=False):
+def plot_interpersonal_distance(df, save_path, wave, dist="min", phase="Test", SA_score="SPAI", only_visible=False):
     # dist = "avg"
+    # phase = "Interaction"
     # df = df_distance
     if dist == "avg":
         title = "Average"
@@ -1030,13 +1031,16 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", SA_score="SPAI"
         title = "Minimum"
 
     if wave == 1:
-        df_test = df.loc[df["phase"].str.contains("Test")]
+        df_test = df.loc[df["phase"].str.contains(phase)]
     elif wave == 2:
-        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis")]
-        if only_visible:
-            df_test = df_test.loc[~df_test["event"].str.contains("Actor")]
-        df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
-        df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+        if phase == "Test":
+            df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis")]
+            if only_visible:
+                df_test = df_test.loc[~df_test["event"].str.contains("Actor")]
+            df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+            df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+        elif phase == "Interaction":
+            df_test = df.loc[df["event"].str.contains(phase) & (~df["event"].str.contains("Neutral"))]
 
     conditions = ["friendly", "unfriendly"]
     df_test = df_test.loc[df_test["Condition"].isin(conditions)]
@@ -1057,7 +1061,7 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", SA_score="SPAI"
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(3.5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -1148,37 +1152,39 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", SA_score="SPAI"
     anova = anova[["factor", "F-stat", "df", "P-val", "p_eta_2", "p_eta_2_CI"]].reset_index()
     anova = anova.drop(columns="index")
     if only_visible:
-        anova.to_csv(os.path.join(save_path, f'lmms_{dist}_vis_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
+        anova.to_csv(os.path.join(save_path, f'lmms_{dist}_{phase}_vis_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
     else:
-        anova.to_csv(os.path.join(save_path, f'lmms_{dist}_distance.csv'), index=False, decimal='.', sep=';',
-                     encoding='utf-8-sig')
+        anova.to_csv(os.path.join(save_path, f'lmms_{dist}_{phase}_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
-    ax.set_xticklabels([title.replace(" ", "\n") for title in titles], fontsize="x-large")
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles]) #, fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
     if dist == "min":
         y_max = ax.get_ylim()[1]
         ax.set_ylim(0, y_max)
     if only_visible:
-        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in Test Phase", fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
     else:
-        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in Test Phase", fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
     # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
     plt.tight_layout()
     # plt.savefig(os.path.join(save_path, f"distance_{dist}_test_BA.png"), dpi=300)
 
 
 # Interpersonal Distance: Correlation with SPAI
-def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_visible=False):
+def plot_interpersonal_distance_sad(df, wave, dist="avg", phase="Test", SA_score="SPAI", only_visible=False):
     # df = df_distance
     if wave == 1:
-        df_test = df.loc[df["phase"].str.contains("Test")]
+        df_test = df.loc[df["phase"].str.contains(phase)]
     elif wave == 2:
-        df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis")]
-        if only_visible:
-            df_test = df_test.loc[~df_test["event"].str.contains("Actor")]
-        df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
-        df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+        if phase == "Test":
+            df_test = df.loc[df["event"].str.contains("Test") & df["event"].str.contains("Vis")]
+            if only_visible:
+                df_test = df_test.loc[~df_test["event"].str.contains("Actor")]
+            df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+            df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+        elif phase == "Interaction":
+            df_test = df.loc[df["event"].str.contains(phase) & (~df["event"].str.contains("Neutral"))]
 
     if dist == "avg":
         df_grouped = df_test.groupby(["VP", "Condition"]).mean(numeric_only=True).reset_index()
@@ -1242,9 +1248,9 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", SA_score="SPAI", only_
         y_max = ax.get_ylim()[1]
         ax.set_ylim(0, y_max*1.05)
     if only_visible:
-        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in Test Phase", fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
     else:
-        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in Test Phase", fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
 
     # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
     # ax.legend(loc='upper right')
@@ -2150,25 +2156,35 @@ if __name__ == '__main__':
         print('creating path for saving')
         os.makedirs(save_path)
 
-    if wave == 1:
-        problematic_subjects = [1, 3, 12, 19, 33, 45, 46]
-    elif wave == 2:
-        problematic_subjects = [1, 2, 3, 4, 20, 29, 64]
-
-    file_name = [item for item in os.listdir(filepath) if (item.endswith(".xlsx") and "raw" in item)][0]
-    df_scores_raw = pd.read_excel(os.path.join(filepath, file_name))
-    df_scores_raw = df_scores_raw.loc[df_scores_raw["FINISHED"] == 1]
-    df_scores, problematic_subjects = preproc_scores.create_scores(df_scores_raw, problematic_subjects)
-
-    start = 1
-    vp_folder = [int(item.split("_")[1]) for item in os.listdir(filepath) if ("VP" in item)]
-    end = np.max(vp_folder)
-    vps = np.arange(start, end + 1)
-    vps = [vp for vp in vps if not vp in problematic_subjects]
-
     df_events = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'events.csv'), decimal='.', sep=';')
     df_distance = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'distance_vh.csv'), decimal='.', sep=';')
     df_movement = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'movement.csv'), decimal='.', sep=';')
     df_walk_dist = pd.read_csv(os.path.join(dir_path, f'Data-Wave{wave}', 'walking_distance.csv'), decimal='.', sep=';')
 
     SA_score = "SPAI"
+
+    # phase = "Test"
+    # dist = "min"
+    # plot_interpersonal_distance(df_distance, save_path, wave=wave, dist=dist, phase=phase)
+    # plt.savefig(os.path.join(save_path, f"distance_{dist}_{phase.lower()}.png"), dpi=300)
+    # plot_interpersonal_distance_sad(df_distance, wave=wave, dist=dist, phase=phase)
+    # plt.savefig(os.path.join(save_path, f"distance_{dist}_{phase.lower()}_{SA_score}.png"), dpi=300)
+    #
+    # df_temp = df_test["VP"].to_frame()
+    # for dist in ["avg", "min"]:
+    #     df_test = df_distance.loc[df_distance["event"].str.contains("Test")]
+    #     df_test = df_test.loc[~(df_test['event'].str.contains("Friendly") & df_test['event'].str.contains("Unfriendly"))]
+    #     df_test = df_test.loc[~(df_test['event'].str.contains("Neutral") | df_test['event'].str.contains("Unknown"))]
+    #     conditions = ["friendly", "unfriendly"]
+    #     df_test = df_test.loc[df_test["Condition"].isin(conditions)]
+    #     if dist == "avg":
+    #         df_test = df_test.groupby(["VP", "Condition"])["distance"].mean().reset_index()
+    #     elif dist == "min":
+    #         df_test = df_test.groupby(["VP", "Condition"])["distance"].min().reset_index()
+    #     df_test = df_test.pivot(index='VP', columns='Condition', values='distance').reset_index()
+    #     df_test.columns = ["VP", f"test_{dist}_distance_friendly", f"test_{dist}_distance_unfriendly"]
+    #     df_temp = df_temp.merge(df_test, on="VP")
+    #
+    # df_temp = df_temp.merge(df_events[["VP", "SPAI"]].drop_duplicates(), on="VP")
+    #
+    # df_temp.to_csv(os.path.join(filepath, 'distance_wide.csv'), decimal='.', sep=';', index=False)
