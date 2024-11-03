@@ -6,6 +6,7 @@
 import os
 import pandas as pd
 import numpy as np
+from scipy.stats import sem
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import seaborn as sns
@@ -118,9 +119,8 @@ def plot_scale(df, scale, colors, problematic_subjects):
                                        positions=[pos],
                                        widths=0.8 * boxWidth)
 
-            axes[idx_axes].errorbar(x=pos, y=bootstrapping_dict['mean'],
-                                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
-                                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+            axes[idx_axes].errorbar(x=pos, y=np.mean(df_scale.loc[:, subscale].values), yerr=sem(df_scale.loc[:, subscale].values),
+                                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             axes[idx_axes].set_ylim(min, max)
             axes[idx_axes].grid(color='lightgrey', linestyle='-', linewidth=0.3)
@@ -185,9 +185,8 @@ def plot_scale(df, scale, colors, problematic_subjects):
                                        positions=[pos],
                                        widths=0.8 * boxWidth)
 
-            ax.errorbar(x=pos, y=bootstrapping_dict['mean'],
-                                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
-                                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+            ax.errorbar(x=pos, y=np.mean(df_scale.loc[:, subscale].values), yerr=sem(df_scale.loc[:, subscale].values),
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         ax.set_xticklabels(titles_subscale, fontsize="x-large")
         ax.set_ylim(min, max)
@@ -242,8 +241,7 @@ def plot_scale(df, scale, colors, problematic_subjects):
                        positions=[pos[0]],
                        widths=0.8 * boxWidth)
 
-            ax.errorbar(x=pos[0], y=bootstrapping_dict['mean'],
-                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+            ax.errorbar(x=pos[0], y=np.mean(df_scale.loc[:, subscale].values), yerr=sem(df_scale.loc[:, subscale].values),
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             ax.set_xticklabels([subscale], fontsize="x-large")

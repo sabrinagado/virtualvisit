@@ -14,7 +14,7 @@ from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
 from matplotlib import patches
 import matplotlib.animation as animation
-from scipy.stats import linregress
+from scipy.stats import linregress, sem
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
 import pymer4
@@ -100,8 +100,7 @@ def plot_time_rooms(df, SA_score="SPAI"):
                        positions=[pos[idx_phase]],
                        widths=0.8 * boxWidth)
 
-            ax.errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
-                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+            ax.errorbar(x=pos[idx_phase], y=np.mean(df_phase.loc[:, "duration"].values), yerr=sem(df_phase.loc[:, "duration"].values),
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             if (room == "Office") & (phase == "Test"):
@@ -251,8 +250,7 @@ def plot_time_rooms_agents_static(df, save_path, SA_score="SPAI"):
                    positions=[pos[idx_condition]],
                    widths=0.8 * boxWidth)
 
-        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+        ax.errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, "duration"].values), yerr=sem(df_cond.loc[:, "duration"].values),
                     elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_test.copy()
@@ -381,8 +379,7 @@ def plot_time_rooms_agents_static_diff(df, save_path, SA_score="SPAI"):
                        positions=[pos[idx_phase]],
                        widths=0.8 * boxWidth)
 
-            ax.errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
-                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+            ax.errorbar(x=pos[idx_phase], y=np.mean(df_phase.loc[:, "duration"].values), yerr=sem(df_phase.loc[:, "duration"].values),
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         formula = f"duration ~ phase + (1 | VP)"
@@ -668,8 +665,7 @@ def plot_time_rooms_agents_dynamic(df, save_path, SA_score="SPAI"):
                    positions=[pos[idx_condition]],
                    widths=0.8 * boxWidth)
 
-        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+        ax.errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, "duration"].values), yerr=sem(df_cond.loc[:, "duration"].values),
                     elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_test.copy()
@@ -785,8 +781,7 @@ def plot_time_test_look_agents_dynamic(df, save_path, SA_score="SPAI", only_visi
                    positions=[pos[idx_condition]],
                    widths=0.8 * boxWidth)
 
-        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+        ax.errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, "duration"].values), yerr=sem(df_cond.loc[:, "duration"].values),
                     elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_test.copy()
@@ -1061,7 +1056,7 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", phase="Test", S
     green = '#B1C800'
     colors = [green, red]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4.5, 5))
     boxWidth = 1 / (len(conditions) + 1)
     pos = [0 + x * 2 * boxWidth for x in np.arange(1, len(conditions) + 1)]
 
@@ -1109,8 +1104,7 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", phase="Test", S
                    positions=[pos[idx_condition]],
                    widths=0.8 * boxWidth)
 
-        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+        ax.errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, "distance"].values), yerr=sem(df_cond.loc[:, "distance"].values),
                     elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_grouped.copy()
@@ -1156,16 +1150,16 @@ def plot_interpersonal_distance(df, save_path, wave, dist="min", phase="Test", S
     else:
         anova.to_csv(os.path.join(save_path, f'lmms_{dist}_{phase}_distance.csv'), index=False, decimal='.', sep=';', encoding='utf-8-sig')
 
-    ax.set_xticklabels([title.replace(" ", "\n") for title in titles]) #, fontsize="x-large")
+    ax.set_xticklabels([title.replace(" ", "\n") for title in titles], fontsize="x-large")
     ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
 
     if dist == "min":
         y_max = ax.get_ylim()[1]
         ax.set_ylim(0, y_max)
     if only_visible:
-        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in {phase.capitalize()} Phase", fontsize="x-large")
     else:
-        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in {phase.capitalize()} Phase", fontsize="x-large")
     # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
     plt.tight_layout()
     # plt.savefig(os.path.join(save_path, f"distance_{dist}_test_BA.png"), dpi=300)
@@ -1248,9 +1242,9 @@ def plot_interpersonal_distance_sad(df, wave, dist="avg", phase="Test", SA_score
         y_max = ax.get_ylim()[1]
         ax.set_ylim(0, y_max*1.05)
     if only_visible:
-        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to Visible\nVirtual Agents [m] in {phase.capitalize()} Phase", fontsize="x-large")
     else:
-        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in {phase.capitalize()} Phase") #, fontsize="x-large")
+        ax.set_ylabel(f"{title} Distance to\nVirtual Agents [m] in {phase.capitalize()} Phase", fontsize="x-large")
 
     # ax.set_title(f"{title} Interpersonal Distance", fontweight='bold')
     # ax.legend(loc='upper right')
@@ -1337,8 +1331,7 @@ def plot_interpersonal_distance_diff(df, save_path, dist="avg", SA_score="SPAI")
                        positions=[pos[idx_phase]],
                        widths=0.8 * boxWidth)
 
-            ax.errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
-                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+            ax.errorbar(x=pos[idx_phase], y=np.mean(df_phase.loc[:, "distance"].values), yerr=sem(df_phase.loc[:, "distance"].values),
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         formula = f"distance ~ phase + (1 | VP)"
@@ -1651,8 +1644,7 @@ def plot_clicks(df, save_path, SA_score="SPAI"):
                    positions=[pos[idx_condition]],
                    widths=0.8 * boxWidth)
 
-        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+        ax.errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, "click_count"].values), yerr=sem(df_cond.loc[:, "click_count"].values),
                     elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df_subset.copy()
@@ -2080,14 +2072,17 @@ def animate_movement(df, vp, SA_score, save_path):
 # Walking Distance
 # =============================================================================
 def plot_walking_distance(df, SA_score="SPAI"):
+    # df = df_walk_dist
     fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
     phases = ["Habituation", "Test"]
     titles = ["Habituation", "Test"]
     colors = ['#1F82C0', '#F29400', '#E2001A', '#B1C800', '#179C7D']
 
+    df = df.loc[df['phase'].isin(phases)]
+
     df = df.sort_values(by=SA_score)
     for idx_dv, dv in enumerate(['walking_distance', 'average_distance_to_start', 'maximum_distance_to_start']):
-        # dv = 'maximum_distance_to_start'
+        # dv = 'walking_distance'
         formula = f"{dv} ~ phase + {SA_score} + phase:{SA_score} + (1 | VP)"
 
         model = pymer4.models.Lmer(formula, data=df)
@@ -2147,7 +2142,7 @@ def plot_walking_distance(df, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 

@@ -9,7 +9,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from scipy.stats import linregress
+from scipy.stats import linregress, sem
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
 import pymer4
@@ -73,9 +73,8 @@ def plot_rating_vr(df):
                                 positions=[pos],
                                 widths=0.8 * boxWidth)
 
-        ax.errorbar(x=pos, y=bootstrapping_dict['mean'],
-                                 yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
-                                 elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+        ax.errorbar(x=pos, y=np.mean(df_phase.loc[:, "Value"].values), yerr=sem(df_phase.loc[:, "Value"].values),
+                    elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         if phase == "Test":
             linreg = linregress(df_phase.loc[:, "Value"], df_phase.loc[:, "SSQ-diff"])
@@ -162,9 +161,8 @@ def plot_rating_rooms(df, wave):
                                             positions=[pos_room[idx_condition]],
                                             widths=0.8 * boxWidth_room)
 
-                    ax.errorbar(x=pos_room[idx_condition], y=bootstrapping_dict['mean'],
-                                             yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
-                                             elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+                    ax.errorbar(x=pos_room[idx_condition], y=np.mean(df_cond.loc[:, "Value"].values), yerr=sem(df_cond.loc[:, "Value"].values),
+                                elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             else:
                 # Plot raw data points
@@ -205,8 +203,7 @@ def plot_rating_rooms(df, wave):
                            positions=[pos[idx_phase]],
                            widths=0.8 * boxWidth)
 
-                ax.errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
-                            yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                ax.errorbar(x=pos[idx_phase], y=np.mean(df_phase.loc[:, "Value"].values), yerr=sem(df_phase.loc[:, "Value"].values),
                             elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         if not room == "Terrace":
@@ -266,7 +263,7 @@ def plot_rating_rooms(df, wave):
 
 # Ratings Virtual Humans
 def plot_rating_agents(df):
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(18, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 5))
     labels = ["Likeability", "Fear", "Anger", "Attractiveness", "Behavior"]
     conditions = ['Friendly', 'Unfriendly', 'Neutral', 'Unknown']
     colors = ['#B1C800', '#E2001A', '#1F82C0',  'lightgrey']
@@ -323,7 +320,7 @@ def plot_rating_agents(df):
                        positions=[pos[idx_condition]],
                        widths=0.8 * boxWidth)
 
-            ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'], yerr=bootstrapping_dict['mean']-bootstrapping_dict['lower'],
+            ax.errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, "Value"].values), yerr=sem(df_cond.loc[:, "Value"].values),
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         df_crit = df.loc[df["Criterion"] == label]

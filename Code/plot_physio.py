@@ -9,7 +9,7 @@ import pandas as pd
 import random
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from scipy.stats import linregress, t, f, ttest_rel, percentileofscore
+from scipy.stats import linregress, t, f, ttest_rel, percentileofscore, sem
 from scipy import signal
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
@@ -494,8 +494,7 @@ def plot_physio_test(filepath, save_path, SA_score="SPAI"):
                                      positions=[pos[idx_condition]],
                                      widths=0.8 * boxWidth)
 
-            axes[physio_idx].errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                                      yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+            axes[physio_idx].errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, dv].values), yerr=sem(df_cond.loc[:, dv].values),
                                       elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         df_crit = df_test.copy()
@@ -760,8 +759,7 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI", visibility=False):
                                          positions=[pos[idx_condition]],
                                          widths=0.8 * boxWidth)
 
-                axes[physio_idx].errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                                          yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                axes[physio_idx].errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, dv].values), yerr=sem(df_cond.loc[:, dv].values),
                                           elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             df_crit = df_subset.copy()
@@ -902,8 +900,7 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI", visibility=False):
                                          positions=[pos[idx_condition]],
                                          widths=0.8 * boxWidth)
 
-                axes[physio_idx].errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                                          yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                axes[physio_idx].errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, dv].values), yerr=sem(df_cond.loc[:, dv].values),
                                           elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
             df_crit = df_subset.copy()
@@ -1047,8 +1044,7 @@ def plot_physio_diff(filepath, save_path, SA_score="SPAI", visibility=False):
                                              positions=[pos[idx_phase]],
                                              widths=0.8 * boxWidth)
 
-                    axes[physio_idx].errorbar(x=pos[idx_phase], y=bootstrapping_dict['mean'],
-                                              yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+                    axes[physio_idx].errorbar(x=pos[idx_phase], y=np.mean(df_phase.loc[:, dv].values), yerr=sem(df_phase.loc[:, dv].values),
                                               elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
                 df_cond = df_cond.rename(columns={dv: physiology})

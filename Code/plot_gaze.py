@@ -11,7 +11,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle
-from scipy.stats import linregress
+from scipy.stats import linregress, sem
 from rpy2.situation import (get_r_home)
 os.environ["R_HOME"] = get_r_home()
 import pymer4
@@ -210,9 +210,8 @@ def plot_gaze(df, save_path, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
                        positions=[pos[idx_condition]],
                        widths=0.8 * boxWidth)
 
-            axes[idx_phase].errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
-                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+            axes[idx_phase].errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, dv].values), yerr=sem(df_cond.loc[:, dv].values),
+                                     elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
         max = df_grouped[dv].max()
         if only_head:
@@ -290,6 +289,8 @@ def plot_gaze_phase(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI",
     df = df.loc[df["Condition"].isin(conditions)]
     reds = ['#E2001A', '#89003e']
     greens = ['#B1C800', '#3b8703']
+    blues = ['#048FCB', '#034866']
+
     if only_head:
         colors = [greens[1], reds[1]]
     else:
@@ -349,8 +350,7 @@ def plot_gaze_phase(df, save_path, phase, dv="Gaze Proportion", SA_score="SPAI",
                    positions=[pos[idx_condition]],
                    widths=0.8 * boxWidth)
 
-        ax.errorbar(x=pos[idx_condition], y=bootstrapping_dict['mean'],
-                    yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+        ax.errorbar(x=pos[idx_condition], y=np.mean(df_cond.loc[:, dv].values), yerr=sem(df_cond.loc[:, dv].values),
                     elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     max = df_grouped[dv].max()
@@ -499,8 +499,7 @@ def plot_gaze_roi(df, phase, dv="Gaze Proportion", SA_score="SPAI"):
                        positions=[pos[idx_roi]],
                        widths=0.8 * boxWidth)
 
-            ax.errorbar(x=pos[idx_roi], y=bootstrapping_dict['mean'],
-                        yerr=bootstrapping_dict['mean'] - bootstrapping_dict['lower'],
+            ax.errorbar(x=pos[idx_roi], y=np.mean(df_roi.loc[:, dv].values), yerr=sem(df_roi.loc[:, dv].values),
                         elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
 
     df_crit = df.reset_index(drop=True)
