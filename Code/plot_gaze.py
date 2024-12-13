@@ -704,12 +704,20 @@ def plot_gaze_sad(df, phase, dv="Gaze Proportion", SA_score="SPAI", only_head=Fa
     # ax.legend(loc="upper right")
     plt.tight_layout()
 
-    # fig.legend(
-    #     [(Line2D([0], [0], color=colors[0], linewidth=2, alpha=1), Line2D([0], [0], color=colors[0], linewidth=15, alpha=0.2)),
-    #      (Line2D([0], [0], color=colors[1], linewidth=2, alpha=1), Line2D([0], [0], color=colors[1], linewidth=15, alpha=0.2))],
-    #     ["Interaction with Friendly Agent", "Interaction with Unfriendly Agent"],
-    #     loc='lower center', ncols=1, frameon=False, fontsize="x-large")
-    # fig.subplots_adjust(bottom=0.3)
+    # if phase == "Acquisition":
+    #     fig.legend(
+    #         [(Line2D([0], [0], color=colors[0], linewidth=2, alpha=1), Line2D([0], [0], color=colors[0], linewidth=15, alpha=0.2)),
+    #          (Line2D([0], [0], color=colors[1], linewidth=2, alpha=1), Line2D([0], [0], color=colors[1], linewidth=15, alpha=0.2))],
+    #         ["Interaction with Friendly Agent", "Interaction with Unfriendly Agent"],
+    #         loc='lower center', ncols=1, frameon=False, fontsize="x-large")
+    #     fig.subplots_adjust(bottom=0.3)
+    # elif phase == "Test":
+    #     fig.legend(
+    #         [(Line2D([0], [0], color=colors[0], linewidth=2, alpha=1), Line2D([0], [0], color=colors[0], linewidth=15, alpha=0.2)),
+    #          (Line2D([0], [0], color=colors[1], linewidth=2, alpha=1), Line2D([0], [0], color=colors[1], linewidth=15, alpha=0.2))],
+    #         ["Friendly Agent", "Unfriendly Agent"],
+    #         loc='lower center', ncols=1, frameon=False, fontsize="x-large")
+    #     fig.subplots_adjust(bottom=0.3)
 
 
 # Difference

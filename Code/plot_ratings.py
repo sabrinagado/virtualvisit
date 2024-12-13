@@ -645,7 +645,7 @@ def plot_rating_agents_sad_clicks(df, df_events, SA_score="SPAI"):
 
 
 if __name__ == '__main__':
-    wave = 1
+    wave = 2
     dir_path = os.getcwd()
     filepath = os.path.join(dir_path, f'Data-Wave{wave}')
 
@@ -695,3 +695,121 @@ if __name__ == '__main__':
     #
     # round(df.loc[df["Condition"] == "friendly"].groupby(["group"])[['Value']].agg(['count', 'mean', 'std']), 2)
     # round(df.loc[df["Condition"] == "unfriendly"].groupby(["group"])[['Value']].agg(['count', 'mean', 'std']), 2)
+
+    # Plot Control Ratings
+    df_ratings1 = df_ratings.copy()
+    df_ratings1 = df_ratings1.loc[df_ratings1["Condition"] == "unknown"]
+    df_ratings1 = df_ratings1[["VP", "Object", "Criterion", "Value"]]
+    df_ratings2 = df_ratings.copy()
+    df_ratings2 = df_ratings2.loc[df_ratings2["Condition"] == "unknown"]
+    df_ratings2 = df_ratings2[["VP", "Object", "Criterion", "Value"]]
+    df_ratings = pd.concat([df_ratings1, df_ratings2], axis=0)
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 5))
+    labels = ["Likeability", "Fear", "Anger", "Attractiveness"]
+    agents = ['Ettore', 'Emanuel', 'Bryan', 'Oskar']
+    colors = ['#13306d', '#7e4e90', '#de7065', '#f7cb44']
+
+    for idx_label, label in enumerate(labels):
+        # idx_label = 0
+        # label = labels[idx_label]
+        # print(f"\n{label}")
+
+        boxWidth = 1 / (len(labels) + 2)
+        pos = [idx_label + x * boxWidth for x in np.arange(1, len(agents) + 1)]
+
+        for idx_agent, agent in enumerate(agents):
+            # idx_condition = 1
+            # condition = conditions[idx_condition]
+            df_cond = df_ratings.loc[(df_ratings["Object"] == agent) & (df_ratings["Criterion"] == label)]
+            df_cond = df_cond.dropna(subset="Value")
+
+            # Plot raw data points
+            for i in range(len(df_cond)):
+                # i = 0
+                x = random.uniform(pos[idx_agent] - (0.25 * boxWidth), pos[idx_agent] + (0.25 * boxWidth))
+                y = df_cond.reset_index().loc[i, "Value"].item()
+                ax.plot(x, y, marker='o', ms=5, mfc=colors[idx_agent], mec=colors[idx_agent], alpha=0.3, label=label)
+
+            # Plot boxplots
+            meanlineprops = dict(linestyle='solid', linewidth=1, color='black')
+            medianlineprops = dict(linestyle='dashed', linewidth=1, color=colors[idx_agent])
+            fliermarkerprops = dict(marker='o', markersize=1, color=colors[idx_agent])
+            whiskerprops = dict(linestyle='solid', linewidth=1, color=colors[idx_agent])
+            capprops = dict(linestyle='solid', linewidth=1, color=colors[idx_agent])
+            boxprops = dict(color=colors[idx_agent])
+
+            fwr_correction = True
+            alpha = (1 - (0.05))
+            bootstrapping_dict = utils.bootstrapping(df_cond.loc[:, "Value"].values,
+                                                     numb_iterations=5000,
+                                                     alpha=alpha,
+                                                     as_dict=True,
+                                                     func='mean')
+
+            ax.boxplot([df_cond.loc[:, "Value"].values],
+                       whiskerprops=whiskerprops,
+                       capprops=capprops,
+                       boxprops=boxprops,
+                       medianprops=medianlineprops,
+                       showfliers=False, flierprops=fliermarkerprops,
+                       # meanline=True,
+                       # showmeans=True,
+                       # meanprops=meanprops,
+                       # notch=True,  # bootstrap=5000,
+                       # conf_intervals=[[bootstrapping_dict['lower'], bootstrapping_dict['upper']]],
+                       whis=[2.5, 97.5],
+                       positions=[pos[idx_agent]],
+                       widths=0.8 * boxWidth)
+
+            ax.errorbar(x=pos[idx_agent], y=np.mean(df_cond.loc[:, "Value"].values),
+                        yerr=sem(df_cond.loc[:, "Value"].values),
+                        elinewidth=2, ecolor="dimgrey", marker="s", ms=6, mfc="dimgrey", mew=0)
+
+        df_crit = df_ratings.loc[df_ratings["Criterion"] == label].reset_index()
+        formula = f"Value ~ Object + (1 | VP)"
+        model = pymer4.models.Lmer(formula, data=df_crit)
+        model.fit(factors={"Object": agents}, summarize=False)
+        anova = model.anova(force_orthogonal=True)
+        anova['p_eta_2'] = anova.apply(lambda x: utils.partial_eta_squared(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+        anova['p_eta_2_CI'] = anova.apply(lambda x: utils.partial_eta_squared_ci(x['F-stat'], x['NumDF'], x['DenomDF']), axis=1)
+
+        estimates, contrasts = model.post_hoc(marginal_vars="Object", p_adjust="holm")
+        p = anova.loc["Object", "P-val"].item()
+
+        print(f"Agent Main Effect, F({round(anova.loc['Object', 'NumDF'].item(), 1)}, {round(anova.loc['Object', 'DenomDF'].item(), 1)})={round(anova.loc['Object', 'F-stat'].item(), 2)}, p={round(anova.loc['Object', 'P-val'].item(), 3)}, p_eta_2={round(anova.loc['Object', 'p_eta_2'].item(), 2)}")
+
+        max = 100  # df_crit["Value"].max()
+        height_adjust = 0.05
+        for idx_agent1, agent1 in enumerate(agents):
+            # idx_agent1, agent1 = 0, agents[0]
+            for idx_agent2, agent2 in enumerate(agents):
+                # idx_agent2, agent2 = 3, agents[3]
+                if agent1 == agent2:
+                    continue
+                contrast = f"{agent1} - {agent2}"
+                if contrast not in list(contrasts["Contrast"]):
+                    continue
+                p_con = contrasts.loc[contrasts["Contrast"] == f"{agent1} - {agent2}", "P-val"].item()
+                if p_con < 0.05:
+                    ax.hlines(y=max * (1 + height_adjust), xmin=pos[idx_agent1] + boxWidth / 80, xmax=pos[idx_agent2] - boxWidth / 80, linewidth=0.7, color='k')
+                    ax.vlines(x=pos[idx_agent1] + boxWidth / 80, ymin=max * (1 + height_adjust - 0.01), ymax=max * (1 + height_adjust), linewidth=0.7, color='k')
+                    ax.vlines(x=pos[idx_agent2] - boxWidth / 80, ymin=max * (1 + height_adjust - 0.01), ymax=max * (1 + height_adjust), linewidth=0.7, color='k')
+                    p_sign = "***" if p_con < 0.001 else "**" if p_con < 0.01 else "*" if p_con < 0.05 else ""
+                    ax.text(np.mean([pos[idx_agent1], pos[idx_agent2]]), max * (1 + height_adjust + 0.005), p_sign, color='k', horizontalalignment='center', )
+                    height_adjust += 0.055
+
+    ax.set_xticks([x + 1 / 2 for x in range(len(labels))])
+    ax.set_xticklabels(labels, fontsize="x-large")
+    ax.set_yticks(np.arange(0, 101, 10))
+    ax.grid(color='lightgrey', linestyle='-', linewidth=0.3)
+    fig.legend(
+        [Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[0], markeredgewidth=2, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[1], markeredgewidth=2, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[2], markeredgewidth=2, markerfacecolor="white", lw=0),
+         Line2D([0], [0], marker='s', ms=15, markeredgecolor=colors[3], markeredgewidth=2, markerfacecolor="white", lw=0)],
+        agents, loc="center right", frameon=False, fontsize="x-large")
+    fig.subplots_adjust(right=0.86)
+
+    plt.savefig(os.path.join(f"agents_control_rating.svg"))
+    plt.close()
